@@ -32,21 +32,25 @@ describe("env", () => {
     expect(serverEnv.OWNER_EMAIL).toBe(REQUIRED_ENV.OWNER_EMAIL);
   });
 
-  it("lança erro claro quando falta uma variável obrigatória do servidor", async () => {
+  it("só valida na leitura de uma propriedade, não no import do módulo", async () => {
     const { CRON_SECRET, ...rest } = REQUIRED_ENV;
-    await expect(importEnvWith(rest)).rejects.toThrow(/CRON_SECRET/);
+    const { serverEnv } = await importEnvWith(rest);
+    expect(() => serverEnv.OWNER_EMAIL).toThrow(/CRON_SECRET/);
   });
 
   it("lança erro claro quando falta uma variável pública obrigatória", async () => {
     const { NEXT_PUBLIC_SUPABASE_URL, ...rest } = REQUIRED_ENV;
-    await expect(importEnvWith(rest)).rejects.toThrow(
+    const { publicEnv } = await importEnvWith(rest);
+    expect(() => publicEnv.NEXT_PUBLIC_SUPABASE_URL).toThrow(
       /NEXT_PUBLIC_SUPABASE_URL/,
     );
   });
 
   it("rejeita OWNER_EMAIL que não é um e-mail válido", async () => {
-    await expect(
-      importEnvWith({ ...REQUIRED_ENV, OWNER_EMAIL: "não-é-email" }),
-    ).rejects.toThrow(/OWNER_EMAIL/);
+    const { serverEnv } = await importEnvWith({
+      ...REQUIRED_ENV,
+      OWNER_EMAIL: "não-é-email",
+    });
+    expect(() => serverEnv.OWNER_EMAIL).toThrow(/OWNER_EMAIL/);
   });
 });

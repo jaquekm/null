@@ -4,6 +4,13 @@ import { publicEnv } from "@/lib/env";
 import { isPublicPath } from "@/lib/public-paths";
 
 export async function proxy(request: NextRequest) {
+  // Rotas públicas validam seu próprio segredo/token na rota (ver CLAUDE.md,
+  // seção Segurança) e não devem depender do Supabase estar configurado ou
+  // acessível — nem gastar uma chamada de rede à toa.
+  if (isPublicPath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -33,7 +40,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isPublicPath(request.nextUrl.pathname)) {
+  if (!user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);

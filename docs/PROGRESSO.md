@@ -15,10 +15,10 @@ Documento: `docs/fase-00-fundacao.md`
 - [ ] **0.6** Clientes Supabase
 - [ ] **0.7** Autenticação com MFA
 - [ ] **0.8** Layout da aplicação
-- [ ] **0.9** Cabeçalhos de segurança
+- [x] **0.9** Cabeçalhos de segurança
 - [ ] **0.10** Deploy no subdomínio
 - [ ] **0.11** CI
-- [ ] **0.12** Health check e página de erro
+- [x] **0.12** Health check e página de erro
 - [ ] **0.13** Testes da fase
 
 Observações:
@@ -30,6 +30,9 @@ Observações:
 - **0.3**: `src/lib/env.ts` criado com dois schemas Zod (`publicEnv`, com as variáveis `NEXT_PUBLIC_*`, e `serverEnv`, com o restante). `serverEnv` lança erro se acessado no cliente (proxy que verifica `typeof window`). Variáveis das fases 2, 3, 6 e 7 são opcionais, como pedido. Testado em `src/lib/env.test.ts` (vitest, ambiente `node`).
 - **0.3**: adicionado `vitest.config.mts` (ambiente `node` por padrão — testes de componente que precisarem de DOM devem declarar `// @vitest-environment jsdom` no topo do arquivo).
 - **0.6 (código feito antes da 0.4/0.5, a pedido do dono)**: `src/lib/result.ts` (com testes), `src/lib/supabase/{server,client,admin}.ts` (tipados com um `database.types.ts` placeholder — ver `docs/decisoes.md`), `src/lib/auth.ts` (`requireOwner()`) e `src/proxy.ts` (renomeado de `middleware.ts` pelo Next 16). A lógica de rotas públicas ficou em `src/lib/public-paths.ts` (função pura, testada em `public-paths.test.ts`) para não acoplar o teste às variáveis de ambiente que o `proxy.ts` carrega. `pnpm lint/typecheck/test/build` passam. **Não marcado como concluído**: o critério de aceite ("acessar `/inbox` sem login redireciona; rotas públicas respondem sem login") só pode ser verificado com um Supabase real respondendo, então falta confirmar isso assim que a 0.1/0.4 estiverem prontas.
+- **0.6 (correção feita durante a 0.9/0.12)**: `src/proxy.ts` chamava o Supabase (e portanto exigia `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY` reais) **para toda requisição, inclusive rotas públicas** — `/api/health` quebrava com 500 mesmo sem nenhuma tentativa de login. Corrigido: o proxy agora sai cedo (`isPublicPath`) antes de tocar no Supabase. Além disso, `src/lib/env.ts` validava `publicEnv`/`serverEnv` **no import do módulo**, então só importar `env.ts` (o que `proxy.ts` faz sempre) já derrubava a requisição antes do `isPublicPath` rodar. Troquei para validação preguiçosa (`Proxy`, só valida na primeira leitura de uma propriedade). Confirmado com `pnpm build` + `next start` + `curl -I`: `/api/health` responde 200 e `/p/*` responde com `Referrer-Policy: no-referrer`, ambos sem nenhuma variável do Supabase configurada; `/` (protegida) responde 500 porque *essa* rota de fato precisa do Supabase — comportamento esperado, pendente da 0.1/0.4.
+- **0.9**: cabeçalhos configurados em `next.config.ts` (`headers()`): `X-Robots-Tag`, `Referrer-Policy` (com `no-referrer` só em `/p/*`), `X-Content-Type-Options`, `X-Frame-Options`, `Permissions-Policy` (`microphone=(self)`, câmera e geolocalização negadas) e uma CSP básica (comentário no arquivo explica como estender ao integrar domínios externos). `public/robots.txt` com `Disallow: /`. Verificado com `curl -I` contra `next start` (ver decisão acima).
+- **0.12**: `GET /api/health` em `src/app/api/health/route.ts` (`{ status, time, version }`, `version` via `VERCEL_GIT_COMMIT_SHA` com fallback `"dev"`, sem detalhes internos), com teste. `src/app/error.tsx` e `src/app/not-found.tsx` em português, usando as mesmas cores do `page.tsx` padrão (shadcn/ui ainda não instalado — ver pendência da 0.2).
 
 ## Fase 1 — Núcleo: espaços, tipos, itens, captura, inbox e busca
 

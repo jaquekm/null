@@ -75,6 +75,22 @@ function parseServerEnv(): ServerEnv {
   return result.data;
 }
 
+/**
+ * Lê e valida sob demanda, na primeira leitura de uma propriedade — não no
+ * import do módulo. Assim, código que importa `env.ts` sem de fato precisar
+ * de uma variável (ex.: o proxy, que só valida sessão em rotas protegidas)
+ * não quebra por causa de variáveis que só outra rota usa.
+ */
+function createLazyEnv<T extends object>(parse: () => T): T {
+  let cached: T | undefined;
+  return new Proxy({} as T, {
+    get(_target, prop) {
+      cached ??= parse();
+      return cached[prop as keyof T];
+    },
+  });
+}
+
 function createServerEnv(): ServerEnv {
   if (typeof window !== "undefined") {
     return new Proxy({} as ServerEnv, {
@@ -85,8 +101,8 @@ function createServerEnv(): ServerEnv {
       },
     });
   }
-  return parseServerEnv();
+  return createLazyEnv(parseServerEnv);
 }
 
-export const publicEnv = parsePublicEnv();
+export const publicEnv = createLazyEnv(parsePublicEnv);
 export const serverEnv = createServerEnv();
