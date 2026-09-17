@@ -29,6 +29,14 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** opção 2, combinada com o proxy checando `isPublicPath` e retornando `NextResponse.next()` antes de instanciar qualquer cliente Supabase.
 - **Consequências:** rotas públicas (`/api/health`, `/api/webhooks/*`, `/api/jobs/tick`, `/api/capture`, `/api/mcp`, `/p/*`, `/login`) não dependem mais do Supabase estar configurado ou acessível — elas validam seu próprio segredo/token, como já dizia a seção de Segurança do `CLAUDE.md`. `src/lib/env.test.ts` foi ajustado: os testes de variável ausente agora leem uma propriedade (`serverEnv.OWNER_EMAIL`, `publicEnv.NEXT_PUBLIC_SUPABASE_URL`) em vez de esperar que o `import()` rejeite. Verificado com `pnpm build && next start` + `curl -I` em `/api/health` (200) e `/p/algum-token` (responde, com `Referrer-Policy: no-referrer`), sem nenhuma variável do Supabase definida.
 
+### 2026-09-17 — `pnpm typecheck` roda `next typegen` antes do `tsc --noEmit`
+
+- **Fase/tarefa:** 0.11 (CI)
+- **Contexto:** no Next.js 16, `layout.tsx`/`page.tsx` usam tipos ambientes gerados pelo próprio Next (`LayoutProps<'/'>`, etc.) em `.next/types/`, criados só quando `next dev`, `next build` ou `next typegen` rodam pelo menos uma vez. Testando o workflow de CI localmente (checkout limpo, sem `.next/`), `pnpm typecheck` falhava com `Cannot find name 'LayoutProps'` — o mesmo aconteceria em todo PR/push no GitHub Actions, e também para qualquer pessoa rodando `pnpm typecheck` num clone novo antes de um `pnpm dev`/`build`.
+- **Opções consideradas:** (1) rodar `pnpm build` antes do `pnpm typecheck` no workflow de CI (redundante — o build já roda seu próprio typecheck interno, então o job faria a checagem de tipos duas vezes); (2) usar `next typegen` (comando novo do Next 16, "gera os tipos sem rodar o build completo") como primeiro passo do próprio script `typecheck` no `package.json`.
+- **Decisão:** opção 2 — `"typecheck": "next typegen && tsc --noEmit"`. Assim `pnpm typecheck` funciona sozinho em qualquer ambiente (CI ou clone novo), sem exigir um build antes nem duplicar a checagem de tipos do build.
+- **Consequências:** nenhuma mudança de comportamento fora do necessário; só corrige um `pnpm typecheck` que já estava quebrado em checkout limpo (não era um problema introduzido agora, só não tinha aparecido porque sempre rodei os comandos depois de um `pnpm build`/`dev`).
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha

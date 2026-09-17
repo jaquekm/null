@@ -17,7 +17,7 @@ Documento: `docs/fase-00-fundacao.md`
 - [ ] **0.8** Layout da aplicação
 - [x] **0.9** Cabeçalhos de segurança
 - [ ] **0.10** Deploy no subdomínio
-- [ ] **0.11** CI
+- [ ] **0.11** CI (workflow pronto — falta confirmar "verde" rodando de verdade no GitHub, ver observação)
 - [x] **0.12** Health check e página de erro
 - [ ] **0.13** Testes da fase
 
@@ -33,6 +33,7 @@ Observações:
 - **0.6 (correção feita durante a 0.9/0.12)**: `src/proxy.ts` chamava o Supabase (e portanto exigia `NEXT_PUBLIC_SUPABASE_URL`/`ANON_KEY` reais) **para toda requisição, inclusive rotas públicas** — `/api/health` quebrava com 500 mesmo sem nenhuma tentativa de login. Corrigido: o proxy agora sai cedo (`isPublicPath`) antes de tocar no Supabase. Além disso, `src/lib/env.ts` validava `publicEnv`/`serverEnv` **no import do módulo**, então só importar `env.ts` (o que `proxy.ts` faz sempre) já derrubava a requisição antes do `isPublicPath` rodar. Troquei para validação preguiçosa (`Proxy`, só valida na primeira leitura de uma propriedade). Confirmado com `pnpm build` + `next start` + `curl -I`: `/api/health` responde 200 e `/p/*` responde com `Referrer-Policy: no-referrer`, ambos sem nenhuma variável do Supabase configurada; `/` (protegida) responde 500 porque *essa* rota de fato precisa do Supabase — comportamento esperado, pendente da 0.1/0.4.
 - **0.9**: cabeçalhos configurados em `next.config.ts` (`headers()`): `X-Robots-Tag`, `Referrer-Policy` (com `no-referrer` só em `/p/*`), `X-Content-Type-Options`, `X-Frame-Options`, `Permissions-Policy` (`microphone=(self)`, câmera e geolocalização negadas) e uma CSP básica (comentário no arquivo explica como estender ao integrar domínios externos). `public/robots.txt` com `Disallow: /`. Verificado com `curl -I` contra `next start` (ver decisão acima).
 - **0.12**: `GET /api/health` em `src/app/api/health/route.ts` (`{ status, time, version }`, `version` via `VERCEL_GIT_COMMIT_SHA` com fallback `"dev"`, sem detalhes internos), com teste. `src/app/error.tsx` e `src/app/not-found.tsx` em português, usando as mesmas cores do `page.tsx` padrão (shadcn/ui ainda não instalado — ver pendência da 0.2).
+- **0.11**: `.github/workflows/ci.yml` roda em push na `main` e em pull requests: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (o passo opcional de Supabase local + `db reset` fica para quando a 0.5 existir). Simulei localmente exatamente essa sequência num checkout limpo (`rm -rf .next` antes) e encontrei um bug real: `pnpm typecheck` falhava com `Cannot find name 'LayoutProps'` porque os tipos de rota do Next 16 só existem depois de `next dev`/`build` rodarem uma vez — o que nunca tinha acontecido num checkout novo. Corrigido trocando o script para `"typecheck": "next typegen && tsc --noEmit"` (ver `docs/decisoes.md`). **Não marcado como concluído**: o critério de aceite é "CI verde na main", e este repositório ainda não tem uma branch `main` nem PR aberto — o workflow não roda até isso existir. Vou continuar trabalhando na branch `claude/new-session-oe2fyt` (a designada para esta sessão); confirme o CI verde assim que criar/mesclar para `main`.
 
 ## Fase 1 — Núcleo: espaços, tipos, itens, captura, inbox e busca
 
