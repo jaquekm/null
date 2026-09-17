@@ -26,7 +26,9 @@ describe("env", () => {
 
   it("carrega publicEnv e serverEnv quando todas as variáveis obrigatórias existem", async () => {
     const { publicEnv, serverEnv } = await importEnvWith(REQUIRED_ENV);
-    expect(publicEnv.NEXT_PUBLIC_SUPABASE_URL).toBe(REQUIRED_ENV.NEXT_PUBLIC_SUPABASE_URL);
+    expect(publicEnv.NEXT_PUBLIC_SUPABASE_URL).toBe(
+      REQUIRED_ENV.NEXT_PUBLIC_SUPABASE_URL,
+    );
     expect(serverEnv.OWNER_EMAIL).toBe(REQUIRED_ENV.OWNER_EMAIL);
   });
 
@@ -37,7 +39,9 @@ describe("env", () => {
 
   it("lança erro claro quando falta uma variável pública obrigatória", async () => {
     const { NEXT_PUBLIC_SUPABASE_URL, ...rest } = REQUIRED_ENV;
-    await expect(importEnvWith(rest)).rejects.toThrow(/NEXT_PUBLIC_SUPABASE_URL/);
+    await expect(importEnvWith(rest)).rejects.toThrow(
+      /NEXT_PUBLIC_SUPABASE_URL/,
+    );
   });
 
   it("rejeita OWNER_EMAIL que não é um e-mail válido", async () => {

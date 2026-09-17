@@ -1,0 +1,11 @@
+.next
+node_modules
+pnpm-lock.yaml
+coverage
+playwright-report
+test-results
+
+# Documentos de planejamento (conteúdo do dono, não código)
+docs/
+CLAUDE.md
+COMO-USAR-COM-CLAUDE-CODE.md

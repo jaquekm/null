@@ -8,7 +8,10 @@ const eslintConfig = defineConfig([
   {
     rules: {
       // Permite `const { omitido, ...resto } = obj` sem acusar `omitido` como não usado.
-      "@typescript-eslint/no-unused-vars": ["warn", { ignoreRestSiblings: true }],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { ignoreRestSiblings: true },
+      ],
     },
   },
   // Override default ignores of eslint-config-next.
