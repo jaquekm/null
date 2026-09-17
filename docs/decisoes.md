@@ -59,6 +59,14 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** não insisti nisso — o classificador de segurança do Claude Code bloqueou a ação por enfraquecer o gate de autenticação, mesmo sendo uma alteração local e temporária só para inspeção visual. Reverti a edição de teste imediatamente (`proxy.ts` nunca chegou a ser tocado, o bloqueio ocorreu antes) e segui só com a verificação por `lint`/`typecheck`/`test`/`build` e revisão manual das classes Tailwind responsivas (`md:` para trocar sidebar/bottom-nav, `hidden`/`flex` etc.).
 - **Consequências:** a tarefa 0.8 fica com o código pronto mas **sem confirmação visual** — quando o dono tiver login funcionando (0.7) e um Supabase configurado (0.1/0.4), precisa abrir `/inbox` no navegador, testar em 375 px e no desktop, e clicar no botão de tema algumas vezes para confirmar que os três estados (claro/escuro/sistema) funcionam.
 
+### 2026-09-17 — Docker existe neste ambiente, mas `supabase start` não é viável aqui
+
+- **Fase/tarefa:** 0.4 (Supabase local e CLI) — investigação antes de pular direto para a 0.7.
+- **Contexto:** antes de assumir que a 0.4 estava bloqueada só por falta de conta (0.1), verifiquei se o ambiente remoto tinha Docker. Tinha: `docker`/`dockerd` instalados, e o daemon sobe normalmente (`dockerd &`, `docker ps` funciona depois). Testei `docker pull hello-world` para confirmar se dava pra rodar o stack local do Supabase (que baixa ~10 imagens: Postgres, GoTrue, PostgREST, Realtime, Storage, Kong, Studio etc.).
+- **Descoberta:** `docker pull` falha com `429 Too Many Requests` do próprio Docker Hub (`registry-1.docker.io`) — confirmei no status do proxy do agente (`recentRelayFailures` vazio) que a requisição chegou até o Docker Hub de verdade e foi ele quem recusou, não uma política de rede da organização. É o limite de pulls anônimos do Docker Hub, provavelmente já consumido pelo IP de saída compartilhado deste ambiente.
+- **Decisão:** não instalei o Supabase CLI nem tentei `supabase start` — mesmo que o CLI funcionasse, o `docker pull` das imagens do stack provavelmente falharia do mesmo jeito. Parei o `dockerd` que subi para o teste e seguido para a 0.7 (código que não depende de Supabase rodando).
+- **Consequências:** a 0.4 continua precisando ser feita na sua máquina (ou em outro ambiente com acesso ao Docker Hub), como o plano original já previa — isso não muda nada, só confirma que não tem atalho aqui.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
