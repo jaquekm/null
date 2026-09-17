@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # CLAUDE.md — Hub (sistema pessoal de organização)
 
 Este arquivo é lido automaticamente pelo Claude Code. Ele define o contexto do projeto e as regras que valem para TODAS as fases.

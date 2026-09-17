@@ -8,8 +8,8 @@ Marque `[x]` ao concluir. Anote decisões e desvios na coluna de observações o
 Documento: `docs/fase-00-fundacao.md`
 
 - [ ] **0.1** [HUMANO] Contas e serviços
-- [ ] **0.2** Criar o projeto Next.js
-- [ ] **0.3** Variáveis de ambiente
+- [x] **0.2** Criar o projeto Next.js
+- [x] **0.3** Variáveis de ambiente
 - [ ] **0.4** Supabase local e CLI
 - [ ] **0.5** Migration inicial
 - [ ] **0.6** Clientes Supabase
@@ -23,6 +23,11 @@ Documento: `docs/fase-00-fundacao.md`
 
 Observações:
 
+- **0.2**: projeto criado com `create-next-app` (Next.js 16.3.5, App Router, `src/`, Turbopack). Estrutura de pastas do `CLAUDE.md` criada com `.gitkeep` nas pastas ainda vazias. `tsconfig.json` com `strict` + `noUncheckedIndexedAccess`. Scripts `typecheck`, `test`, `test:watch`, `test:e2e`, `db:types` adicionados ao `package.json`. `next lint` não existe mais nesta versão do Next — o script `lint` chama `eslint` diretamente (gerado assim pelo próprio `create-next-app`).
+- **0.2**: `shadcn init` (tarefa 0.2, componentes shadcn/ui) **bloqueado**: a política de rede deste ambiente nega conexão com `ui.shadcn.com` (403 no proxy). Não foi feito — depende de liberar esse domínio ou rodar a inicialização em outro ambiente com rede liberada.
+- **0.2**: Next.js 16 gera automaticamente `AGENTS.md` (regras específicas da versão, escritas por `next dev`) e referencia com `@AGENTS.md` no topo do `CLAUDE.md` — mantido, pois o próprio arquivo diz que será recriado a cada `next dev`.
+- **0.3**: `src/lib/env.ts` criado com dois schemas Zod (`publicEnv`, com as variáveis `NEXT_PUBLIC_*`, e `serverEnv`, com o restante). `serverEnv` lança erro se acessado no cliente (proxy que verifica `typeof window`). Variáveis das fases 2, 3, 6 e 7 são opcionais, como pedido. Testado em `src/lib/env.test.ts` (vitest, ambiente `node`).
+- **0.3**: adicionado `vitest.config.mts` (ambiente `node` por padrão — testes de componente que precisarem de DOM devem declarar `// @vitest-environment jsdom` no topo do arquivo).
 
 ## Fase 1 — Núcleo: espaços, tipos, itens, captura, inbox e busca
 
