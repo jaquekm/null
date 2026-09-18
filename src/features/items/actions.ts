@@ -3,10 +3,14 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { JSONContent } from "@tiptap/core";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
+import { diffLinks } from "./lib/diff-links";
+import { extractMentionIds } from "./lib/extract-mention-ids";
+import { extractText } from "./lib/extract-text";
 import { remapProperties } from "./lib/remap-properties";
 
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
@@ -302,4 +306,101 @@ export async function createSubitem(_prevState: Result<null>, formData: FormData
 
   revalidatePath(`/itens/${parsed.data.parentId}`);
   redirect(`/itens/${data.id}`);
+}
+
+/**
+ * Salva o corpo do item (editor Tiptap, 1.7): `content`, `content_text`
+ * (via `extractText`) e sincroniza `links` (`kind = 'mention'`) de acordo
+ * com `diffLinks` entre os ids de menção atuais e os novos.
+ */
+export async function updateItemContent(
+  itemId: string,
+  knownUpdatedAt: string,
+  content: JSONContent,
+): Promise<Result<{ updatedAt: string } | null>> {
+  const { supabase, user } = await requireOwner();
+
+  const conflict = await checkNotStale(supabase, itemId, knownUpdatedAt);
+  if (conflict) return conflict;
+
+  const { data: existingLinks, error: linksReadError } = await supabase
+    .from("links")
+    .select("target_id")
+    .eq("source_id", itemId)
+    .eq("kind", "mention");
+  if (linksReadError) return fail(GENERIC_ERROR);
+
+  const currentMentionIds = existingLinks.map((l) => l.target_id);
+  const nextMentionIds = extractMentionIds(content);
+  const { add, remove } = diffLinks(currentMentionIds, nextMentionIds);
+
+  const { data, error } = await supabase
+    .from("items")
+    .update({
+      content: content as unknown as Json,
+      content_text: extractText(content),
+    })
+    .eq("id", itemId)
+    .eq("owner_id", user.id)
+    .select("updated_at")
+    .single();
+
+  if (error || !data) return fail(GENERIC_ERROR);
+
+  if (remove.length > 0) {
+    await supabase.from("links").delete().eq("source_id", itemId).eq("kind", "mention").in("target_id", remove);
+  }
+  if (add.length > 0) {
+    await supabase.from("links").insert(
+      add.map((targetId) => ({
+        owner_id: user.id,
+        source_id: itemId,
+        target_id: targetId,
+        kind: "mention",
+      })),
+    );
+  }
+
+  revalidatePath(`/itens/${itemId}`);
+  return ok({ updatedAt: data.updated_at });
+}
+
+export interface MentionSearchResult {
+  id: string;
+  title: string;
+}
+
+/** Busca itens para o menu de menção `[[` do editor (1.7), via `search_items`. */
+export async function searchItemsForMention(query: string): Promise<MentionSearchResult[]> {
+  if (!query.trim()) return [];
+
+  const { supabase } = await requireOwner();
+  const { data, error } = await supabase.rpc("search_items", { q: query, p_limit: 8 });
+  if (error || !data) return [];
+
+  return data.map((row) => ({ id: row.id, title: row.title }));
+}
+
+/**
+ * Cria um item a partir do editor ("Criar item '&lt;texto&gt;'" no menu de
+ * menção `[[`, 1.7) — não redireciona, ao contrário de `createItemInSpace`.
+ */
+export async function createItemForMention(
+  title: string,
+  spaceId: string | null,
+): Promise<Result<MentionSearchResult | null>> {
+  const trimmed = title.trim();
+  if (!trimmed) return fail("Título vazio.");
+
+  const { supabase, user } = await requireOwner();
+
+  const { data, error } = await supabase
+    .from("items")
+    .insert({ owner_id: user.id, space_id: spaceId, title: trimmed, status: "active" })
+    .select("id, title")
+    .single();
+
+  if (error || !data) return fail("Não foi possível criar o item.");
+
+  return ok({ id: data.id, title: data.title });
 }

@@ -75,7 +75,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       </dl>
 
       <p className="rounded-lg border border-dashed border-black/[.12] p-4 text-sm text-zinc-500 dark:border-white/[.16] dark:text-zinc-400">
-        O corpo do item (editor Tiptap) e tags chegam nas próximas tarefas da fase 1.
+        Tags chegam na tarefa 1.8.
       </p>
 
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />

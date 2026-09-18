@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ItemContentEditor } from "./editor/item-content-editor";
 import type { ItemDetail } from "../queries";
 import { PropertiesPanel } from "./properties-panel";
 import { TitleEditor } from "./title-editor";
@@ -20,6 +21,13 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
           onSaved={setUpdatedAt}
         />
       )}
+      <ItemContentEditor
+        itemId={item.id}
+        spaceId={item.space?.id ?? null}
+        initialContent={item.content}
+        updatedAt={updatedAt}
+        onSaved={setUpdatedAt}
+      />
     </div>
   );
 }

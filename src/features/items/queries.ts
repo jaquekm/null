@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { JSONContent } from "@tiptap/core";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
 
@@ -16,13 +17,14 @@ export interface ItemDetail {
   space: { id: string; name: string; slug: string; icon: string | null } | null;
   type: { id: string; name: string; slug: string; fields: FieldDefinition[] } | null;
   properties: Record<string, unknown>;
+  content: JSONContent | null;
 }
 
 export async function getItemDetail(supabase: Client, id: string): Promise<ItemDetail | null> {
   const { data, error } = await supabase
     .from("items")
     .select(
-      "id, title, status, pinned, parent_id, updated_at, created_at, properties, spaces(id, name, slug, icon), object_types(id, name, slug, fields)",
+      "id, title, status, pinned, parent_id, updated_at, created_at, properties, content, spaces(id, name, slug, icon), object_types(id, name, slug, fields)",
     )
     .eq("id", id)
     .is("deleted_at", null)
@@ -39,6 +41,7 @@ export async function getItemDetail(supabase: Client, id: string): Promise<ItemD
     parentId: data.parent_id,
     updatedAt: data.updated_at,
     createdAt: data.created_at,
+    content: (data.content as unknown as JSONContent | null) ?? null,
     space: data.spaces,
     type: data.object_types
       ? {
