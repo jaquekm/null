@@ -9,7 +9,7 @@ import { SpaceSidebarList } from "@/features/spaces/components/space-sidebar-lis
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { NAV_ITEMS } from "@/lib/nav-items";
 
-export function Sidebar({ spaces }: { spaces: SidebarSpace[] }) {
+export function Sidebar({ spaces, inboxCount = 0 }: { spaces: SidebarSpace[]; inboxCount?: number }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -49,14 +49,23 @@ export function Sidebar({ spaces }: { spaces: SidebarSpace[] }) {
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                 active
                   ? "bg-black/[.06] font-medium text-black dark:bg-white/[.1] dark:text-zinc-50"
                   : "text-zinc-600 hover:bg-black/[.04] hover:text-black dark:text-zinc-400 dark:hover:bg-white/[.06] dark:hover:text-zinc-50"
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+              {item.href === "/inbox" && inboxCount > 0 && (
+                <span
+                  className={`shrink-0 rounded-full bg-black/[.08] px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-white/[.12] dark:text-zinc-300 ${
+                    collapsed ? "absolute top-1 right-1 px-1" : ""
+                  }`}
+                >
+                  {inboxCount}
+                </span>
+              )}
             </Link>
           );
         })}

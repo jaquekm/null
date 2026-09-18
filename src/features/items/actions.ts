@@ -149,6 +149,58 @@ export async function moveItem(itemId: string, spaceId: string | null): Promise<
   return ok(null);
 }
 
+/**
+ * Mover em lote, usada só pelo Inbox (1.13; um item só ou vários de uma vez) — ao
+ * contrário de `moveItem` (página do item, 1.6), aqui definir um espaço também tira o
+ * item do inbox (`status` vira `active`). `moveItem` não muda status: mover um item já
+ * ativo (ou arquivado) de espaço pela página do item não deve reativá-lo sozinho.
+ */
+export async function moveItems(itemIds: string[], spaceId: string | null): Promise<Result<null>> {
+  if (itemIds.length === 0) return ok(null);
+  const { supabase, user } = await requireOwner();
+
+  const updates: { space_id: string | null; status?: "active" } = spaceId
+    ? { space_id: spaceId, status: "active" }
+    : { space_id: spaceId };
+
+  const { error } = await supabase.from("items").update(updates).in("id", itemIds).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível mover os itens.");
+
+  revalidatePath("/inbox");
+  return ok(null);
+}
+
+export async function archiveItems(itemIds: string[]): Promise<Result<null>> {
+  if (itemIds.length === 0) return ok(null);
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase
+    .from("items")
+    .update({ status: "archived" })
+    .in("id", itemIds)
+    .eq("owner_id", user.id);
+  if (error) return fail("Não foi possível arquivar os itens.");
+
+  revalidatePath("/inbox");
+  return ok(null);
+}
+
+/** Exclusão em lote, sem redirecionar — ao contrário de `softDeleteItem`, usada na página do item. */
+export async function softDeleteItems(itemIds: string[]): Promise<Result<null>> {
+  if (itemIds.length === 0) return ok(null);
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase
+    .from("items")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("id", itemIds)
+    .eq("owner_id", user.id);
+  if (error) return fail("Não foi possível excluir os itens.");
+
+  revalidatePath("/inbox");
+  return ok(null);
+}
+
 export async function changeItemType(itemId: string, typeId: string | null): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
 
@@ -182,6 +234,7 @@ export async function changeItemType(itemId: string, typeId: string | null): Pro
   if (error) return fail("Não foi possível mudar o tipo.");
 
   revalidatePath(`/itens/${itemId}`);
+  revalidatePath("/inbox");
   return ok(null);
 }
 
@@ -239,6 +292,7 @@ export async function setItemStatus(itemId: string, status: string): Promise<Res
   if (error) return fail("Não foi possível atualizar o status.");
 
   revalidatePath(`/itens/${itemId}`);
+  revalidatePath("/inbox");
   return ok(null);
 }
 

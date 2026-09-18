@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
+import type { TagOption } from "@/features/tags/queries";
 
 type Client = SupabaseClient<Database>;
 
@@ -128,6 +129,69 @@ export async function listObjectTypesForPicker(supabase: Client): Promise<TypeOp
     .order("position", { ascending: true });
   if (error) throw error;
   return data.map((t) => ({ id: t.id, name: t.name, fields: (t.fields as unknown as FieldDefinition[] | null) ?? [] }));
+}
+
+export interface InboxItemRow {
+  id: string;
+  title: string;
+  /** `content_text` normalizado (sem quebras de linha), texto completo — a linha corta na exibição, o modo processamento mostra tudo. */
+  contentText: string;
+  source: string | null;
+  spaceId: string | null;
+  typeId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tags: TagOption[];
+}
+
+/** Itens do inbox (1.13), mais recentes primeiro (data de captura). */
+export async function listInboxItems(supabase: Client): Promise<InboxItemRow[]> {
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, title, content_text, source, space_id, type_id, created_at, updated_at")
+    .eq("status", "inbox")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  if (data.length === 0) return [];
+
+  const ids = data.map((item) => item.id);
+  const { data: itemTags, error: tagsError } = await supabase
+    .from("item_tags")
+    .select("item_id, tags(id, name, color)")
+    .in("item_id", ids);
+  if (tagsError) throw tagsError;
+
+  const tagsByItem = new Map<string, TagOption[]>();
+  for (const row of itemTags) {
+    if (!row.tags) continue;
+    const list = tagsByItem.get(row.item_id) ?? [];
+    list.push(row.tags);
+    tagsByItem.set(row.item_id, list);
+  }
+
+  return data.map((item) => ({
+    id: item.id,
+    title: item.title,
+    contentText: item.content_text.replace(/\s+/g, " ").trim(),
+    source: item.source,
+    spaceId: item.space_id,
+    typeId: item.type_id,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    tags: tagsByItem.get(item.id) ?? [],
+  }));
+}
+
+/** Contador do inbox (badge na sidebar, 1.13). */
+export async function countInboxItems(supabase: Client): Promise<number> {
+  const { count, error } = await supabase
+    .from("items")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "inbox")
+    .is("deleted_at", null);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export interface TrashedItemRow {

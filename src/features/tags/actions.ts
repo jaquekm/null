@@ -36,6 +36,32 @@ export async function addTagToItem(itemId: string, rawName: string): Promise<Res
   return ok(tag);
 }
 
+/** Taguear em lote (1.13, ação em lote do Inbox): cria/reaproveita a tag e anexa a vários itens de uma vez. */
+export async function addTagToItems(itemIds: string[], rawName: string): Promise<Result<TagOption | null>> {
+  const name = rawName.trim().toLowerCase();
+  if (!name) return fail("Nome de tag vazio.");
+  if (name.length > 50) return fail("Nome de tag muito longo.");
+  if (itemIds.length === 0) return ok(null);
+
+  const { supabase, user } = await requireOwner();
+
+  const { data: tag, error: tagError } = await supabase
+    .from("tags")
+    .upsert({ owner_id: user.id, name }, { onConflict: "owner_id,name" })
+    .select("id, name, color")
+    .single();
+  if (tagError || !tag) return fail("Não foi possível criar a tag.");
+
+  const { error: linkError } = await supabase.from("item_tags").upsert(
+    itemIds.map((itemId) => ({ item_id: itemId, tag_id: tag.id, owner_id: user.id })),
+    { onConflict: "item_id,tag_id" },
+  );
+  if (linkError) return fail("Não foi possível adicionar a tag aos itens.");
+
+  revalidatePath("/inbox");
+  return ok(tag);
+}
+
 export async function removeTagFromItem(itemId: string, tagId: string): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
 
