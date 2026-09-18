@@ -8,22 +8,36 @@ import {
   listSpaceItems,
   listSpaceObjectTypes,
 } from "@/features/spaces/queries";
+import { listAllTags, listItemIdsForTag } from "@/features/tags/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   const { slug } = await props.params;
   const searchParams = await props.searchParams;
   const typeId = typeof searchParams.tipo === "string" ? searchParams.tipo : undefined;
+  const tagId = typeof searchParams.tag === "string" ? searchParams.tag : undefined;
 
   const { supabase } = await requireOwner();
   const space = await getSpaceBySlug(supabase, slug);
   if (!space) notFound();
 
-  const [types, items, otherSpaces] = await Promise.all([
+  const [types, tags, otherSpaces, itemIdsForTag] = await Promise.all([
     listSpaceObjectTypes(supabase, space.id),
-    listSpaceItems(supabase, space.id, { typeId }),
+    listAllTags(supabase),
     listOtherActiveSpaces(supabase, space.id),
+    tagId ? listItemIdsForTag(supabase, tagId) : Promise.resolve(undefined),
   ]);
+
+  const items = await listSpaceItems(supabase, space.id, { typeId, itemIds: itemIdsForTag });
+  const spaceSlug = space.slug;
+
+  function buildHref(next: { tipo?: string; tag?: string }) {
+    const params = new URLSearchParams();
+    if (next.tipo) params.set("tipo", next.tipo);
+    if (next.tag) params.set("tag", next.tag);
+    const query = params.toString();
+    return `/espacos/${spaceSlug}${query ? `?${query}` : ""}`;
+  }
 
   const linkClass = (isActive: boolean) =>
     `rounded-full px-3 py-1 ${
@@ -54,12 +68,25 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
 
       {types.length > 0 && (
         <nav className="flex flex-wrap gap-2 text-sm">
-          <Link href={`/espacos/${space.slug}`} className={linkClass(!typeId)}>
+          <Link href={buildHref({ tag: tagId })} className={linkClass(!typeId)}>
             Todos
           </Link>
           {types.map((type) => (
-            <Link key={type.id} href={`/espacos/${space.slug}?tipo=${type.id}`} className={linkClass(typeId === type.id)}>
+            <Link key={type.id} href={buildHref({ tipo: type.id, tag: tagId })} className={linkClass(typeId === type.id)}>
               {type.name}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      {tags.length > 0 && (
+        <nav className="flex flex-wrap gap-2 text-sm">
+          <Link href={buildHref({ tipo: typeId })} className={linkClass(!tagId)}>
+            Todas as tags
+          </Link>
+          {tags.map((tag) => (
+            <Link key={tag.id} href={buildHref({ tipo: typeId, tag: tag.id })} className={linkClass(tagId === tag.id)}>
+              #{tag.name}
             </Link>
           ))}
         </nav>

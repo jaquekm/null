@@ -8,6 +8,7 @@ import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
+import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
 import { diffLinks } from "./lib/diff-links";
 import { extractMentionIds } from "./lib/extract-mention-ids";
 import { extractText } from "./lib/extract-text";
@@ -56,6 +57,8 @@ export async function updateItemTitle(
     .single();
 
   if (error || !data) return fail(GENERIC_ERROR);
+
+  await attachHashtagsFromText(supabase, user.id, itemId, title);
 
   revalidatePath(`/itens/${itemId}`);
   return ok({ updatedAt: data.updated_at });

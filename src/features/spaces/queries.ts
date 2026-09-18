@@ -83,7 +83,7 @@ export interface SpaceItemRow {
 export async function listSpaceItems(
   supabase: Client,
   spaceId: string,
-  filters: { typeId?: string } = {},
+  filters: { typeId?: string; itemIds?: string[] } = {},
 ): Promise<SpaceItemRow[]> {
   let query = supabase
     .from("items")
@@ -94,6 +94,9 @@ export async function listSpaceItems(
 
   if (filters.typeId) {
     query = query.eq("type_id", filters.typeId);
+  }
+  if (filters.itemIds) {
+    query = query.in("id", filters.itemIds.length > 0 ? filters.itemIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
   const { data, error } = await query;
