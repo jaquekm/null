@@ -4,12 +4,14 @@ import { Menu as MenuIcon, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useCaptureDialog } from "@/features/capture/components/capture-dialog-provider";
 import { MOBILE_PRIMARY_ITEMS, NAV_ITEMS, type NavItem } from "@/lib/nav-items";
 import { MobileMenu } from "./mobile-menu";
 
 export function BottomNav({ email }: { email: string }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { open: openCapture } = useCaptureDialog();
 
   return (
     <>
@@ -22,13 +24,14 @@ export function BottomNav({ email }: { email: string }) {
           />
         ))}
 
-        <Link
-          href="/capturar"
+        <button
+          type="button"
+          onClick={openCapture}
           className="bg-foreground text-background flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
           aria-label="Capturar"
         >
           <Plus className="h-6 w-6" />
-        </Link>
+        </button>
 
         {MOBILE_PRIMARY_ITEMS.slice(2, 3).map((item) => (
           <BottomNavLink

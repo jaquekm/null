@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
+import { CaptureDialogProvider } from "@/features/capture/components/capture-dialog-provider";
+import { listObjectTypesForPicker } from "@/features/items/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -26,16 +28,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
-  const spaces = await listActiveSpaces(supabase);
+  const [spaces, types] = await Promise.all([listActiveSpaces(supabase), listObjectTypesForPicker(supabase)]);
 
   return (
-    <div className="flex min-h-dvh">
-      <Sidebar spaces={spaces} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar email={email} />
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">{children}</main>
+    <CaptureDialogProvider spaces={spaces} types={types}>
+      <div className="flex min-h-dvh">
+        <Sidebar spaces={spaces} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopBar email={email} />
+          <main className="flex-1 overflow-y-auto pb-20 md:pb-0">{children}</main>
+        </div>
+        <BottomNav email={email} />
       </div>
-      <BottomNav email={email} />
-    </div>
+    </CaptureDialogProvider>
   );
 }
