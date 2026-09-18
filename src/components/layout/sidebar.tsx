@@ -4,9 +4,12 @@ import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { NewSpaceButton } from "@/features/spaces/components/new-space-button";
+import { SpaceSidebarList } from "@/features/spaces/components/space-sidebar-list";
+import type { SidebarSpace } from "@/features/spaces/queries";
 import { NAV_ITEMS } from "@/lib/nav-items";
 
-export function Sidebar() {
+export function Sidebar({ spaces }: { spaces: SidebarSpace[] }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -59,12 +62,14 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-black/[.08] p-2 dark:border-white/[.08]">
+      <div className="flex flex-col gap-1 border-t border-black/[.08] p-2 dark:border-white/[.08]">
         {!collapsed && (
-          <p className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-500">
-            Espaços — em breve
+          <p className="px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide text-zinc-400 uppercase dark:text-zinc-500">
+            Espaços
           </p>
         )}
+        <SpaceSidebarList spaces={spaces} collapsed={collapsed} />
+        <NewSpaceButton collapsed={collapsed} />
       </div>
     </aside>
   );

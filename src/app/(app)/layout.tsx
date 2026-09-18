@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
+import { listActiveSpaces } from "@/features/spaces/queries";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
@@ -25,9 +26,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
+  const spaces = await listActiveSpaces(supabase);
+
   return (
     <div className="flex min-h-dvh">
-      <Sidebar />
+      <Sidebar spaces={spaces} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar email={email} />
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0">{children}</main>

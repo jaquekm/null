@@ -115,6 +115,86 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Avisos não corrigidos agora (esperados/não acionáveis):** "Unused Index" (13 índices) — esperado, o banco não tem dado nenhum ainda, vão passar a ser usados conforme o app for usado; "Leaked Password Protection Disabled" — é um toggle do painel (Authentication → Policies → Password), não código, registrado como pendência `[HUMANO]` em `docs/PROGRESSO.md`.
 - **Consequências:** nenhuma mudança de comportamento visível no app — os dois avisos eram sobre superfícies de ataque que nenhum código atual usa (nada chama `items_version_snapshot()` diretamente, e não há schemas extras no banco), mas é mais seguro fechar isso agora, enquanto o custo é uma migration de 4 linhas, do que depois de haver dados reais.
 
+### 2026-09-18 — Escopo da 1.4 reduzido nos pontos que dependem de tarefas futuras
+
+- **Fase/tarefa:** 1.4 (Espaços)
+- **Contexto:** o enunciado da 1.4 pede uma página `/espacos/[slug]` com "abas de visões salvas" e "filtros rápidos por tipo e tag", e um botão "Novo" que cria itens. Nenhuma dessas três coisas tem, ainda, a base necessária: visões salvas são a tabela `views` + UI da tarefa 1.15 (não construída); tags são a tarefa 1.8 (tabela existe desde a 1.1, mas não há nenhuma UI nem fluxo de `#tag` ainda); a página de item de verdade (editor Tiptap, propriedades, autosave) é a 1.6/1.7.
+- **Decisão:** implementei a 1.4 inteira, mas com essas três partes reduzidas ao mínimo que não deixa a página incoerente: (1) em vez de abas de visões, uma lista simples de itens do espaço; (2) filtro rápido só por tipo (chips de link), sem filtro por tag; (3) o botão "Novo" cria um item de verdade (`createItemInSpace`, título + tipo) e redireciona para uma página `/itens/[id]` **provisória, somente leitura** (mostra título/tipo/espaço/status/atualizado e um aviso de que o editor completo ainda não existe) — só para não ser um link quebrado.
+- **Consequências:** quando a 1.15, a 1.8 e a 1.6/1.7 forem feitas, essas três partes serão substituídas pelo que o enunciado pede de verdade — nada na 1.4 precisa ser desfeito para isso, só complementado (a lista de itens vira uma visão salva "Todos" por padrão; o filtro ganha tags; `/itens/[id]` ganha o editor). Documentado para não parecer, mais adiante, que a 1.4 "esqueceu" essas partes.
+
+### 2026-09-18 — Slug do espaço não muda ao renomear
+
+- **Fase/tarefa:** 1.4 (Espaços)
+- **Contexto:** o enunciado pede "renomear" como uma das operações de CRUD do espaço, mas não diz se o `slug` (que forma a URL `/espacos/[slug]`) deve acompanhar o novo nome.
+- **Decisão:** `updateSpace` só atualiza `name`, `icon`, `color`, `description` — o `slug` é definido uma única vez, na criação (`createSpace`, a partir do nome inicial via `slugify`), e nunca muda depois.
+- **Consequências:** renomear um espaço não quebra links/atalhos já salvos para `/espacos/[slug]`. Efeito colateral aceitável: o slug pode "não bater" mais com o nome atual depois de um rename (ex.: espaço criado como "Trabalho", renomeado para "Freelas", mas a URL continua `/espacos/trabalho`) — comportamento comum em produtos do tipo (Notion, Linear etc. fazem o mesmo com slugs/IDs de página).
+
+### 2026-09-18 — `reorderSpace` recalcula só a posição do item arrastado
+
+- **Fase/tarefa:** 1.4 (Espaços)
+- **Contexto:** o enunciado diz explicitamente "recalcular position como média entre vizinhos" para o drag-and-drop da sidebar.
+- **Decisão:** `src/features/spaces/lib/position.ts` (`positionBetween`) implementa isso ao pé da letra: ao soltar um espaço entre dois outros, a nova `position` é a média das duas; numa ponta da lista, é vizinho ±1. Só a linha do espaço movido é atualizada (`UPDATE ... WHERE id = :spaceId`) — as outras não são tocadas. O componente (`space-sidebar-list.tsx`, dnd-kit) já mantém a lista local otimista e só depois dispara a server action.
+- **Consequências:** reordenar é O(1) em escrita (1 `UPDATE`) em vez de reescrever a posição de toda a lista a cada drag. Como `position` é `double precision`, na prática nunca esgota (a diferença de ponto flutuante entre vizinhos consecutivos permite inserções sucessivas por muito tempo antes de precisar uma reindexação manual — não implementada, não é um problema para o volume de espaços de um usuário único).
+
+### 2026-09-18 — Preferência de identidade visual do dono (referência para quando ajustarmos o visual)
+
+- **Fase/tarefa:** nenhuma ainda — visual está adiado por pedido do dono (ver observação da Fase 0 em `docs/PROGRESSO.md`). Registrado aqui só para não perder a referência até chegarmos lá.
+- **Contexto:** o dono mandou um print de uma paleta/estilo de outra ferramenta (modelo "CHABPLAN"): fundo bem escuro (quase preto), cards claros com cantos arredondados, paleta pastel suave — rosa claro e verde claro como cores de destaque — e um estilo geral clean/minimalista para diagramas e apresentações.
+- **Decisão:** o dono gostou da paleta e do estilo geral, **menos a fonte** usada no print (ainda não escolhida). Quando chegarmos na tarefa de ajustar o visual (shadcn/ui está bloqueado neste ambiente por política de rede — ver decisão de 2026-09-17 sobre `ui.shadcn.com` — então isso provavelmente precisa ser feito pelo dono num ambiente sem essa restrição, ou eu preciso repetir a tentativa lá), usar como referência: tema escuro com fundo quase preto por padrão, cards claros com bastante espaço em branco e cantos arredondados, paleta de destaque em tons pastel (rosa e verde claros, possivelmente mais tons pastel para categorias), tipografia a definir (não usar a do print).
+- **Consequências:** nenhuma mudança de código agora. Isso deve virar a base da paleta de cores em `globals.css`/tokens do Tailwind quando o visual for retomado.
+
+### 2026-09-18 — "Sobrescrever" no controle de concorrência simplificado para "recarregar"
+
+- **Fase/tarefa:** 1.6 (Itens: criar, ver e editar)
+- **Contexto:** o enunciado pede, para o controle de concorrência simples: enviar o `updated_at` conhecido e, se o servidor tiver uma versão mais nova, avisar com as opções "recarregar" ou "sobrescrever".
+- **Decisão:** implementei a detecção do conflito (comparando o `updated_at` que o cliente tinha contra o do banco, em `checkNotStale` dentro de `src/features/items/actions.ts`) e a opção "Recarregar" (`window.location.reload()`). Não implementei "sobrescrever mesmo assim" como uma ação separada que ignora o conflito — o usuário precisa recarregar e salvar de novo.
+- **Consequências:** em uso normal (um usuário só, como é o caso do Hub) esse conflito praticamente não deve acontecer — só apareceria com duas abas abertas no mesmo item ao mesmo tempo. "Recarregar" resolve o caso real sem risco de perder a edição mais recente por engano. Se um dia fizer falta o "sobrescrever" de verdade, dá para adicionar uma variante das actions que pula o `checkNotStale`.
+
+### 2026-09-18 — Campos `relation`/`contact`/`file` aparecem mas não são editáveis ainda
+
+- **Fase/tarefa:** 1.6 (painel de propriedades) e 1.2 (schema desses tipos de campo, já existente)
+- **Contexto:** o schema de campos (1.2) já suporta os tipos `relation` (array de ids de item), `contact` (array de ids de contato) e `file` (array de ids de anexo), mas nenhuma das três infraestruturas de UI que eles precisam existe ainda: busca de itens para relação (`search_items`, usado pelo editor na 1.7), contatos (fase 3) e anexos (1.9).
+- **Decisão:** `src/components/fields/field-input.tsx` mostra o campo (label, descrição) mas, para esses três tipos, renderiza "Disponível em breve" em vez de um input — evita esconder a existência do campo (ele já pode estar nos tipos do sistema/criado pelo editor de campos da 1.5) sem fingir que dá para editá-lo agora.
+- **Consequências:** quando a 1.7 (busca), a fase 3 (contatos) e a 1.9 (anexos) existirem, é só trocar esse "Disponível em breve" pelo seletor de verdade em cada caso — o resto (validação via `buildPropertiesSchema`, armazenamento como array de uuid) já está pronto desde a 1.2.
+
+### 2026-09-18 — Tiptap v3: li a API real em `node_modules` antes de escrever código
+
+- **Fase/tarefa:** 1.7 (Editor)
+- **Contexto:** `AGENTS.md` avisa que este ambiente pode ter versões com breaking changes e manda checar a documentação real em vez de confiar em conhecimento antigo. O Tiptap disponível no npm é a versão **3.31.3** — uma major bem mais recente do que o padrão de tutoriais/exemplos mais comuns por aí, com diferenças reais de API.
+- **Descoberta:** antes de escrever qualquer extensão, instalei os pacotes e li os `.d.ts` gerados em `node_modules/@tiptap/*/dist/index.d.ts`. Principais diferenças confirmadas: (1) `useEditor` exige `immediatelyRender: false` explícito para SSR (o hook tem duas sobrecargas — com isso, o retorno pode ser `null` até montar no cliente, então todo componente precisa de um `if (!editor) return null`); (2) `StarterKit` v3 já inclui `link` e `underline` — não existem mais como extensões separadas que precisem ser adicionadas à mão; (3) `BubbleMenu`/`FloatingMenu` deixaram de ser extensões "puras" com plugin manual e viraram componentes React prontos, importados de `@tiptap/react/menus` (subpath próprio, para manter `floating-ui` como dependência opcional) — mas os pacotes `@tiptap/extension-bubble-menu`/`@tiptap/extension-floating-menu` ainda precisam estar instalados porque os tipos (e o runtime) desse subpath dependem deles; (4) `@tiptap/extension-table` exporta um `TableKit` (Extension) que já registra `Table`+`TableCell`+`TableHeader`+`TableRow` de uma vez; (5) `useEditorState` é o jeito recomendado agora para observar partes do estado do editor (ex.: quais marcas estão ativas na seleção) sem re-renderizar a cada transação — o padrão antigo de re-renderizar sempre (`shouldRerenderOnTransaction`) virou opt-in, não é mais o default.
+- **Decisão:** segui a API confirmada nos `.d.ts`, não o que eu "lembrava" de versões anteriores. Removi `@tiptap/extension-link` e `@tiptap/extension-underline` do `package.json` (instalados inicialmente por hábito, depois descobri que são redundantes com o que o `StarterKit` já traz).
+- **Consequências:** `pnpm build` (que roda o `tsc` completo do projeto) passou de primeira depois de escrever toda a integração — o tempo gasto lendo os tipos antes evitou retrabalho depois. Fica como lembrete geral: sempre que uma dependência nova/atualizada tiver uma diferença de major version, ler `node_modules/<pacote>/dist/*.d.ts` (ou os docs oficiais, se acessíveis) antes de escrever código.
+
+### 2026-09-18 — "Colar Markdown" é um conversor próprio pequeno, não um parser CommonMark
+
+- **Fase/tarefa:** 1.7 (Editor)
+- **Contexto:** o enunciado pede "colar Markdown convertendo em blocos", citando os atalhos `#`, `-`, `[]`, `>`, crases. O Tiptap v3 tem, internamente, suporte a Markdown em cada extensão (`parseMarkdown`/`renderMarkdown` no `NodeConfig`, usados por um lexer próprio), mas não encontrei (nos `.d.ts` disponíveis) uma função pública clara do tipo "parse esta string Markdown para JSONContent" pronta para uso — só utilitários internos de baixo nível para quem está *escrevendo* uma extensão com suporte a Markdown. Não quis arriscar uma integração baseada em API que eu não conseguia confirmar direito sem navegador para testar.
+- **Opções consideradas:** (1) investigar mais fundo a API interna de Markdown do Tiptap v3 até achar o jeito "oficial"; (2) adicionar uma lib de Markdown de fora da stack (`marked`, `markdown-it`); (3) escrever um conversor Markdown → HTML bem pequeno e específico, cobrindo só os atalhos citados no enunciado, e usar `editor.commands.insertContent(html)` (API estável, documentada, igual em várias versões) para inserir.
+- **Decisão:** opção 3 — `src/features/items/lib/markdown-to-html.ts`, puro e testado (9 testes), tratando linha por linha: `#`/`##`/`###` → título, `- `/`* ` → lista, `- [ ]`/`- [x]` → lista de tarefas, `> ` → citação, `` `código` `` → código inline, resto → parágrafo. Um `Extension` própria (`markdown-paste-extension.ts`) intercepta `handlePaste`: se o clipboard não tiver HTML (ou seja, veio de texto puro) e o texto parecer Markdown, converte e insere.
+- **Consequências:** cobre exatamente o que o enunciado pede, sem nova dependência fora da stack (CLAUDE.md pede para justificar dependências novas) e sem depender de uma API interna que eu não conseguia validar com confiança neste ambiente. Não é um parser CommonMark completo — não converte tabelas Markdown, links `[texto](url)`, `**negrito**`/`_itálico_` no colar (esses continuam funcionando via digitação normal, que já é coberta pelos input rules nativos de cada extensão). Se um dia isso for insuficiente, dá para revisitar com mais tempo de pesquisa na API de Markdown nativa do Tiptap v3, ou avaliar uma lib externa com justificativa própria.
+
+### 2026-09-18 — Upload de imagem e "Anexo" no editor ficam para a 1.9
+
+- **Fase/tarefa:** 1.7 (Editor)
+- **Contexto:** o enunciado pede "Image com upload para anexos" e um item "Anexo" no menu `/`. A infraestrutura de anexos (Storage, upload resumível, tabela `attachments` já existe desde a 1.1 mas sem nenhuma UI/action) é a tarefa 1.9, ainda não feita.
+- **Decisão:** o comando "Imagem" do menu `/` insere a imagem por URL (`window.prompt`), sem upload real. O comando "Anexo" foi removido do menu `/` inteiramente (não faz sentido oferecer um comando que não faz nada ainda).
+- **Consequências:** quando a 1.9 existir, é só trocar o `window.prompt` do comando "Imagem" por um seletor de arquivo real (upload → pega a URL assinada → `setImage`) e adicionar de volta o comando "Anexo" chamando o fluxo de upload da 1.9.
+
+### 2026-09-18 — "Reutilizar" anexo idêntico copia no Storage, não compartilha a linha
+
+- **Fase/tarefa:** 1.9 (Anexos)
+- **Contexto:** o enunciado pede: calcular sha256 no navegador e, "se já existir anexo igual, oferecer reutilizar". A migration da 1.1 já tinha `attachments.storage_path text not null unique` e um índice `attachments_sha_idx on attachments (owner_id, sha256)` — o índice por `owner_id` (não por `item_id`) sugere que a intenção era detectar duplicata em qualquer anexo do dono, não só dentro do mesmo item.
+- **Opções consideradas:** (1) relaxar a constraint `unique` em `storage_path` e deixar duas linhas de `attachments` apontarem pro mesmo objeto físico no Storage; (2) manter a constraint e, ao "reutilizar", copiar o objeto no Storage (`storage.copy`) para um caminho novo — sem reenviar os bytes do navegador — e criar uma linha nova apontando pra cópia.
+- **Decisão:** opção 2. `reuseAttachment` (`src/features/attachments/actions.ts`) copia o objeto (`supabase.storage.from('attachments').copy(...)`) e insere uma linha nova com o `storage_path` novo mas o mesmo `sha256`/`file_name`/`mime_type`/`size_bytes` da original.
+- **Consequências:** não precisei mudar a migration nem a constraint `unique` que já existia. O ganho de "reutilizar" é evitar o upload de novo (o navegador não reenvia os bytes — quem copia é o próprio Supabase Storage, servidor a servidor), não economizar espaço em disco (cada anexo ainda ocupa seu próprio objeto). Se um dia isso importar (dedup de espaço), dá pra revisitar com uma tabela de "blobs" separada dos "anexos", mas não é necessário agora.
+
+### 2026-09-18 — Anexos embutidos no conteúdo usam uma URL estável (`/api/attachments/[id]/file`), não a URL assinada direto
+
+- **Fase/tarefa:** 1.9 (Anexos), integrando com o editor Tiptap da 1.7
+- **Contexto:** o enunciado pede "Download e visualização por URL assinada de curta duração (ex.: 1 hora), gerada no servidor". Mas imagens coladas/inseridas no editor ficam salvas dentro de `items.content` (JSON do Tiptap) — se eu botasse a URL assinada diretamente no atributo `src` da imagem, ela pararia de funcionar depois de 1 hora, para sempre (o conteúdo salvo no banco não se atualiza sozinho).
+- **Decisão:** criei `src/app/api/attachments/[id]/file/route.ts` — uma URL estável (nunca expira, é só o id do anexo) que confere se o anexo pertence ao dono e redireciona (307) para uma URL assinada de 1 hora gerada **na hora da requisição**. O conteúdo do item guarda só `/api/attachments/<id>/file`; cada vez que a imagem/link é carregado, o navegador segue o redirecionamento e pega uma URL assinada fresca. A galeria de anexos (fora do editor) usa a mesma rota.
+- **Consequências:** cumpre a letra do enunciado (a visualização de verdade sempre passa por uma URL assinada de curta duração, gerada no servidor) sem quebrar depois de 1 hora. Custo: cada carregamento de imagem/anexo passa pela rota antes de chegar no Storage (uma chamada extra, leve, pra gerar o link assinado) — aceitável pro volume de uso de um único usuário.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
