@@ -1,12 +1,29 @@
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 
+const ONBOARDING_PATH = "/configuracoes/boas-vindas";
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const { user } = await requireOwner();
+  const { supabase, user } = await requireOwner();
   const email = user.email ?? "";
+
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  if (pathname !== ONBOARDING_PATH) {
+    const { data: settings } = await supabase
+      .from("user_settings")
+      .select("onboarding_completed_at")
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (!settings?.onboarding_completed_at) {
+      redirect(ONBOARDING_PATH);
+    }
+  }
 
   return (
     <div className="flex min-h-dvh">
