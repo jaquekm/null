@@ -180,6 +180,21 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** o comando "Imagem" do menu `/` insere a imagem por URL (`window.prompt`), sem upload real. O comando "Anexo" foi removido do menu `/` inteiramente (não faz sentido oferecer um comando que não faz nada ainda).
 - **Consequências:** quando a 1.9 existir, é só trocar o `window.prompt` do comando "Imagem" por um seletor de arquivo real (upload → pega a URL assinada → `setImage`) e adicionar de volta o comando "Anexo" chamando o fluxo de upload da 1.9.
 
+### 2026-09-18 — "Reutilizar" anexo idêntico copia no Storage, não compartilha a linha
+
+- **Fase/tarefa:** 1.9 (Anexos)
+- **Contexto:** o enunciado pede: calcular sha256 no navegador e, "se já existir anexo igual, oferecer reutilizar". A migration da 1.1 já tinha `attachments.storage_path text not null unique` e um índice `attachments_sha_idx on attachments (owner_id, sha256)` — o índice por `owner_id` (não por `item_id`) sugere que a intenção era detectar duplicata em qualquer anexo do dono, não só dentro do mesmo item.
+- **Opções consideradas:** (1) relaxar a constraint `unique` em `storage_path` e deixar duas linhas de `attachments` apontarem pro mesmo objeto físico no Storage; (2) manter a constraint e, ao "reutilizar", copiar o objeto no Storage (`storage.copy`) para um caminho novo — sem reenviar os bytes do navegador — e criar uma linha nova apontando pra cópia.
+- **Decisão:** opção 2. `reuseAttachment` (`src/features/attachments/actions.ts`) copia o objeto (`supabase.storage.from('attachments').copy(...)`) e insere uma linha nova com o `storage_path` novo mas o mesmo `sha256`/`file_name`/`mime_type`/`size_bytes` da original.
+- **Consequências:** não precisei mudar a migration nem a constraint `unique` que já existia. O ganho de "reutilizar" é evitar o upload de novo (o navegador não reenvia os bytes — quem copia é o próprio Supabase Storage, servidor a servidor), não economizar espaço em disco (cada anexo ainda ocupa seu próprio objeto). Se um dia isso importar (dedup de espaço), dá pra revisitar com uma tabela de "blobs" separada dos "anexos", mas não é necessário agora.
+
+### 2026-09-18 — Anexos embutidos no conteúdo usam uma URL estável (`/api/attachments/[id]/file`), não a URL assinada direto
+
+- **Fase/tarefa:** 1.9 (Anexos), integrando com o editor Tiptap da 1.7
+- **Contexto:** o enunciado pede "Download e visualização por URL assinada de curta duração (ex.: 1 hora), gerada no servidor". Mas imagens coladas/inseridas no editor ficam salvas dentro de `items.content` (JSON do Tiptap) — se eu botasse a URL assinada diretamente no atributo `src` da imagem, ela pararia de funcionar depois de 1 hora, para sempre (o conteúdo salvo no banco não se atualiza sozinho).
+- **Decisão:** criei `src/app/api/attachments/[id]/file/route.ts` — uma URL estável (nunca expira, é só o id do anexo) que confere se o anexo pertence ao dono e redireciona (307) para uma URL assinada de 1 hora gerada **na hora da requisição**. O conteúdo do item guarda só `/api/attachments/<id>/file`; cada vez que a imagem/link é carregado, o navegador segue o redirecionamento e pega uma URL assinada fresca. A galeria de anexos (fora do editor) usa a mesma rota.
+- **Consequências:** cumpre a letra do enunciado (a visualização de verdade sempre passa por uma URL assinada de curta duração, gerada no servidor) sem quebrar depois de 1 hora. Custo: cada carregamento de imagem/anexo passa pela rota antes de chegar no Storage (uma chamada extra, leve, pra gerar o link assinado) — aceitável pro volume de uso de um único usuário.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha

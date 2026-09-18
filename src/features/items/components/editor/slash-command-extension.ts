@@ -3,25 +3,34 @@ import { ReactRenderer } from "@tiptap/react";
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
 import { positionPopup } from "./position-popup";
 import { SlashCommandList, type SlashCommandListRef } from "./slash-command-list";
-import { SLASH_COMMANDS, type SlashCommandItem } from "./slash-commands";
+import { buildSlashCommands, type SlashCommandItem } from "./slash-commands";
 
 type SlashCommandRenderer = ReactRenderer<
   SlashCommandListRef,
   { items: SlashCommandItem[]; onSelect: (item: SlashCommandItem) => void }
 >;
 
+interface SlashCommandOptions {
+  itemId: string;
+}
+
 /** Menu de barra `/` do editor (1.7), construído com o mesmo utilitário de sugestão do Mention. */
-export const SlashCommand = Extension.create({
+export const SlashCommand = Extension.create<SlashCommandOptions>({
   name: "slashCommand",
 
+  addOptions() {
+    return { itemId: "" };
+  },
+
   addProseMirrorPlugins() {
+    const commands = buildSlashCommands(this.options.itemId);
+
     return [
       Suggestion<SlashCommandItem>({
         editor: this.editor,
         char: "/",
         startOfLine: false,
-        items: ({ query }) =>
-          SLASH_COMMANDS.filter((item) => item.title.toLowerCase().includes(query.toLowerCase())),
+        items: ({ query }) => commands.filter((item) => item.title.toLowerCase().includes(query.toLowerCase())),
         command: ({ editor, range, props }) => {
           props.run({ editor, range });
         },

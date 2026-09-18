@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listActiveSpaces } from "@/features/spaces/queries";
+import { AttachmentList } from "@/features/attachments/components/attachment-list";
+import { listItemAttachments } from "@/features/attachments/queries";
 import { BacklinksPanel } from "@/features/items/components/backlinks-panel";
 import { ItemActionsBar } from "@/features/items/components/item-actions-bar";
 import { ItemEditor } from "@/features/items/components/item-editor";
@@ -25,7 +27,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
-  const [spaces, types, subitems, backlinks, versions, parent, tags] = await Promise.all([
+  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
     listSubitems(supabase, item.id),
@@ -33,6 +35,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listItemVersions(supabase, item.id),
     item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
     listItemTags(supabase, item.id),
+    listItemAttachments(supabase, item.id),
   ]);
 
   return (
@@ -78,6 +81,8 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
           <dd>{new Date(item.updatedAt).toLocaleString("pt-BR")}</dd>
         </div>
       </dl>
+
+      <AttachmentList itemId={item.id} attachments={attachments} />
 
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
       <BacklinksPanel backlinks={backlinks} />

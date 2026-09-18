@@ -9,14 +9,19 @@ import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
+import { ImagePaste } from "./image-paste-extension";
 import { MarkdownPaste } from "./markdown-paste-extension";
 import { createMentionSuggestion } from "./mention-suggestion";
 import { SlashCommand } from "./slash-command-extension";
 
 const lowlight = createLowlight(common);
 
-/** Extensões do editor Tiptap (1.7). `spaceId` contextualiza "Criar item" no menu `[[`. */
-export function buildEditorExtensions(spaceId: string | null) {
+/**
+ * Extensões do editor Tiptap (1.7/1.9). `spaceId` contextualiza "Criar item"
+ * no menu `[[`; `itemId` é usado para anexar imagens/arquivos enviados pelo
+ * menu `/` ou colados direto no editor.
+ */
+export function buildEditorExtensions(spaceId: string | null, itemId: string) {
   return [
     StarterKit.configure({
       codeBlock: false,
@@ -35,7 +40,8 @@ export function buildEditorExtensions(spaceId: string | null) {
     Highlight,
     Typography,
     MarkdownPaste,
-    SlashCommand,
+    ImagePaste.configure({ itemId }),
+    SlashCommand.configure({ itemId }),
     Mention.configure({
       suggestion: createMentionSuggestion(spaceId),
       renderHTML({ node }) {

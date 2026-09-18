@@ -81,7 +81,7 @@ export function ItemContentEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: buildEditorExtensions(spaceId),
+    extensions: buildEditorExtensions(spaceId, itemId),
     content: initialContent ?? "",
     editorProps: {
       attributes: {
