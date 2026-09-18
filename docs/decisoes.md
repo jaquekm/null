@@ -115,6 +115,27 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Avisos não corrigidos agora (esperados/não acionáveis):** "Unused Index" (13 índices) — esperado, o banco não tem dado nenhum ainda, vão passar a ser usados conforme o app for usado; "Leaked Password Protection Disabled" — é um toggle do painel (Authentication → Policies → Password), não código, registrado como pendência `[HUMANO]` em `docs/PROGRESSO.md`.
 - **Consequências:** nenhuma mudança de comportamento visível no app — os dois avisos eram sobre superfícies de ataque que nenhum código atual usa (nada chama `items_version_snapshot()` diretamente, e não há schemas extras no banco), mas é mais seguro fechar isso agora, enquanto o custo é uma migration de 4 linhas, do que depois de haver dados reais.
 
+### 2026-09-18 — Escopo da 1.4 reduzido nos pontos que dependem de tarefas futuras
+
+- **Fase/tarefa:** 1.4 (Espaços)
+- **Contexto:** o enunciado da 1.4 pede uma página `/espacos/[slug]` com "abas de visões salvas" e "filtros rápidos por tipo e tag", e um botão "Novo" que cria itens. Nenhuma dessas três coisas tem, ainda, a base necessária: visões salvas são a tabela `views` + UI da tarefa 1.15 (não construída); tags são a tarefa 1.8 (tabela existe desde a 1.1, mas não há nenhuma UI nem fluxo de `#tag` ainda); a página de item de verdade (editor Tiptap, propriedades, autosave) é a 1.6/1.7.
+- **Decisão:** implementei a 1.4 inteira, mas com essas três partes reduzidas ao mínimo que não deixa a página incoerente: (1) em vez de abas de visões, uma lista simples de itens do espaço; (2) filtro rápido só por tipo (chips de link), sem filtro por tag; (3) o botão "Novo" cria um item de verdade (`createItemInSpace`, título + tipo) e redireciona para uma página `/itens/[id]` **provisória, somente leitura** (mostra título/tipo/espaço/status/atualizado e um aviso de que o editor completo ainda não existe) — só para não ser um link quebrado.
+- **Consequências:** quando a 1.15, a 1.8 e a 1.6/1.7 forem feitas, essas três partes serão substituídas pelo que o enunciado pede de verdade — nada na 1.4 precisa ser desfeito para isso, só complementado (a lista de itens vira uma visão salva "Todos" por padrão; o filtro ganha tags; `/itens/[id]` ganha o editor). Documentado para não parecer, mais adiante, que a 1.4 "esqueceu" essas partes.
+
+### 2026-09-18 — Slug do espaço não muda ao renomear
+
+- **Fase/tarefa:** 1.4 (Espaços)
+- **Contexto:** o enunciado pede "renomear" como uma das operações de CRUD do espaço, mas não diz se o `slug` (que forma a URL `/espacos/[slug]`) deve acompanhar o novo nome.
+- **Decisão:** `updateSpace` só atualiza `name`, `icon`, `color`, `description` — o `slug` é definido uma única vez, na criação (`createSpace`, a partir do nome inicial via `slugify`), e nunca muda depois.
+- **Consequências:** renomear um espaço não quebra links/atalhos já salvos para `/espacos/[slug]`. Efeito colateral aceitável: o slug pode "não bater" mais com o nome atual depois de um rename (ex.: espaço criado como "Trabalho", renomeado para "Freelas", mas a URL continua `/espacos/trabalho`) — comportamento comum em produtos do tipo (Notion, Linear etc. fazem o mesmo com slugs/IDs de página).
+
+### 2026-09-18 — `reorderSpace` recalcula só a posição do item arrastado
+
+- **Fase/tarefa:** 1.4 (Espaços)
+- **Contexto:** o enunciado diz explicitamente "recalcular position como média entre vizinhos" para o drag-and-drop da sidebar.
+- **Decisão:** `src/features/spaces/lib/position.ts` (`positionBetween`) implementa isso ao pé da letra: ao soltar um espaço entre dois outros, a nova `position` é a média das duas; numa ponta da lista, é vizinho ±1. Só a linha do espaço movido é atualizada (`UPDATE ... WHERE id = :spaceId`) — as outras não são tocadas. O componente (`space-sidebar-list.tsx`, dnd-kit) já mantém a lista local otimista e só depois dispara a server action.
+- **Consequências:** reordenar é O(1) em escrita (1 `UPDATE`) em vez de reescrever a posição de toda a lista a cada drag. Como `position` é `double precision`, na prática nunca esgota (a diferença de ponto flutuante entre vizinhos consecutivos permite inserções sucessivas por muito tempo antes de precisar uma reindexação manual — não implementada, não é um problema para o volume de espaços de um usuário único).
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
