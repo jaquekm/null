@@ -7,16 +7,16 @@ Marque `[x]` ao concluir. Anote decisões e desvios na coluna de observações o
 
 Documento: `docs/fase-00-fundacao.md`
 
-- [ ] **0.1** [HUMANO] Contas e serviços
+- [x] **0.1** [HUMANO] Contas e serviços (só `hub-dev` — sem `hub-prod` por enquanto, ver observação)
 - [x] **0.2** Criar o projeto Next.js
 - [x] **0.3** Variáveis de ambiente
-- [ ] **0.4** Supabase local e CLI (`init` feito; `start`/`link` não rodam neste ambiente — ver observação, comandos prontos pra você rodar na sua máquina)
-- [ ] **0.5** Migration inicial (SQL escrito, não aplicado — precisa rodar `supabase db push` na sua máquina)
-- [ ] **0.6** Clientes Supabase
-- [ ] **0.7** Autenticação com MFA (código pronto, exceto o item 1 [HUMANO] — ver observação)
-- [ ] **0.8** Layout da aplicação (código pronto — falta confirmar visualmente, ver observação)
+- [ ] **0.4** Supabase local e CLI (`init` feito; `start` local nunca rodou — não bloqueia mais nada, ver observação)
+- [x] **0.5** Migration inicial (aplicada no `hub-dev` via SQL Editor do painel, não via `supabase db push`)
+- [x] **0.6** Clientes Supabase (confirmado em produção — login e layout funcionando contra o `hub-dev`)
+- [ ] **0.7** Autenticação com MFA (login com senha confirmado; falta cadastrar um fator TOTP e confirmar que o código é exigido)
+- [x] **0.8** Layout da aplicação (confirmado visualmente em produção — responsivo, sidebar, navegação)
 - [x] **0.9** Cabeçalhos de segurança
-- [ ] **0.10** Deploy no subdomínio
+- [x] **0.10** Deploy no subdomínio (`null.prescrittomed.com.br`, produção rodando sem erros)
 - [ ] **0.11** CI (workflow pronto — falta confirmar "verde" rodando de verdade no GitHub, ver observação)
 - [x] **0.12** Health check e página de erro
 - [ ] **0.13** Testes da fase
@@ -45,6 +45,9 @@ Observações:
 - **0.4/0.5 (descoberta importante)**: depois de criar o `hub-dev` e me passar as credenciais, tentei `supabase login` (funcionou) e `supabase link --project-ref spzuvkpovmawbsiznzei` (falhou). Este ambiente remoto **bloqueia por política `api.supabase.com` e também `spzuvkpovmawbsiznzei.supabase.co`** (403 explícito — não é o Supabase recusando, é a rede deste ambiente) e não tem rota de TCP direto pra fora dele (nem para o Postgres). Ou seja: **nenhuma tarefa que precise falar com um Supabase de verdade dá pra concluir ou verificar nesta sessão remota**, nem com o `hub-dev` hospedado nem com Docker local. Os comandos prontos (`login`/`link`/`db push`/`gen types`) foram passados para você rodar na sua máquina — ver `docs/decisoes.md` para os detalhes técnicos. Isso vale como novo entendimento geral do projeto, não só desta tarefa.
 - **0.7 (tudo, exceto o item 1 [HUMANO])**: `src/app/(auth)/login/` (página + `login-form.tsx` + `actions.ts` com `signInWithPassword`, mensagem genérica "E-mail ou senha inválidos.") e `src/app/(auth)/login/mfa/` (desafia com `mfa.challenge` no carregamento da página, confirma com `mfa.verify`). `src/app/(app)/configuracoes/seguranca/`: cadastrar MFA (`mfa.enroll` + QR code + `mfa.challengeAndVerify`, via cliente do navegador — `src/lib/supabase/client.ts`), listar/remover fatores (`mfa.unenroll`), trocar senha (`auth.updateUser`, server action com Zod) e "Sair de todas as sessões" (`auth.signOut({ scope: "global" })`). `src/lib/safe-next.ts` valida o parâmetro `next` contra open redirect (testado). `requireOwner()` já exigia `aal2` desde a 0.6 — nada mudou lá. Não existe página de cadastro, como pedido.
 - **0.7**: confirmei que `/login` responde 200 e renderiza o formulário completo mesmo sem nenhuma variável do Supabase configurada (a página só chama o Supabase dentro da server action, no envio do formulário — `curl` contra `next start` confirma). Já `/login/mfa` precisa do Supabase mesmo só para carregar (busca o fator de MFA e cria o desafio na própria página), então quebra sem Supabase configurado — isso é esperado, não é o mesmo tipo de bug corrigido na 0.6/0.9. **Não marcado como concluído**: o item 1 (criar o usuário do dono, desativar cadastro, habilitar MFA TOTP, configurar Site URL/Redirect URLs) é `[HUMANO]`, e o fluxo completo de login + código só pode ser testado de ponta a ponta com um Supabase real.
+- **Marco — primeiro fim a fim em produção (2026-09-18)**: o dono criou o projeto `hub-dev`, aplicou a migration da 0.5 pelo SQL Editor do painel (não pela CLI — mesmo bloqueio de rede da nota acima), criou o usuário dono, desligou cadastro público, configurou Site URL/Redirect URLs (`null.prescrittomed.com.br` + `localhost:3000`), conectou o repositório na Vercel, configurou as variáveis de ambiente (as `NEXT_PUBLIC_*` tiveram que ser apagadas e recriadas como tipo "Config" — a Vercel não deixa uma variável criada como "Secret" ganhar prefixo público depois; a `.env.example` faz a Vercel já sugerir todas as chaves de todas as fases automaticamente na importação, então sobraram várias em branco, o que é esperado) e apontou o domínio (`null.prescrittomed.com.br`, registro CNAME pro `vercel-dns-017.com`). Login com senha funcionou em produção contra o Supabase de verdade, o layout (sidebar, tema, navegação) renderizou certo. Conferido por mim via Vercel: deployment de produção `READY`, domínio validado, zero erros nos logs do deployment atual (só tinha erros num deployment antigo, de antes das variáveis serem corrigidas). Isso confirma de verdade as tarefas 0.6 e 0.8, que antes só tinham passado em `lint`/`typecheck`/`test`/`build` sem confirmação real.
+- **Decisão**: seguimos só com `hub-dev` para tudo (produção incluída) por enquanto — não criamos `hub-prod` separado. É uma simplificação deliberada para um projeto pessoal pequeno (ver decisão de 2026-09-17 sobre a organização nova no Supabase). Quando fizer sentido separar, criar `hub-prod` e repetir a configuração da Vercel apontando "Production" pra ele.
+- **Pendente ainda**: cadastrar um fator MFA de verdade (`/configuracoes/seguranca`) e confirmar que o código passa a ser exigido no login (0.7); CI verde no GitHub (0.11 — ainda não existe branch `main`/PR); testes da fase (0.13, Playwright e RLS). Visual "feio" (sem shadcn/ui) registrado como pendência conhecida, adiada a pedido do dono — ver `docs/decisoes.md`.
 
 ## Fase 1 — Núcleo: espaços, tipos, itens, captura, inbox e busca
 

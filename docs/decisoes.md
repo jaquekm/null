@@ -82,6 +82,20 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** não tentei contornar (não é um limite de terceiro tipo o 429 do Docker Hub — é uma política explícita desta rede). Não apliquei a migration nem testei login/MFA daqui. Dei ao dono os comandos prontos (`supabase login`/`link`/`db push`/`gen types`) para rodar na própria máquina, que não tem essa restrição.
 - **Consequências:** **nenhuma tarefa que precise falar com um Supabase de verdade (local via Docker ou hospedado como o `hub-dev`) pode ser concluída/verificada nesta sessão remota**, independente de contas ou Docker Hub. A partir de agora, tarefas assim (aplicar migration, `pnpm db:types`, testar login/MFA/RLS, Playwright contra o app rodando) precisam ser feitas pelo dono na própria máquina, ou eu só preparo o código e ele confirma. Isso não é um problema pontual da 0.4/0.5 — vale para o resto do projeto.
 
+### 2026-09-18 — Migration aplicada via SQL Editor do painel, não pela CLI
+
+- **Fase/tarefa:** 0.5 (Migration inicial)
+- **Contexto:** com `supabase link`/`db push` bloqueados nesta sessão (decisão anterior), o dono aplicou o SQL de `supabase/migrations/20260917130714_fundacao.sql` colando direto no SQL Editor do painel do `hub-dev` (`https://supabase.com/dashboard/project/spzuvkpovmawbsiznzei/sql/new`).
+- **Decisão:** aceito como equivalente a `supabase db push` para os fins da 0.5 — o resultado no banco é o mesmo. Fica documentado que, se algum dia alguém rodar `supabase db push` de um ambiente sem essa restrição, o CLI pode tentar reaplicar essa mesma migration (já que a tabela `supabase_migrations.schema_migrations` não foi atualizada por fora da CLI) — nesse caso, o `create table` vai falhar por já existir. Resolve-se então com `supabase migration repair --status applied 20260917130714` ou inserindo a linha manualmente nessa tabela.
+- **Consequências:** a tabela `user_settings` e a função/trigger `set_updated_at()` existem de verdade no `hub-dev`. `database.types.ts` continua sendo o placeholder da decisão da 0.6 (não deu pra rodar `supabase gen types` por causa do mesmo bloqueio de rede) — ainda vale a pena gerar os tipos reais quando alguém rodar a CLI num ambiente sem essa restrição.
+
+### 2026-09-18 — Deploy usa só o projeto `hub-dev` (sem `hub-prod`) e variáveis de ambiente da Vercel precisaram ser recriadas
+
+- **Fase/tarefa:** 0.1, 0.10 (Deploy no subdomínio)
+- **Contexto:** ao importar o repositório na Vercel, ela detectou o `.env.example` (que lista as variáveis de **todas** as fases) e pré-criou uma entrada vazia para cada uma — inclusive as das fases 2/3, ainda não usadas. Ao tentar preencher `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`, a Vercel travou: essas variáveis tinham sido criadas com o tipo "Secret" (write-only), e o tipo "Secret" não pode ser convertido para "Config" depois de salvo — só é possível escolher o tipo na criação. "Secret" com prefixo `NEXT_PUBLIC_` também não é permitido salvar (a Vercel bloqueia, considerando contraditório: uma variável marcada como sigilosa que o Next.js vai expor no navegador).
+- **Decisão:** apagamos as duas variáveis `NEXT_PUBLIC_*` e recriamos do zero como tipo **Config** (que aceita ser pública). `SUPABASE_SERVICE_ROLE_KEY` continua como **Secret**, sem esse problema (não tem prefixo público). Além disso, decidimos usar o projeto **`hub-dev` para tudo** (Production, Preview e Development na Vercel) — não criamos um `hub-prod` separado, já que é um projeto pessoal pequeno e a organização Free do Supabase permite só um número limitado de projetos.
+- **Consequências:** hoje não existe isolamento entre "desenvolvimento" e "produção" — é o mesmo banco. Aceitável para agora; quando fizer sentido, criar `hub-prod` e apontar só o ambiente "Production" da Vercel pra ele, mantendo Preview/Development no `hub-dev`.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
