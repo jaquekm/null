@@ -136,6 +136,13 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** `src/features/spaces/lib/position.ts` (`positionBetween`) implementa isso ao pé da letra: ao soltar um espaço entre dois outros, a nova `position` é a média das duas; numa ponta da lista, é vizinho ±1. Só a linha do espaço movido é atualizada (`UPDATE ... WHERE id = :spaceId`) — as outras não são tocadas. O componente (`space-sidebar-list.tsx`, dnd-kit) já mantém a lista local otimista e só depois dispara a server action.
 - **Consequências:** reordenar é O(1) em escrita (1 `UPDATE`) em vez de reescrever a posição de toda a lista a cada drag. Como `position` é `double precision`, na prática nunca esgota (a diferença de ponto flutuante entre vizinhos consecutivos permite inserções sucessivas por muito tempo antes de precisar uma reindexação manual — não implementada, não é um problema para o volume de espaços de um usuário único).
 
+### 2026-09-18 — Preferência de identidade visual do dono (referência para quando ajustarmos o visual)
+
+- **Fase/tarefa:** nenhuma ainda — visual está adiado por pedido do dono (ver observação da Fase 0 em `docs/PROGRESSO.md`). Registrado aqui só para não perder a referência até chegarmos lá.
+- **Contexto:** o dono mandou um print de uma paleta/estilo de outra ferramenta (modelo "CHABPLAN"): fundo bem escuro (quase preto), cards claros com cantos arredondados, paleta pastel suave — rosa claro e verde claro como cores de destaque — e um estilo geral clean/minimalista para diagramas e apresentações.
+- **Decisão:** o dono gostou da paleta e do estilo geral, **menos a fonte** usada no print (ainda não escolhida). Quando chegarmos na tarefa de ajustar o visual (shadcn/ui está bloqueado neste ambiente por política de rede — ver decisão de 2026-09-17 sobre `ui.shadcn.com` — então isso provavelmente precisa ser feito pelo dono num ambiente sem essa restrição, ou eu preciso repetir a tentativa lá), usar como referência: tema escuro com fundo quase preto por padrão, cards claros com bastante espaço em branco e cantos arredondados, paleta de destaque em tons pastel (rosa e verde claros, possivelmente mais tons pastel para categorias), tipografia a definir (não usar a do print).
+- **Consequências:** nenhuma mudança de código agora. Isso deve virar a base da paleta de cores em `globals.css`/tokens do Tailwind quando o visual for retomado.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
