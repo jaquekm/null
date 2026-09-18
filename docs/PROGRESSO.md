@@ -53,7 +53,7 @@ Observações:
 
 Documento: `docs/fase-01-nucleo.md`
 
-- [ ] **1.1** Migration do núcleo
+- [x] **1.1** Migration do núcleo
 - [ ] **1.2** Definição de campos (schema dos tipos)
 - [ ] **1.3** Onboarding no primeiro acesso
 - [ ] **1.4** Espaços
@@ -74,6 +74,9 @@ Documento: `docs/fase-01-nucleo.md`
 
 Observações:
 
+- **Mudança de ambiente (2026-09-18)**: a partir desta tarefa, esta sessão remota passou a ter acesso a um servidor MCP do Supabase, que fala com o `hub-dev` (`spzuvkpovmawbsiznzei`) sem passar pela restrição de rede registrada em `docs/decisoes.md` (2026-09-18, "este ambiente remoto não alcança nenhum domínio do Supabase"). Isso **não** significa que o bloqueio de rede direta (`api.supabase.com`, `*.supabase.co`, Docker Hub) foi resolvido — continua bloqueado para `curl`/`supabase` CLI/`docker`. O que mudou é que existe uma ferramenta MCP dedicada (`mcp__Supabase__*`) que consegue aplicar migrations, rodar SQL, listar tabelas, checar advisories de segurança/performance e gerar os tipos TypeScript reais. A partir de agora, aplico migrations diretamente com `mcp__Supabase__apply_migration` (equivalente a `supabase db push`) em vez de pedir para você colar no SQL Editor do painel, e gero `database.types.ts` de verdade com `mcp__Supabase__generate_typescript_types` em vez de escrever os tipos à mão. Ainda não tenho `supabase start`/Docker funcionando aqui — migrations continuam sendo escritas em arquivo primeiro (`supabase migration new`, que só mexe em arquivo) e aplicadas depois via MCP contra o `hub-dev` direto (sem banco local de desenvolvimento separado — mesma simplificação já registrada para a 0.1/0.10).
+- **1.1**: migration `supabase/migrations/20260918145833_nucleo.sql` (copiada de `docs/fase-01-nucleo.md` §1.1, incluindo a FK adiada de `user_settings.default_space_id`) aplicada com sucesso no `hub-dev` via `mcp__Supabase__apply_migration`. Confirmei as 11 tabelas (`user_settings` + as 10 novas) com RLS habilitado via `mcp__Supabase__list_tables`. Rodei `mcp__Supabase__get_advisors` (segurança e performance) logo depois, como recomendado — achou 2 avisos reais (`set_updated_at()` sem `search_path` fixo, e `items_version_snapshot()` executável via RPC por `anon`/`authenticated`, quando deveria só rodar como trigger) e alguns avisos esperados/não acionáveis agora (índices "não usados" porque não há dados ainda; proteção contra senha vazada desligada, que é um toggle do painel de Auth, não código — ver pendência abaixo). Corrigi os 2 avisos reais numa segunda migration, `20260918163044_nucleo_security_hardening.sql`, também já aplicada. `database.types.ts` foi regerado de verdade com `mcp__Supabase__generate_typescript_types` (não é mais escrito à mão) — uma diferença notável em relação ao meu rascunho anterior: colunas com `check` (`items.status`, `views.kind`, `item_versions.reason`) saem tipadas como `string`, não como union literal, porque o Postgres não expõe `check constraints` como enum — nenhum código ainda depende dessas colunas, então não há impacto. `pnpm lint/typecheck/test/build` passam.
+- **Pendente [HUMANO]**: habilitar "Leaked Password Protection" no painel do Supabase (Authentication → Policies → Password) — não bloqueia nada, é só reforço de segurança recomendado pelo advisor.
 
 ## Fase 2 — Mídia: fila de jobs, gravação, transcrição, resumo de reuniões e OCR
 
