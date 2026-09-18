@@ -195,6 +195,13 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** criei `src/app/api/attachments/[id]/file/route.ts` — uma URL estável (nunca expira, é só o id do anexo) que confere se o anexo pertence ao dono e redireciona (307) para uma URL assinada de 1 hora gerada **na hora da requisição**. O conteúdo do item guarda só `/api/attachments/<id>/file`; cada vez que a imagem/link é carregado, o navegador segue o redirecionamento e pega uma URL assinada fresca. A galeria de anexos (fora do editor) usa a mesma rota.
 - **Consequências:** cumpre a letra do enunciado (a visualização de verdade sempre passa por uma URL assinada de curta duração, gerada no servidor) sem quebrar depois de 1 hora. Custo: cada carregamento de imagem/anexo passa pela rota antes de chegar no Storage (uma chamada extra, leve, pra gerar o link assinado) — aceitável pro volume de uso de um único usuário.
 
+### 2026-09-18 — `src/lib/tokens.ts` (da tarefa 1.11) antecipado para a 1.10
+
+- **Fase/tarefa:** 1.10 (Captura rápida), que depende de infraestrutura descrita formalmente só na 1.11 (Tokens de API)
+- **Contexto:** o enunciado da 1.10 pede que `POST /api/capture` autentique com "token pessoal com escopo `capture`", mas a implementação de `generateToken()`/`hashToken()`/`verifyApiToken()` só é descrita na tarefa 1.11 (que também é onde `api_tokens` ganha uma UI). As tarefas do plano têm essa dependência cruzada: 1.10 não funciona sem uma peça que só "nasce" formalmente na 1.11.
+- **Decisão:** escrevi `src/lib/tokens.ts` agora — exatamente no caminho e com a assinatura que o próprio enunciado da 1.11 já especifica — em vez de inventar uma verificação de token paralela e descartável dentro da 1.10. Quando a 1.11 rodar, ela só precisa construir a **UI** (`/configuracoes/tokens`: criar, listar, revogar) em cima do que já existe aqui.
+- **Consequências:** nenhum retrabalho esperado quando a 1.11 chegar. Efeito colateral: **ainda não existe nenhuma forma de o dono gerar um token de verdade** (isso é a UI da 1.11) — então `POST /api/capture` está pronto no código, mas não dá para testar de ponta a ponta com um token real até a 1.11 existir (ou alguém inserir uma linha manualmente em `api_tokens` só para teste).
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
