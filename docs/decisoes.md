@@ -74,6 +74,14 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** troquei `project_id` para `"hub"`; `enable_signup = false` em `[auth]` e em `[auth.email]`; `enroll_enabled = true` e `verify_enabled = true` em `[auth.mfa.totp]`.
 - **Consequências:** quando você rodar `supabase start` localmente, o ambiente local já nasce com essas três coisas configuradas do jeito que o plano pede — sem isso, o cadastro público local estaria aberto e o MFA local não funcionaria, mesmo com o código da 0.7 pronto. **Isso configura só o ambiente local** (`supabase/config.toml`); nos projetos `hub-dev`/`hub-prod` de verdade, o item 1 da 0.7 (desativar cadastro, habilitar MFA TOTP) continua sendo `[HUMANO]`, feito no painel do Supabase.
 
+### 2026-09-18 — Este ambiente remoto não alcança nenhum domínio do Supabase
+
+- **Fase/tarefa:** 0.1/0.4/0.5 — depois que o dono criou o projeto `hub-dev` e me passou as credenciais (project ref `spzuvkpovmawbsiznzei`, chaves, token de acesso pessoal, senha do banco).
+- **Contexto:** tentei `supabase login --token ...` (funcionou — autentica contra a API de contas, aparentemente liberada) e depois `supabase link --project-ref spzuvkpovmawbsiznzei --password ...`, que falhou.
+- **Descoberta:** a política de rede deste ambiente **bloqueia explicitamente** `api.supabase.com` (API de gestão do CLI) e também `spzuvkpovmawbsiznzei.supabase.co` (a API do próprio projeto, a mesma que o app usa em tempo de execução) — confirmado em `recentRelayFailures` do proxy: `403` / `connect_rejected` para os dois hosts. Também confirmei que não existe rota de TCP direto pra fora deste ambiente (nem pra IPs quaisquer, ex. `8.8.8.8:53`) — só o proxy HTTPS, que por sua vez nega esses dois hosts. Ou seja, mesmo que eu tentasse conectar direto no Postgres (porta 5432/6543, contornando o CLI), não teria como.
+- **Decisão:** não tentei contornar (não é um limite de terceiro tipo o 429 do Docker Hub — é uma política explícita desta rede). Não apliquei a migration nem testei login/MFA daqui. Dei ao dono os comandos prontos (`supabase login`/`link`/`db push`/`gen types`) para rodar na própria máquina, que não tem essa restrição.
+- **Consequências:** **nenhuma tarefa que precise falar com um Supabase de verdade (local via Docker ou hospedado como o `hub-dev`) pode ser concluída/verificada nesta sessão remota**, independente de contas ou Docker Hub. A partir de agora, tarefas assim (aplicar migration, `pnpm db:types`, testar login/MFA/RLS, Playwright contra o app rodando) precisam ser feitas pelo dono na própria máquina, ou eu só preparo o código e ele confirma. Isso não é um problema pontual da 0.4/0.5 — vale para o resto do projeto.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
