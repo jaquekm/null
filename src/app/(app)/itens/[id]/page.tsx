@@ -1,56 +1,86 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { listActiveSpaces } from "@/features/spaces/queries";
+import { BacklinksPanel } from "@/features/items/components/backlinks-panel";
+import { ItemActionsBar } from "@/features/items/components/item-actions-bar";
+import { ItemEditor } from "@/features/items/components/item-editor";
+import { SubitemsSection } from "@/features/items/components/subitems-section";
+import { VersionsPanel } from "@/features/items/components/versions-panel";
+import {
+  getItemDetail,
+  getParent,
+  listBacklinks,
+  listItemVersions,
+  listObjectTypesForPicker,
+  listSubitems,
+} from "@/features/items/queries";
 import { requireOwner } from "@/lib/auth";
 
-/**
- * Página mínima de item: só o suficiente para o botão "Novo" da tarefa 1.4
- * ter para onde ir. O editor completo (Tiptap, propriedades, autosave,
- * backlinks, anexos) é a tarefa 1.6/1.7 — isto será substituído lá.
- */
 export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const { id } = await props.params;
   const { supabase } = await requireOwner();
 
-  const { data: item } = await supabase
-    .from("items")
-    .select("id, title, status, updated_at, created_at, spaces(name, slug), object_types(name)")
-    .eq("id", id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
+  const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
-  const space = item.spaces;
-  const type = item.object_types;
+  const [spaces, types, subitems, backlinks, versions, parent] = await Promise.all([
+    listActiveSpaces(supabase),
+    listObjectTypesForPicker(supabase),
+    listSubitems(supabase, item.id),
+    listBacklinks(supabase, item.id),
+    listItemVersions(supabase, item.id),
+    item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
+  ]);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-      {space && (
-        <Link href={`/espacos/${space.slug}`} className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
-          ← {space.name}
-        </Link>
-      )}
+    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+        {item.space && (
+          <Link href={`/espacos/${item.space.slug}`} className="hover:underline">
+            {item.space.icon ? `${item.space.icon} ` : ""}
+            {item.space.name}
+          </Link>
+        )}
+        {parent && (
+          <>
+            <span>/</span>
+            <Link href={`/itens/${parent.id}`} className="hover:underline">
+              {parent.title || "Sem título"}
+            </Link>
+          </>
+        )}
+      </div>
 
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">{item.title || "Sem título"}</h1>
+      <ItemEditor item={item} />
 
-      <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+      <ItemActionsBar
+        itemId={item.id}
+        status={item.status}
+        pinned={item.pinned}
+        spaceId={item.space?.id ?? null}
+        typeId={item.type?.id ?? null}
+        spaces={spaces}
+        types={types}
+      />
+
+      <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
         <div className="flex gap-1">
-          <dt className="font-medium">Tipo:</dt>
-          <dd>{type?.name ?? "Nenhum"}</dd>
+          <dt>Criado:</dt>
+          <dd>{new Date(item.createdAt).toLocaleString("pt-BR")}</dd>
         </div>
         <div className="flex gap-1">
-          <dt className="font-medium">Status:</dt>
-          <dd>{item.status}</dd>
-        </div>
-        <div className="flex gap-1">
-          <dt className="font-medium">Atualizado:</dt>
-          <dd>{new Date(item.updated_at).toLocaleString("pt-BR")}</dd>
+          <dt>Atualizado:</dt>
+          <dd>{new Date(item.updatedAt).toLocaleString("pt-BR")}</dd>
         </div>
       </dl>
 
       <p className="rounded-lg border border-dashed border-black/[.12] p-4 text-sm text-zinc-500 dark:border-white/[.16] dark:text-zinc-400">
-        O editor completo (corpo, propriedades, anexos, versões) chega nas próximas tarefas da fase 1.
+        O corpo do item (editor Tiptap) e tags chegam nas próximas tarefas da fase 1.
       </p>
+
+      <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
+      <BacklinksPanel backlinks={backlinks} />
+      <VersionsPanel versions={versions} />
     </div>
   );
 }

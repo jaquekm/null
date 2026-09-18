@@ -143,6 +143,20 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** o dono gostou da paleta e do estilo geral, **menos a fonte** usada no print (ainda não escolhida). Quando chegarmos na tarefa de ajustar o visual (shadcn/ui está bloqueado neste ambiente por política de rede — ver decisão de 2026-09-17 sobre `ui.shadcn.com` — então isso provavelmente precisa ser feito pelo dono num ambiente sem essa restrição, ou eu preciso repetir a tentativa lá), usar como referência: tema escuro com fundo quase preto por padrão, cards claros com bastante espaço em branco e cantos arredondados, paleta de destaque em tons pastel (rosa e verde claros, possivelmente mais tons pastel para categorias), tipografia a definir (não usar a do print).
 - **Consequências:** nenhuma mudança de código agora. Isso deve virar a base da paleta de cores em `globals.css`/tokens do Tailwind quando o visual for retomado.
 
+### 2026-09-18 — "Sobrescrever" no controle de concorrência simplificado para "recarregar"
+
+- **Fase/tarefa:** 1.6 (Itens: criar, ver e editar)
+- **Contexto:** o enunciado pede, para o controle de concorrência simples: enviar o `updated_at` conhecido e, se o servidor tiver uma versão mais nova, avisar com as opções "recarregar" ou "sobrescrever".
+- **Decisão:** implementei a detecção do conflito (comparando o `updated_at` que o cliente tinha contra o do banco, em `checkNotStale` dentro de `src/features/items/actions.ts`) e a opção "Recarregar" (`window.location.reload()`). Não implementei "sobrescrever mesmo assim" como uma ação separada que ignora o conflito — o usuário precisa recarregar e salvar de novo.
+- **Consequências:** em uso normal (um usuário só, como é o caso do Hub) esse conflito praticamente não deve acontecer — só apareceria com duas abas abertas no mesmo item ao mesmo tempo. "Recarregar" resolve o caso real sem risco de perder a edição mais recente por engano. Se um dia fizer falta o "sobrescrever" de verdade, dá para adicionar uma variante das actions que pula o `checkNotStale`.
+
+### 2026-09-18 — Campos `relation`/`contact`/`file` aparecem mas não são editáveis ainda
+
+- **Fase/tarefa:** 1.6 (painel de propriedades) e 1.2 (schema desses tipos de campo, já existente)
+- **Contexto:** o schema de campos (1.2) já suporta os tipos `relation` (array de ids de item), `contact` (array de ids de contato) e `file` (array de ids de anexo), mas nenhuma das três infraestruturas de UI que eles precisam existe ainda: busca de itens para relação (`search_items`, usado pelo editor na 1.7), contatos (fase 3) e anexos (1.9).
+- **Decisão:** `src/components/fields/field-input.tsx` mostra o campo (label, descrição) mas, para esses três tipos, renderiza "Disponível em breve" em vez de um input — evita esconder a existência do campo (ele já pode estar nos tipos do sistema/criado pelo editor de campos da 1.5) sem fingir que dá para editá-lo agora.
+- **Consequências:** quando a 1.7 (busca), a fase 3 (contatos) e a 1.9 (anexos) existirem, é só trocar esse "Disponível em breve" pelo seletor de verdade em cada caso — o resto (validação via `buildPropertiesSchema`, armazenamento como array de uuid) já está pronto desde a 1.2.
+
 ## Decisões em aberto previstas no plano
 
 - [ ] Provedor de transcrição (fase 2.4) — preço por hora na data da escolha
