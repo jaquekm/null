@@ -168,7 +168,12 @@ export function ViewSwitcher({
             placeholder="Nome da visão"
             className={inputClassName}
           />
-          <select value={newKind} onChange={(e) => setNewKind(e.target.value as ViewKind)} className={inputClassName}>
+          <select
+            aria-label="Tipo de visão"
+            value={newKind}
+            onChange={(e) => setNewKind(e.target.value as ViewKind)}
+            className={inputClassName}
+          >
             {viewKinds.map((kind) => (
               <option key={kind} value={kind}>
                 {KIND_LABEL[kind]}
