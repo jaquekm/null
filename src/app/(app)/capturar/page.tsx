@@ -1,4 +1,4 @@
-import { CaptureForm } from "@/features/capture/components/capture-form";
+import { CapturePanel } from "@/features/capture/components/capture-panel";
 import { listObjectTypesForPicker } from "@/features/items/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { requireOwner } from "@/lib/auth";
@@ -21,7 +21,7 @@ export default async function CapturarPage(props: PageProps<"/capturar">) {
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-6">
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Capturar</h1>
-      <CaptureForm spaces={spaces} types={types} initialText={initialText} redirectOnSave />
+      <CapturePanel spaces={spaces} types={types} initialText={initialText} redirectOnSave />
     </div>
   );
 }

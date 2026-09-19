@@ -3,9 +3,10 @@
  * `supabase gen types typescript --project-id spzuvkpovmawbsiznzei`) contra o
  * `hub-dev` já com as migrations 20260917130714_fundacao.sql,
  * 20260918145833_nucleo.sql, 20260918163044_nucleo_security_hardening.sql,
- * 20260919120000_busca_filtros.sql e 20260919130000_midia_jobs.sql
- * aplicadas. Não editar à mão — rode `pnpm db:types` (ou a mesma ferramenta
- * MCP) de novo depois de qualquer migration nova.
+ * 20260919120000_busca_filtros.sql, 20260919130000_midia_jobs.sql e
+ * 20260919172125_transcripts_summarize_flag.sql aplicadas. Não editar à mão —
+ * rode `pnpm db:types` (ou a mesma ferramenta MCP) de novo depois de
+ * qualquer migration nova.
  */
 export type Json =
   | string
@@ -591,6 +592,7 @@ export type Database = {
           segments: Json | null;
           speaker_names: Json;
           status: string;
+          summarize: boolean;
           summary: Json | null;
           text: string | null;
           updated_at: string;
@@ -609,6 +611,7 @@ export type Database = {
           segments?: Json | null;
           speaker_names?: Json;
           status?: string;
+          summarize?: boolean;
           summary?: Json | null;
           text?: string | null;
           updated_at?: string;
@@ -627,6 +630,7 @@ export type Database = {
           segments?: Json | null;
           speaker_names?: Json;
           status?: string;
+          summarize?: boolean;
           summary?: Json | null;
           text?: string | null;
           updated_at?: string;

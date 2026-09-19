@@ -1,7 +1,9 @@
 "use client";
 
 import { Paperclip } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { requestTranscription } from "@/features/media/actions";
+import { readMediaDuration } from "../lib/read-media-duration";
 import { uploadAttachment } from "../lib/upload-file";
 import type { AttachmentRow } from "../queries";
 
@@ -16,6 +18,9 @@ export function AttachmentUploader({
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transcribePrompt, setTranscribePrompt] = useState<{ attachmentId: string; fileName: string } | null>(null);
+  const [summarize, setSummarize] = useState(false);
+  const [requestingTranscription, startRequestingTranscription] = useTransition();
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -23,17 +28,40 @@ export function AttachmentUploader({
 
     for (const file of Array.from(files)) {
       setProgress(0);
-      const result = await uploadAttachment(itemId, file, setProgress);
+      const isMedia = file.type.startsWith("audio/") || file.type.startsWith("video/");
+      const durationSeconds = isMedia ? await readMediaDuration(file) : null;
+      const result = await uploadAttachment(itemId, file, setProgress, durationSeconds ?? undefined);
       setProgress(null);
       if (!result.ok) {
         setError(result.error);
         continue;
       }
-      if (result.data) onUploaded(result.data.attachment);
+      if (result.data) {
+        onUploaded(result.data.attachment);
+        // 2.5, ponto de entrada 3: "enviar arquivo de áudio/vídeo existente
+        // em qualquer item → pergunta 'Transcrever?'". Anexo reaproveitado
+        // (duplicata) já tem transcrição associada se algum dia teve —
+        // evita reoferecer.
+        if (isMedia && !result.data.reused) {
+          setSummarize(false);
+          setTranscribePrompt({ attachmentId: result.data.attachment.id, fileName: result.data.attachment.fileName });
+        }
+      }
     }
   }
 
+  function handleTranscribe() {
+    if (!transcribePrompt) return;
+    const { attachmentId } = transcribePrompt;
+    const shouldSummarize = summarize;
+    setTranscribePrompt(null);
+    startRequestingTranscription(async () => {
+      await requestTranscription(itemId, attachmentId, undefined, shouldSummarize);
+    });
+  }
+
   return (
+    <div className="flex flex-col gap-2">
     <div
       onDragOver={(e) => {
         e.preventDefault();
@@ -72,6 +100,38 @@ export function AttachmentUploader({
         <p role="alert" className="w-full text-xs text-red-600 dark:text-red-400">
           {error}
         </p>
+      )}
+    </div>
+
+      {transcribePrompt && (
+        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.08]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-zinc-700 dark:text-zinc-200">
+              Transcrever &quot;{transcribePrompt.fileName}&quot;?
+            </span>
+            <div className="flex shrink-0 gap-3">
+              <button
+                type="button"
+                disabled={requestingTranscription}
+                onClick={handleTranscribe}
+                className="text-sm text-black underline disabled:opacity-60 dark:text-zinc-50"
+              >
+                Transcrever
+              </button>
+              <button
+                type="button"
+                onClick={() => setTranscribePrompt(null)}
+                className="text-sm text-zinc-500 underline dark:text-zinc-400"
+              >
+                Agora não
+              </button>
+            </div>
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <input type="checkbox" checked={summarize} onChange={(e) => setSummarize(e.target.checked)} />
+            Resumir automaticamente ao terminar (itens do tipo Reunião sempre resumem)
+          </label>
+        </div>
       )}
     </div>
   );

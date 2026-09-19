@@ -22,6 +22,7 @@ export async function uploadAttachment(
   itemId: string,
   file: File,
   onProgress?: (fraction: number) => void,
+  durationSeconds?: number,
 ): Promise<Result<UploadOutcome | null>> {
   if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
     return fail(`Arquivo maior que o limite do plano (${Math.round(MAX_ATTACHMENT_SIZE_BYTES / 1024 / 1024)} MB).`);
@@ -66,6 +67,7 @@ export async function uploadAttachment(
     mimeType: contentType,
     sizeBytes: file.size,
     sha256,
+    durationSeconds,
   });
   if (!recorded.ok) return recorded;
   if (!recorded.data) return fail("Não foi possível registrar o anexo.");
