@@ -9,6 +9,8 @@ import { requireOwner } from "@/lib/auth";
 import { enqueueJob } from "@/lib/jobs/enqueue";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
+import type { Segment } from "@/lib/transcription/types";
+import { recomposeText } from "./lib/recompose-text";
 
 /** "Gerar resumo novamente" (2.7): reenfileira `summarize_transcript` com `force: true`, mesmo já tendo um resumo salvo. */
 export async function regenerateSummary(transcriptId: string, itemId: string): Promise<Result<null>> {
@@ -93,4 +95,84 @@ export async function createTasksFromActions(meetingItemId: string, tasks: TaskF
 
   revalidatePath(`/itens/${meetingItemId}`);
   return ok({ createdCount });
+}
+
+const updateSpeakerNameSchema = z.object({
+  transcriptId: z.string().uuid(),
+  speakerKey: z.string().min(1).max(50),
+  name: z.string().trim().min(1).max(100),
+});
+
+/** "Renomear locutores" (2.8): salva em `speaker_names` (ex.: `{"A": "João"}`). */
+export async function updateSpeakerName(transcriptId: string, speakerKey: string, name: string): Promise<Result<null>> {
+  const parsed = updateSpeakerNameSchema.safeParse({ transcriptId, speakerKey, name });
+  if (!parsed.success) return fail("Dados inválidos.");
+
+  const { supabase } = await requireOwner();
+
+  const { data: transcript, error: readError } = await supabase
+    .from("transcripts")
+    .select("item_id, speaker_names")
+    .eq("id", parsed.data.transcriptId)
+    .maybeSingle();
+  if (readError || !transcript) return fail("Transcrição não encontrada.");
+
+  const speakerNames = {
+    ...((transcript.speaker_names as Record<string, string> | null) ?? {}),
+    [parsed.data.speakerKey]: parsed.data.name,
+  };
+
+  const { error } = await supabase
+    .from("transcripts")
+    .update({ speaker_names: speakerNames as unknown as Json })
+    .eq("id", parsed.data.transcriptId);
+  if (error) return fail("Não foi possível renomear o locutor.");
+
+  revalidatePath(`/itens/${transcript.item_id}`);
+  return ok(null);
+}
+
+const updateSegmentTextSchema = z.object({
+  transcriptId: z.string().uuid(),
+  segmentIndex: z.number().int().nonnegative(),
+  text: z.string().trim().min(1).max(5000),
+});
+
+/**
+ * "Corrigir texto de um segmento" (2.8): edita `segments[i].text` e
+ * recompõe `transcripts.text` (`recomposeText`) — e, como `text` alimenta
+ * `items.extra_text` (`refresh_item_extra_text`, 2.1), recalcula ele também
+ * pra busca não ficar com o texto antigo.
+ */
+export async function updateSegmentText(transcriptId: string, segmentIndex: number, text: string): Promise<Result<null>> {
+  const parsed = updateSegmentTextSchema.safeParse({ transcriptId, segmentIndex, text });
+  if (!parsed.success) return fail("Dados inválidos.");
+
+  const { supabase } = await requireOwner();
+
+  const { data: transcript, error: readError } = await supabase
+    .from("transcripts")
+    .select("item_id, segments")
+    .eq("id", parsed.data.transcriptId)
+    .maybeSingle();
+  if (readError || !transcript) return fail("Transcrição não encontrada.");
+
+  const segments = (transcript.segments as unknown as Segment[] | null) ?? [];
+  if (parsed.data.segmentIndex >= segments.length) return fail("Segmento não encontrado.");
+
+  const updatedSegments = segments.map((segment, index) =>
+    index === parsed.data.segmentIndex ? { ...segment, text: parsed.data.text } : segment,
+  );
+  const newText = recomposeText(updatedSegments);
+
+  const { error } = await supabase
+    .from("transcripts")
+    .update({ segments: updatedSegments as unknown as Json, text: newText })
+    .eq("id", parsed.data.transcriptId);
+  if (error) return fail("Não foi possível salvar a correção.");
+
+  await supabase.rpc("refresh_item_extra_text", { p_item_id: transcript.item_id });
+
+  revalidatePath(`/itens/${transcript.item_id}`);
+  return ok(null);
 }
