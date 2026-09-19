@@ -1,4 +1,4 @@
-import { Shapes, Shield, Tag, Trash2 } from "lucide-react";
+import { KeyRound, Shapes, Shield, Smartphone, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ConfiguracoesPage() {
@@ -40,6 +40,28 @@ export default function ConfiguracoesPage() {
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Tags</p>
           <p className="text-zinc-500 dark:text-zinc-400">Renomear, mesclar, excluir</p>
+        </div>
+      </Link>
+
+      <Link
+        href="/configuracoes/tokens"
+        className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.08] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+      >
+        <KeyRound className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-medium text-black dark:text-zinc-50">Tokens de API</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Criar, listar e revogar tokens</p>
+        </div>
+      </Link>
+
+      <Link
+        href="/configuracoes/captura"
+        className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.08] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+      >
+        <Smartphone className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-medium text-black dark:text-zinc-50">Bookmarklet e atalho do iOS</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Capturar sem abrir o Hub primeiro</p>
         </div>
       </Link>
 

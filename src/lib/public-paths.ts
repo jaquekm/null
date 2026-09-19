@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   "/api/mcp",
   "/manifest.webmanifest",
   "/sw.js",
+  "/offline",
 ];
 
 /** Rotas que respondem sem sessão: usada pelo proxy (src/proxy.ts) para decidir o redirecionamento. */

@@ -1,5 +1,16 @@
-import { PlaceholderPage } from "@/components/shared/placeholder-page";
+import { InboxWorkspace } from "@/features/items/components/inbox/inbox-workspace";
+import { listInboxItems, listObjectTypesForPicker } from "@/features/items/queries";
+import { listActiveSpaces } from "@/features/spaces/queries";
+import { requireOwner } from "@/lib/auth";
 
-export default function InboxPage() {
-  return <PlaceholderPage title="Inbox" />;
+export default async function InboxPage() {
+  const { supabase } = await requireOwner();
+
+  const [items, spaces, types] = await Promise.all([
+    listInboxItems(supabase),
+    listActiveSpaces(supabase),
+    listObjectTypesForPicker(supabase),
+  ]);
+
+  return <InboxWorkspace items={items} spaces={spaces} types={types} />;
 }
