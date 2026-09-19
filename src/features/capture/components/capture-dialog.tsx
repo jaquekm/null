@@ -1,7 +1,7 @@
 "use client";
 
 import type { SidebarSpace } from "@/features/spaces/queries";
-import { CaptureForm } from "./capture-form";
+import { CapturePanel } from "./capture-panel";
 
 export function CaptureDialog({
   spaces,
@@ -37,7 +37,7 @@ export function CaptureDialog({
             ×
           </button>
         </div>
-        <CaptureForm spaces={spaces} types={types} initialTypeId={initialTypeId} onDone={onClose} />
+        <CapturePanel spaces={spaces} types={types} initialTypeId={initialTypeId} onDone={onClose} />
       </div>
     </div>
   );

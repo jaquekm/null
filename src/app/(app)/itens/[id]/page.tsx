@@ -6,6 +6,7 @@ import { listItemAttachments } from "@/features/attachments/queries";
 import { BacklinksPanel } from "@/features/items/components/backlinks-panel";
 import { ItemActionsBar } from "@/features/items/components/item-actions-bar";
 import { ItemEditor } from "@/features/items/components/item-editor";
+import { RecordMeetingButton } from "@/features/media/components/record-meeting-button";
 import { SubitemsSection } from "@/features/items/components/subitems-section";
 import { VersionsPanel } from "@/features/items/components/versions-panel";
 import {
@@ -58,6 +59,8 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       </div>
 
       <ItemEditor key={item.updatedAt} item={item} />
+
+      {item.type?.slug === "reuniao" && <RecordMeetingButton itemId={item.id} />}
 
       <TagSelector itemId={item.id} tags={tags} />
 

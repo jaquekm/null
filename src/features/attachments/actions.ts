@@ -41,6 +41,7 @@ const recordSchema = z.object({
   mimeType: z.string().min(1),
   sizeBytes: z.number().int().nonnegative(),
   sha256: z.string().length(64),
+  durationSeconds: z.number().positive().optional(),
 });
 
 /** Registra a linha em `attachments` depois de um upload direto ao Storage ter dado certo. */
@@ -60,6 +61,7 @@ export async function recordAttachment(input: z.infer<typeof recordSchema>): Pro
       mime_type: parsed.data.mimeType,
       size_bytes: parsed.data.sizeBytes,
       sha256: parsed.data.sha256,
+      duration_seconds: parsed.data.durationSeconds ?? null,
     })
     .select("id, file_name, mime_type, size_bytes, created_at")
     .single();
