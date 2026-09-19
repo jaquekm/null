@@ -101,18 +101,51 @@ export interface ItemVersionRow {
   id: string;
   title: string;
   reason: string;
+  label: string | null;
   createdAt: string;
 }
 
 export async function listItemVersions(supabase: Client, itemId: string): Promise<ItemVersionRow[]> {
   const { data, error } = await supabase
     .from("item_versions")
-    .select("id, title, reason, created_at")
+    .select("id, title, reason, label, created_at")
     .eq("item_id", itemId)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw error;
-  return data.map((v) => ({ id: v.id, title: v.title, reason: v.reason, createdAt: v.created_at }));
+  return data.map((v) => ({ id: v.id, title: v.title, reason: v.reason, label: v.label, createdAt: v.created_at }));
+}
+
+export interface ItemVersionDetail {
+  id: string;
+  title: string;
+  content: JSONContent | null;
+  properties: Record<string, unknown>;
+  reason: string;
+  label: string | null;
+  createdAt: string;
+}
+
+/** Conteúdo/propriedades completos de uma versão — buscado sob demanda ao abrir o diálogo de comparação (1.17). */
+export async function getItemVersion(supabase: Client, itemId: string, versionId: string): Promise<ItemVersionDetail | null> {
+  const { data, error } = await supabase
+    .from("item_versions")
+    .select("id, title, content, properties, reason, label, created_at")
+    .eq("id", versionId)
+    .eq("item_id", itemId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    title: data.title,
+    content: (data.content as unknown as JSONContent | null) ?? null,
+    properties: (data.properties as Record<string, unknown> | null) ?? {},
+    reason: data.reason,
+    label: data.label,
+    createdAt: data.created_at,
+  };
 }
 
 export interface TypeOptionWithFields {

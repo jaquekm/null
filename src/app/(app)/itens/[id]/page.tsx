@@ -57,7 +57,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         )}
       </div>
 
-      <ItemEditor item={item} />
+      <ItemEditor key={item.updatedAt} item={item} />
 
       <TagSelector itemId={item.id} tags={tags} />
 
@@ -86,7 +86,13 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
       <BacklinksPanel backlinks={backlinks} />
-      <VersionsPanel versions={versions} />
+      <VersionsPanel
+        itemId={item.id}
+        versions={versions}
+        fields={item.type?.fields ?? []}
+        currentContent={item.content}
+        currentProperties={item.properties}
+      />
     </div>
   );
 }
