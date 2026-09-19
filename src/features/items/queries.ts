@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
-import type { TagOption } from "@/features/tags/queries";
+import { listTagsByItemIds, type TagOption } from "@/features/tags/queries";
 
 type Client = SupabaseClient<Database>;
 
@@ -155,20 +155,10 @@ export async function listInboxItems(supabase: Client): Promise<InboxItemRow[]> 
   if (error) throw error;
   if (data.length === 0) return [];
 
-  const ids = data.map((item) => item.id);
-  const { data: itemTags, error: tagsError } = await supabase
-    .from("item_tags")
-    .select("item_id, tags(id, name, color)")
-    .in("item_id", ids);
-  if (tagsError) throw tagsError;
-
-  const tagsByItem = new Map<string, TagOption[]>();
-  for (const row of itemTags) {
-    if (!row.tags) continue;
-    const list = tagsByItem.get(row.item_id) ?? [];
-    list.push(row.tags);
-    tagsByItem.set(row.item_id, list);
-  }
+  const tagsByItem = await listTagsByItemIds(
+    supabase,
+    data.map((item) => item.id),
+  );
 
   return data.map((item) => ({
     id: item.id,

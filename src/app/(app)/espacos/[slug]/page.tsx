@@ -1,40 +1,32 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { NewItemButton } from "@/features/spaces/components/new-item-button";
 import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-form";
-import {
-  getSpaceBySlug,
-  listOtherActiveSpaces,
-  listSpaceItems,
-  listSpaceObjectTypes,
-} from "@/features/spaces/queries";
-import { listAllTags, listItemIdsForTag } from "@/features/tags/queries";
+import { getSpaceBySlug, listOtherActiveSpaces, listSpaceObjectTypes } from "@/features/spaces/queries";
+import { ViewSwitcher } from "@/features/views/components/view-switcher";
+import { listViews } from "@/features/views/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   const { slug } = await props.params;
   const searchParams = await props.searchParams;
   const typeId = typeof searchParams.tipo === "string" ? searchParams.tipo : undefined;
-  const tagId = typeof searchParams.tag === "string" ? searchParams.tag : undefined;
 
   const { supabase } = await requireOwner();
   const space = await getSpaceBySlug(supabase, slug);
   if (!space) notFound();
 
-  const [types, tags, otherSpaces, itemIdsForTag] = await Promise.all([
+  const [types, otherSpaces, views] = await Promise.all([
     listSpaceObjectTypes(supabase, space.id),
-    listAllTags(supabase),
     listOtherActiveSpaces(supabase, space.id),
-    tagId ? listItemIdsForTag(supabase, tagId) : Promise.resolve(undefined),
+    listViews(supabase, space.id, typeId ?? null),
   ]);
 
-  const items = await listSpaceItems(supabase, space.id, { typeId, itemIds: itemIdsForTag });
   const spaceSlug = space.slug;
 
-  function buildHref(next: { tipo?: string; tag?: string }) {
+  function buildHref(next: { tipo?: string }) {
     const params = new URLSearchParams();
     if (next.tipo) params.set("tipo", next.tipo);
-    if (next.tag) params.set("tag", next.tag);
     const query = params.toString();
     return `/espacos/${spaceSlug}${query ? `?${query}` : ""}`;
   }
@@ -68,48 +60,18 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
 
       {types.length > 0 && (
         <nav className="flex flex-wrap gap-2 text-sm">
-          <Link href={buildHref({ tag: tagId })} className={linkClass(!typeId)}>
+          <Link href={buildHref({})} className={linkClass(!typeId)}>
             Todos
           </Link>
           {types.map((type) => (
-            <Link key={type.id} href={buildHref({ tipo: type.id, tag: tagId })} className={linkClass(typeId === type.id)}>
+            <Link key={type.id} href={buildHref({ tipo: type.id })} className={linkClass(typeId === type.id)}>
               {type.name}
             </Link>
           ))}
         </nav>
       )}
 
-      {tags.length > 0 && (
-        <nav className="flex flex-wrap gap-2 text-sm">
-          <Link href={buildHref({ tipo: typeId })} className={linkClass(!tagId)}>
-            Todas as tags
-          </Link>
-          {tags.map((tag) => (
-            <Link key={tag.id} href={buildHref({ tipo: typeId, tag: tag.id })} className={linkClass(tagId === tag.id)}>
-              #{tag.name}
-            </Link>
-          ))}
-        </nav>
-      )}
-
-      <ul className="flex flex-col gap-1">
-        {items.length === 0 && (
-          <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Nenhum item aqui ainda.</p>
-        )}
-        {items.map((item) => (
-          <li key={item.id}>
-            <Link
-              href={`/itens/${item.id}`}
-              className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06]"
-            >
-              <span className="truncate text-black dark:text-zinc-50">{item.title || "Sem título"}</span>
-              <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
-                {new Date(item.updated_at).toLocaleDateString("pt-BR")}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <ViewSwitcher spaceId={space.id} typeId={typeId ?? null} initialViews={views} />
 
       <SpaceSettingsForm
         space={{

@@ -9,6 +9,7 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
 import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
+import { positionBetween } from "@/features/spaces/lib/position";
 import { diffLinks } from "./lib/diff-links";
 import { extractMentionIds } from "./lib/extract-mention-ids";
 import { extractText } from "./lib/extract-text";
@@ -198,6 +199,21 @@ export async function softDeleteItems(itemIds: string[]): Promise<Result<null>> 
   if (error) return fail("Não foi possível excluir os itens.");
 
   revalidatePath("/inbox");
+  return ok(null);
+}
+
+/** Reordenar dentro de uma coluna do Kanban (1.15) — mesmo padrão de `reorderSpace` (1.3). */
+export async function reorderItem(
+  itemId: string,
+  beforePosition: number | null,
+  afterPosition: number | null,
+): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const position = positionBetween(beforePosition, afterPosition);
+
+  const { error } = await supabase.from("items").update({ position }).eq("id", itemId).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível reordenar os itens.");
+
   return ok(null);
 }
 

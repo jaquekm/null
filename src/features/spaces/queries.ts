@@ -71,35 +71,3 @@ export async function listSpaceObjectTypes(supabase: Client, spaceId: string): P
   if (error) throw error;
   return data.map(({ id, name, slug }) => ({ id, name, slug }));
 }
-
-export interface SpaceItemRow {
-  id: string;
-  title: string;
-  status: string;
-  type_id: string | null;
-  updated_at: string;
-}
-
-export async function listSpaceItems(
-  supabase: Client,
-  spaceId: string,
-  filters: { typeId?: string; itemIds?: string[] } = {},
-): Promise<SpaceItemRow[]> {
-  let query = supabase
-    .from("items")
-    .select("id, title, status, type_id, updated_at")
-    .eq("space_id", spaceId)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false });
-
-  if (filters.typeId) {
-    query = query.eq("type_id", filters.typeId);
-  }
-  if (filters.itemIds) {
-    query = query.in("id", filters.itemIds.length > 0 ? filters.itemIds : ["00000000-0000-0000-0000-000000000000"]);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
-}

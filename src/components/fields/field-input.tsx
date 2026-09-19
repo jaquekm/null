@@ -18,12 +18,15 @@ export function FieldInput({
   value,
   updatedAt,
   onSaved,
+  /** Sem label/descrição — usado nas células da Tabela de visões (1.15), onde o cabeçalho da coluna já é o rótulo. */
+  compact = false,
 }: {
   itemId: string;
   field: FieldDefinition;
   value: unknown;
   updatedAt: string;
   onSaved: (updatedAt: string) => void;
+  compact?: boolean;
 }) {
   const action = updateItemProperty.bind(null, itemId, field.key, updatedAt);
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -38,16 +41,18 @@ export function FieldInput({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-        {field.label}
-        {field.required && <span className="ml-0.5 text-red-500">*</span>}
-      </label>
+      {!compact && (
+        <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          {field.label}
+          {field.required && <span className="ml-0.5 text-red-500">*</span>}
+        </label>
+      )}
 
       <form action={formAction}>
         <FieldValueInput field={field} value={value} pending={pending} />
       </form>
 
-      {field.description && <p className="text-xs text-zinc-400 dark:text-zinc-500">{field.description}</p>}
+      {!compact && field.description && <p className="text-xs text-zinc-400 dark:text-zinc-500">{field.description}</p>}
 
       {conflict && (
         <p role="alert" className="text-xs text-amber-600 dark:text-amber-400">
