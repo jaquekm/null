@@ -46,6 +46,7 @@ const requestTranscriptionSchema = z.object({
   itemId: z.string().uuid(),
   attachmentId: z.string().uuid(),
   durationSeconds: z.number().positive().optional(),
+  summarize: z.boolean().optional(),
 });
 
 /**
@@ -58,13 +59,18 @@ const requestTranscriptionSchema = z.object({
  * `null` quando não há provedor de transcrição configurado (2.4) — o anexo
  * continua salvo normalmente, só não tem como transcrever ainda; quem
  * chama decide se avisa o usuário disso.
+ *
+ * `summarize`: opt-in explícito pra gerar resumo (2.6/2.7) em item que não é
+ * do tipo Reunião — um item Reunião sempre resume, com ou sem essa flag
+ * (`applyTranscriptionResult`, `features/transcripts/lib/`).
  */
 export async function requestTranscription(
   itemId: string,
   attachmentId: string,
   durationSeconds?: number,
+  summarize?: boolean,
 ): Promise<Result<{ transcriptId: string } | null>> {
-  const parsed = requestTranscriptionSchema.safeParse({ itemId, attachmentId, durationSeconds });
+  const parsed = requestTranscriptionSchema.safeParse({ itemId, attachmentId, durationSeconds, summarize });
   if (!parsed.success) return fail("Dados inválidos.");
 
   const provider = getTranscriptionProvider();
@@ -92,6 +98,7 @@ export async function requestTranscription(
       provider: provider.name,
       status: "queued",
       duration_seconds: parsed.data.durationSeconds ?? null,
+      summarize: parsed.data.summarize ?? false,
     })
     .select("id")
     .single();

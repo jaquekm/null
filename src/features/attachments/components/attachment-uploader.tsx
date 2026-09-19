@@ -19,6 +19,7 @@ export function AttachmentUploader({
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [transcribePrompt, setTranscribePrompt] = useState<{ attachmentId: string; fileName: string } | null>(null);
+  const [summarize, setSummarize] = useState(false);
   const [requestingTranscription, startRequestingTranscription] = useTransition();
 
   async function handleFiles(files: FileList | null) {
@@ -42,6 +43,7 @@ export function AttachmentUploader({
         // (duplicata) já tem transcrição associada se algum dia teve —
         // evita reoferecer.
         if (isMedia && !result.data.reused) {
+          setSummarize(false);
           setTranscribePrompt({ attachmentId: result.data.attachment.id, fileName: result.data.attachment.fileName });
         }
       }
@@ -51,9 +53,10 @@ export function AttachmentUploader({
   function handleTranscribe() {
     if (!transcribePrompt) return;
     const { attachmentId } = transcribePrompt;
+    const shouldSummarize = summarize;
     setTranscribePrompt(null);
     startRequestingTranscription(async () => {
-      await requestTranscription(itemId, attachmentId);
+      await requestTranscription(itemId, attachmentId, undefined, shouldSummarize);
     });
   }
 
@@ -101,27 +104,33 @@ export function AttachmentUploader({
     </div>
 
       {transcribePrompt && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.08]">
-          <span className="min-w-0 truncate text-zinc-700 dark:text-zinc-200">
-            Transcrever &quot;{transcribePrompt.fileName}&quot;?
-          </span>
-          <div className="flex shrink-0 gap-3">
-            <button
-              type="button"
-              disabled={requestingTranscription}
-              onClick={handleTranscribe}
-              className="text-sm text-black underline disabled:opacity-60 dark:text-zinc-50"
-            >
-              Transcrever
-            </button>
-            <button
-              type="button"
-              onClick={() => setTranscribePrompt(null)}
-              className="text-sm text-zinc-500 underline dark:text-zinc-400"
-            >
-              Agora não
-            </button>
+        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.08]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-zinc-700 dark:text-zinc-200">
+              Transcrever &quot;{transcribePrompt.fileName}&quot;?
+            </span>
+            <div className="flex shrink-0 gap-3">
+              <button
+                type="button"
+                disabled={requestingTranscription}
+                onClick={handleTranscribe}
+                className="text-sm text-black underline disabled:opacity-60 dark:text-zinc-50"
+              >
+                Transcrever
+              </button>
+              <button
+                type="button"
+                onClick={() => setTranscribePrompt(null)}
+                className="text-sm text-zinc-500 underline dark:text-zinc-400"
+              >
+                Agora não
+              </button>
+            </div>
           </div>
+          <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <input type="checkbox" checked={summarize} onChange={(e) => setSummarize(e.target.checked)} />
+            Resumir automaticamente ao terminar (itens do tipo Reunião sempre resumem)
+          </label>
         </div>
       )}
     </div>

@@ -302,6 +302,14 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** contorno padrão documentado pra esse bug: depois de `loadedmetadata`, se `duration === Infinity`, setar `currentTime = Number.MAX_SAFE_INTEGER` força o navegador a escanear o arquivo inteiro procurando o fim; o evento `timeupdate` que dispara em seguida já tem a duração real em `.duration`. `read-media-duration.ts` já nasce com esse contorno, em vez de descobrir isso só depois de ver `duration_seconds` errado (ou nulo) em produção.
 - **Consequências:** nenhuma perda — função só um pouco mais longa. Fica como lição geral registrada aqui: **qualquer leitura de duração de um blob remontado de pedaços (gravação ao vivo, não arquivo baixado inteiro) precisa desse contorno**, não só checar `Number.isFinite`.
 
+### 2026-09-19 — Coluna nova `transcripts.summarize` (não prevista na migration da 2.1)
+
+- **Fase/tarefa:** 2.6 (Pipeline de transcrição)
+- **Contexto:** o enunciado da 2.6 pede enfileirar `summarize_transcript` "se o item for do tipo Reunião **ou se o usuário marcou 'resumir'**". O primeiro caso (tipo Reunião) dá pra checar direto (`items.type_id` → `object_types.slug`), mas o segundo não tem onde guardar essa marcação — a migration da 2.1 não previa nenhuma coluna pra isso em `transcripts`, nem existe em nenhuma outra tabela um campo parecido.
+- **Opções consideradas:** (a) ignorar essa parte do enunciado e só resumir Reunião automaticamente, deixando resumo manual de outros itens só pro botão "Gerar resumo novamente" da 2.7; (b) acrescentar uma coluna booleana em `transcripts`, setável no momento de pedir a transcrição.
+- **Decisão:** (b). Migration `transcripts_summarize_flag`: `alter table transcripts add column summarize boolean not null default false`. Threading: `requestTranscription` (2.5/2.6, `features/media/actions.ts`) ganhou um 4º parâmetro opcional `summarize`; a única UI que expõe isso por enquanto é o checkbox "Resumir automaticamente" no prompt "Transcrever?" do `AttachmentUploader` (2.5, ponto de entrada 3 — upload de arquivo existente). Os fluxos de gravação (`AudioRecorder`, pontos 1/2) não pedem essa escolha ao usuário — para eles, resumo automático só acontece pra itens do tipo Reunião, que é o caso comum e já coberto sem a flag.
+- **Consequências:** uma gravação de "nota de voz" (não Reunião) feita pelo `AudioRecorder` nunca aciona resumo automático — só transcrição. Se o dono quiser resumo automático também nesse caso, o caminho hoje é usar o upload manual (que tem o checkbox) em vez do botão de gravação, ou pedir "Gerar resumo novamente" (2.7) depois. Registrado aqui porque é uma decisão de escopo, não só um detalhe de schema.
+
 ## Decisões em aberto previstas no plano
 - [ ] Estratégia de eventos recorrentes do Google Calendar (fase 3.5)
 - [ ] Biblioteca da agenda: FullCalendar ou componente próprio (fase 3.6)
