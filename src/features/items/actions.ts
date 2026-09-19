@@ -8,6 +8,7 @@ import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
+import { removeItemAttachmentsFromStorage } from "@/features/attachments/actions";
 import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
 import { positionBetween } from "@/features/spaces/lib/position";
 import { diffLinks } from "./lib/diff-links";
@@ -340,6 +341,8 @@ export async function restoreItem(itemId: string): Promise<Result<null>> {
 
 export async function permanentlyDeleteItem(itemId: string): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
+
+  await removeItemAttachmentsFromStorage(supabase, itemId);
 
   const { error } = await supabase.from("items").delete().eq("id", itemId).eq("owner_id", user.id);
   if (error) return fail("Não foi possível excluir o item definitivamente.");

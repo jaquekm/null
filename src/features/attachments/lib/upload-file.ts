@@ -2,9 +2,10 @@ import { Upload } from "tus-js-client";
 import { publicEnv } from "@/lib/env";
 import { fail, ok, type Result } from "@/lib/result";
 import { createClient } from "@/lib/supabase/client";
-import { findDuplicateAttachment, MAX_ATTACHMENT_SIZE_BYTES, recordAttachment, RESUMABLE_UPLOAD_THRESHOLD_BYTES, reuseAttachment } from "../actions";
+import { findDuplicateAttachment, recordAttachment, reuseAttachment } from "../actions";
 import type { AttachmentRow } from "../queries";
 import { buildStoragePath } from "./build-storage-path";
+import { MAX_ATTACHMENT_SIZE_BYTES, RESUMABLE_UPLOAD_THRESHOLD_BYTES } from "./limits";
 import { sha256OfFile } from "./sha256";
 
 export interface UploadOutcome {

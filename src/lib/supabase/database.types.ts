@@ -2,10 +2,10 @@
  * Gerado por `mcp__Supabase__generate_typescript_types` (equivalente a
  * `supabase gen types typescript --project-id spzuvkpovmawbsiznzei`) contra o
  * `hub-dev` já com as migrations 20260917130714_fundacao.sql,
- * 20260918145833_nucleo.sql, 20260918163044_nucleo_security_hardening.sql e
- * 20260919120000_busca_filtros.sql aplicadas. Não editar à mão — rode
- * `pnpm db:types` (ou a mesma ferramenta MCP) de novo depois de qualquer
- * migration nova.
+ * 20260918145833_nucleo.sql, 20260918163044_nucleo_security_hardening.sql,
+ * 20260919120000_busca_filtros.sql e 20260919130000_midia_jobs.sql
+ * aplicadas. Não editar à mão — rode `pnpm db:types` (ou a mesma ferramenta
+ * MCP) de novo depois de qualquer migration nova.
  */
 export type Json =
   | string
@@ -66,12 +66,16 @@ export type Database = {
         Row: {
           created_at: string;
           duration_seconds: number | null;
+          extracted_text: string | null;
+          extraction_method: string | null;
+          extraction_status: string;
           file_name: string;
           height: number | null;
           id: string;
           item_id: string | null;
           mime_type: string;
           owner_id: string;
+          page_count: number | null;
           sha256: string | null;
           size_bytes: number;
           storage_path: string;
@@ -80,12 +84,16 @@ export type Database = {
         Insert: {
           created_at?: string;
           duration_seconds?: number | null;
+          extracted_text?: string | null;
+          extraction_method?: string | null;
+          extraction_status?: string;
           file_name: string;
           height?: number | null;
           id?: string;
           item_id?: string | null;
           mime_type: string;
           owner_id?: string;
+          page_count?: number | null;
           sha256?: string | null;
           size_bytes: number;
           storage_path: string;
@@ -94,12 +102,16 @@ export type Database = {
         Update: {
           created_at?: string;
           duration_seconds?: number | null;
+          extracted_text?: string | null;
+          extraction_method?: string | null;
+          extraction_status?: string;
           file_name?: string;
           height?: number | null;
           id?: string;
           item_id?: string | null;
           mime_type?: string;
           owner_id?: string;
+          page_count?: number | null;
           sha256?: string | null;
           size_bytes?: number;
           storage_path?: string;
@@ -289,6 +301,96 @@ export type Database = {
           },
         ];
       };
+      job_schedules: {
+        Row: {
+          created_at: string;
+          enabled: boolean;
+          interval_seconds: number;
+          kind: string;
+          last_enqueued_at: string | null;
+          owner_id: string;
+          payload: Json;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          enabled?: boolean;
+          interval_seconds: number;
+          kind: string;
+          last_enqueued_at?: string | null;
+          owner_id: string;
+          payload?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          enabled?: boolean;
+          interval_seconds?: number;
+          kind?: string;
+          last_enqueued_at?: string | null;
+          owner_id?: string;
+          payload?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      jobs: {
+        Row: {
+          attempts: number;
+          created_at: string;
+          dedupe_key: string | null;
+          finished_at: string | null;
+          id: string;
+          kind: string;
+          last_error: string | null;
+          locked_at: string | null;
+          max_attempts: number;
+          owner_id: string;
+          payload: Json;
+          priority: number;
+          result: Json | null;
+          run_after: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          created_at?: string;
+          dedupe_key?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          kind: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          max_attempts?: number;
+          owner_id: string;
+          payload?: Json;
+          priority?: number;
+          result?: Json | null;
+          run_after?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          created_at?: string;
+          dedupe_key?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          kind?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          max_attempts?: number;
+          owner_id?: string;
+          payload?: Json;
+          priority?: number;
+          result?: Json | null;
+          run_after?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       links: {
         Row: {
           created_at: string;
@@ -474,6 +576,122 @@ export type Database = {
         };
         Relationships: [];
       };
+      transcripts: {
+        Row: {
+          attachment_id: string;
+          created_at: string;
+          duration_seconds: number | null;
+          error: string | null;
+          external_id: string | null;
+          id: string;
+          item_id: string;
+          language: string | null;
+          owner_id: string;
+          provider: string;
+          segments: Json | null;
+          speaker_names: Json;
+          status: string;
+          summary: Json | null;
+          text: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          attachment_id: string;
+          created_at?: string;
+          duration_seconds?: number | null;
+          error?: string | null;
+          external_id?: string | null;
+          id?: string;
+          item_id: string;
+          language?: string | null;
+          owner_id?: string;
+          provider: string;
+          segments?: Json | null;
+          speaker_names?: Json;
+          status?: string;
+          summary?: Json | null;
+          text?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          attachment_id?: string;
+          created_at?: string;
+          duration_seconds?: number | null;
+          error?: string | null;
+          external_id?: string | null;
+          id?: string;
+          item_id?: string;
+          language?: string | null;
+          owner_id?: string;
+          provider?: string;
+          segments?: Json | null;
+          speaker_names?: Json;
+          status?: string;
+          summary?: Json | null;
+          text?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_attachment_id_fkey";
+            columns: ["attachment_id"];
+            isOneToOne: false;
+            referencedRelation: "attachments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transcripts_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      usage_events: {
+        Row: {
+          cost_usd: number | null;
+          created_at: string;
+          feature: string;
+          id: string;
+          item_id: string | null;
+          model: string | null;
+          owner_id: string;
+          provider: string;
+          units: Json;
+        };
+        Insert: {
+          cost_usd?: number | null;
+          created_at?: string;
+          feature: string;
+          id?: string;
+          item_id?: string | null;
+          model?: string | null;
+          owner_id: string;
+          provider: string;
+          units?: Json;
+        };
+        Update: {
+          cost_usd?: number | null;
+          created_at?: string;
+          feature?: string;
+          id?: string;
+          item_id?: string | null;
+          model?: string | null;
+          owner_id?: string;
+          provider?: string;
+          units?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_settings: {
         Row: {
           created_at: string;
@@ -580,6 +798,33 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_jobs: {
+        Args: { p_limit?: number };
+        Returns: {
+          attempts: number;
+          created_at: string;
+          dedupe_key: string | null;
+          finished_at: string | null;
+          id: string;
+          kind: string;
+          last_error: string | null;
+          locked_at: string | null;
+          max_attempts: number;
+          owner_id: string;
+          payload: Json;
+          priority: number;
+          result: Json | null;
+          run_after: string;
+          status: string;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "jobs";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       item_backlinks: {
         Args: { p_item_id: string };
         Returns: {
@@ -589,6 +834,10 @@ export type Database = {
           title: string;
           updated_at: string;
         }[];
+      };
+      refresh_item_extra_text: {
+        Args: { p_item_id: string };
+        Returns: undefined;
       };
       search_items: {
         Args: {

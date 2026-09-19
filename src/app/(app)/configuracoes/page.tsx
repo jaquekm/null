@@ -1,7 +1,12 @@
-import { KeyRound, Keyboard, Shapes, Shield, Smartphone, Tag, Trash2 } from "lucide-react";
+import { CircleDollarSign, KeyRound, Keyboard, ListChecks, Shapes, Shield, Smartphone, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { countFailedJobs } from "@/features/jobs/queries";
+import { requireOwner } from "@/lib/auth";
 
-export default function ConfiguracoesPage() {
+export default async function ConfiguracoesPage() {
+  const { supabase } = await requireOwner();
+  const failedJobs = await countFailedJobs(supabase);
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
@@ -73,6 +78,35 @@ export default function ConfiguracoesPage() {
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Atalhos de teclado</p>
           <p className="text-zinc-500 dark:text-zinc-400">Paleta de comandos (Ctrl/Cmd+K) e outros atalhos</p>
+        </div>
+      </Link>
+
+      <Link
+        href="/configuracoes/jobs"
+        className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.08] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+      >
+        <ListChecks className="h-5 w-5 shrink-0" />
+        <div className="flex-1">
+          <p className="flex items-center gap-2 font-medium text-black dark:text-zinc-50">
+            Jobs
+            {failedJobs > 0 && (
+              <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-normal text-red-700 dark:bg-red-950 dark:text-red-300">
+                {failedJobs} com falha
+              </span>
+            )}
+          </p>
+          <p className="text-zinc-500 dark:text-zinc-400">Fila de tarefas em segundo plano, tentativas e erros</p>
+        </div>
+      </Link>
+
+      <Link
+        href="/configuracoes/uso"
+        className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.08] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+      >
+        <CircleDollarSign className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-medium text-black dark:text-zinc-50">Uso e custo</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Gasto do mês por provedor e recurso, orçamento de IA</p>
         </div>
       </Link>
 

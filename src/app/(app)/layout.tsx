@@ -5,6 +5,7 @@ import { requireOwner } from "@/lib/auth";
 import { CaptureDialogProvider } from "@/features/capture/components/capture-dialog-provider";
 import { CommandPaletteProvider } from "@/features/command-palette/components/command-palette-provider";
 import { countInboxItems, listObjectTypesForPicker } from "@/features/items/queries";
+import { countFailedJobs } from "@/features/jobs/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -29,17 +30,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
-  const [spaces, types, inboxCount] = await Promise.all([
+  const [spaces, types, inboxCount, failedJobsCount] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
     countInboxItems(supabase),
+    countFailedJobs(supabase),
   ]);
 
   return (
     <CaptureDialogProvider spaces={spaces} types={types}>
       <CommandPaletteProvider spaces={spaces} types={types}>
         <div className="flex min-h-dvh">
-          <Sidebar spaces={spaces} inboxCount={inboxCount} />
+          <Sidebar spaces={spaces} inboxCount={inboxCount} failedJobsCount={failedJobsCount} />
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar email={email} />
             <main className="flex-1 overflow-y-auto pb-20 md:pb-0">{children}</main>
