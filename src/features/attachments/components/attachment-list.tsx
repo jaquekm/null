@@ -3,7 +3,9 @@
 import { Download, File as FileIcon, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { deleteAttachment } from "../actions";
+import { pickExtractionStrategy } from "../lib/pick-extraction-method";
 import type { AttachmentRow } from "../queries";
+import { AttachmentExtraction } from "./attachment-extraction";
 import { AttachmentUploader } from "./attachment-uploader";
 
 function formatSize(bytes: number): string {
@@ -68,6 +70,18 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
         </div>
       )}
 
+      {images.map((attachment) =>
+        pickExtractionStrategy(attachment.mimeType) ? (
+          <AttachmentExtraction
+            key={`extraction-${attachment.id}`}
+            attachmentId={attachment.id}
+            itemId={itemId}
+            fileName={attachment.fileName}
+            extractionStatus={attachment.extractionStatus}
+          />
+        ) : null,
+      )}
+
       {others.length > 0 && (
         <ul className="flex flex-col gap-1">
           {others.map((attachment) => (
@@ -75,25 +89,36 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
               key={attachment.id}
               className="flex items-center justify-between gap-2 rounded-lg border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.08]"
             >
-              <AttachmentPreview attachment={attachment} />
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatSize(attachment.sizeBytes)}</span>
-                <a
-                  href={`/api/attachments/${attachment.id}/file?download=1`}
-                  aria-label={`Baixar ${attachment.fileName}`}
-                  className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
-                >
-                  <Download className="h-4 w-4" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(attachment.id)}
-                  disabled={pending}
-                  aria-label={`Excluir ${attachment.fileName}`}
-                  className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <AttachmentPreview attachment={attachment} />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-xs text-zinc-400 dark:text-zinc-500">{formatSize(attachment.sizeBytes)}</span>
+                    <a
+                      href={`/api/attachments/${attachment.id}/file?download=1`}
+                      aria-label={`Baixar ${attachment.fileName}`}
+                      className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(attachment.id)}
+                      disabled={pending}
+                      aria-label={`Excluir ${attachment.fileName}`}
+                      className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                {pickExtractionStrategy(attachment.mimeType) && (
+                  <AttachmentExtraction
+                    attachmentId={attachment.id}
+                    itemId={itemId}
+                    extractionStatus={attachment.extractionStatus}
+                  />
+                )}
               </div>
             </li>
           ))}

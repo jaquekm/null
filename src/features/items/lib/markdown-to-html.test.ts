@@ -40,4 +40,27 @@ describe("markdownToHtml", () => {
   it("ignora linhas em branco entre parágrafos", () => {
     expect(markdownToHtml("a\n\nb")).toBe("<p>a</p><p>b</p>");
   });
+
+  it("converte negrito e itálico (2.9: DOCX/OCR)", () => {
+    expect(markdownToHtml("**negrito** e *itálico*")).toBe("<p><strong>negrito</strong> e <em>itálico</em></p>");
+  });
+
+  it("converte lista numerada (2.9)", () => {
+    expect(markdownToHtml("1. um\n2. dois")).toBe("<ol><li>um</li><li>dois</li></ol>");
+  });
+
+  it("converte tabela Markdown em <table> (2.9: OCR preservando tabelas)", () => {
+    const md = "| Nome | Idade |\n| --- | --- |\n| Ana | 30 |\n| Bia | 25 |";
+    expect(markdownToHtml(md)).toBe(
+      "<table><tbody><tr><th>Nome</th><th>Idade</th></tr>" +
+        "<tr><td>Ana</td><td>30</td></tr><tr><td>Bia</td><td>25</td></tr></tbody></table>",
+    );
+  });
+
+  it("fecha a tabela ao encontrar uma linha em branco ou outro bloco", () => {
+    const md = "| a | b |\n| --- | --- |\n| 1 | 2 |\n\n# Depois";
+    expect(markdownToHtml(md)).toBe(
+      "<table><tbody><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></tbody></table><h1>Depois</h1>",
+    );
+  });
 });
