@@ -15,19 +15,21 @@ export function CaptureForm({
   spaces,
   types,
   initialText = "",
+  initialTypeId = "",
   redirectOnSave = false,
   onDone,
 }: {
   spaces: SidebarSpace[];
   types: { id: string; name: string }[];
   initialText?: string;
+  initialTypeId?: string;
   redirectOnSave?: boolean;
   onDone?: () => void;
 }) {
   const router = useRouter();
   const [text, setText] = useState(initialText);
   const [spaceId, setSpaceId] = useState("");
-  const [typeId, setTypeId] = useState("");
+  const [typeId, setTypeId] = useState(initialTypeId);
   const [file, setFile] = useState<File | null>(null);
   const [pending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
