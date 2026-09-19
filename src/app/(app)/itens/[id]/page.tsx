@@ -19,6 +19,8 @@ import {
 } from "@/features/items/queries";
 import { TagSelector } from "@/features/tags/components/tag-selector";
 import { listItemTags } from "@/features/tags/queries";
+import { MeetingSummaryActions } from "@/features/transcripts/components/meeting-summary-actions";
+import { getTranscriptForItem } from "@/features/transcripts/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function ItemPage(props: PageProps<"/itens/[id]">) {
@@ -28,7 +30,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
-  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments] = await Promise.all([
+  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments, transcript] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
     listSubitems(supabase, item.id),
@@ -37,6 +39,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
     listItemTags(supabase, item.id),
     listItemAttachments(supabase, item.id),
+    getTranscriptForItem(supabase, item.id),
   ]);
 
   return (
@@ -61,6 +64,16 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       <ItemEditor key={item.updatedAt} item={item} />
 
       {item.type?.slug === "reuniao" && <RecordMeetingButton itemId={item.id} />}
+
+      {transcript?.summary && (
+        <MeetingSummaryActions
+          itemId={item.id}
+          transcriptId={transcript.id}
+          acoes={transcript.summary.acoes}
+          spaces={spaces}
+          defaultSpaceId={item.space?.id ?? null}
+        />
+      )}
 
       <TagSelector itemId={item.id} tags={tags} />
 
