@@ -1,4 +1,4 @@
-import { CircleDollarSign, KeyRound, Keyboard, ListChecks, Shapes, Shield, Smartphone, Tag, Trash2 } from "lucide-react";
+import { CircleDollarSign, FileScan, KeyRound, Keyboard, ListChecks, Shapes, Shield, Smartphone, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { countFailedJobs } from "@/features/jobs/queries";
 import { requireOwner } from "@/lib/auth";
@@ -107,6 +107,17 @@ export default async function ConfiguracoesPage() {
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Uso e custo</p>
           <p className="text-zinc-500 dark:text-zinc-400">Gasto do mês por provedor e recurso, orçamento de IA</p>
+        </div>
+      </Link>
+
+      <Link
+        href="/configuracoes/midia"
+        className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.08] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+      >
+        <FileScan className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-medium text-black dark:text-zinc-50">Mídia</p>
+          <p className="text-zinc-500 dark:text-zinc-400">OCR automático de imagens e PDFs escaneados</p>
         </div>
       </Link>
 
