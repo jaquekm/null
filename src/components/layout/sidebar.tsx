@@ -9,7 +9,15 @@ import { SpaceSidebarList } from "@/features/spaces/components/space-sidebar-lis
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { NAV_ITEMS } from "@/lib/nav-items";
 
-export function Sidebar({ spaces, inboxCount = 0 }: { spaces: SidebarSpace[]; inboxCount?: number }) {
+export function Sidebar({
+  spaces,
+  inboxCount = 0,
+  failedJobsCount = 0,
+}: {
+  spaces: SidebarSpace[];
+  inboxCount?: number;
+  failedJobsCount?: number;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -64,6 +72,15 @@ export function Sidebar({ spaces, inboxCount = 0 }: { spaces: SidebarSpace[]; in
                   }`}
                 >
                   {inboxCount}
+                </span>
+              )}
+              {item.href === "/configuracoes" && failedJobsCount > 0 && (
+                <span
+                  className={`shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300 ${
+                    collapsed ? "absolute top-1 right-1 px-1" : ""
+                  }`}
+                >
+                  {failedJobsCount}
                 </span>
               )}
             </Link>

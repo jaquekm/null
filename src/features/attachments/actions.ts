@@ -2,17 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
+import type { Database } from "@/lib/supabase/database.types";
 import { buildStoragePath } from "./lib/build-storage-path";
 import type { AttachmentRow } from "./queries";
 
 const GENERIC_ERROR = "Não foi possível salvar o anexo. Tente de novo.";
-
-/** Limite do plano do Supabase (ajuste se o plano do projeto mudar). */
-export const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024;
-/** Acima disso o upload usa o protocolo resumível (TUS) em vez do upload padrão. */
-export const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
 
 export interface DuplicateAttachment {
   id: string;
@@ -116,6 +113,24 @@ export async function reuseAttachment(
 
   revalidatePath(`/itens/${itemId}`);
   return ok({ id: data.id, fileName: data.file_name, mimeType: data.mime_type, sizeBytes: data.size_bytes, createdAt: data.created_at });
+}
+
+/**
+ * Remove do Storage todos os arquivos de um item (não mexe na linha em
+ * `attachments` — quem chama decide se apaga o item, que cai em cascata por
+ * `on delete cascade`). Usado por `permanentlyDeleteItem` e pelo job
+ * `purge_trash` (2.2): os dois excluem o item definitivamente, e sem isso o
+ * arquivo ficava órfão no bucket (o `on delete cascade` só limpa a linha do
+ * banco, não o objeto do Storage).
+ */
+export async function removeItemAttachmentsFromStorage(
+  supabase: SupabaseClient<Database>,
+  itemId: string,
+): Promise<void> {
+  const { data: attachments, error } = await supabase.from("attachments").select("storage_path").eq("item_id", itemId);
+  if (error || !attachments || attachments.length === 0) return;
+
+  await supabase.storage.from("attachments").remove(attachments.map((a) => a.storage_path));
 }
 
 export async function deleteAttachment(attachmentId: string, itemId: string): Promise<Result<null>> {

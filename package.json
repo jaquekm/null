@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
+    "jobs:dev": "node --env-file=.env.local scripts/jobs-dev.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

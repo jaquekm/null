@@ -99,5 +99,20 @@ export async function completeOnboarding(
     return fail(GENERIC_ERROR);
   }
 
+  // Agenda o job periódico de limpeza da lixeira (2.2) — só dá pra criar
+  // aqui porque é a primeira vez que existe um `owner_id` de verdade
+  // (`job_schedules.owner_id` não tem `default auth.uid()`, ao contrário
+  // das outras tabelas, já que normalmente é preenchido por código de
+  // service role, não por uma sessão de usuário).
+  await supabase.from("job_schedules").upsert(
+    {
+      kind: "purge_trash",
+      owner_id: user.id,
+      interval_seconds: 24 * 60 * 60,
+      enabled: true,
+    },
+    { onConflict: "kind" },
+  );
+
   redirect("/inbox");
 }
