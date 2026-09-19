@@ -8,6 +8,7 @@ type Client = SupabaseClient<Database>;
 
 export interface TranscriptForItem {
   id: string;
+  attachmentId: string;
   status: string;
   text: string | null;
   segments: Segment[];
@@ -21,7 +22,7 @@ export interface TranscriptForItem {
 export async function getTranscriptForItem(supabase: Client, itemId: string): Promise<TranscriptForItem | null> {
   const { data, error } = await supabase
     .from("transcripts")
-    .select("id, status, text, segments, speaker_names, summary, duration_seconds, error")
+    .select("id, attachment_id, status, text, segments, speaker_names, summary, duration_seconds, error")
     .eq("item_id", itemId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -31,6 +32,7 @@ export async function getTranscriptForItem(supabase: Client, itemId: string): Pr
 
   return {
     id: data.id,
+    attachmentId: data.attachment_id,
     status: data.status,
     text: data.text,
     segments: (data.segments as unknown as Segment[] | null) ?? [],

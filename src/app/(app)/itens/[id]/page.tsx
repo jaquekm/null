@@ -20,6 +20,7 @@ import {
 import { TagSelector } from "@/features/tags/components/tag-selector";
 import { listItemTags } from "@/features/tags/queries";
 import { MeetingSummaryActions } from "@/features/transcripts/components/meeting-summary-actions";
+import { TranscriptViewer } from "@/features/transcripts/components/transcript-viewer";
 import { getTranscriptForItem } from "@/features/transcripts/queries";
 import { requireOwner } from "@/lib/auth";
 
@@ -64,6 +65,18 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       <ItemEditor key={item.updatedAt} item={item} />
 
       {item.type?.slug === "reuniao" && <RecordMeetingButton itemId={item.id} />}
+
+      {transcript && (
+        <TranscriptViewer
+          transcriptId={transcript.id}
+          attachmentId={transcript.attachmentId}
+          status={transcript.status}
+          error={transcript.error}
+          segments={transcript.segments}
+          speakerNames={transcript.speakerNames}
+          summary={transcript.summary}
+        />
+      )}
 
       {transcript?.summary && (
         <MeetingSummaryActions
