@@ -6,10 +6,12 @@ import { CaptureForm } from "./capture-form";
 export function CaptureDialog({
   spaces,
   types,
+  initialTypeId,
   onClose,
 }: {
   spaces: SidebarSpace[];
   types: { id: string; name: string }[];
+  initialTypeId?: string;
   onClose: () => void;
 }) {
   return (
@@ -35,7 +37,7 @@ export function CaptureDialog({
             ×
           </button>
         </div>
-        <CaptureForm spaces={spaces} types={types} onDone={onClose} />
+        <CaptureForm spaces={spaces} types={types} initialTypeId={initialTypeId} onDone={onClose} />
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ export function BottomNav({ email }: { email: string }) {
 
         <button
           type="button"
-          onClick={openCapture}
+          onClick={() => openCapture()}
           className="bg-foreground text-background flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
           aria-label="Capturar"
         >

@@ -5,7 +5,7 @@ import type { SidebarSpace } from "@/features/spaces/queries";
 import { CaptureDialog } from "./capture-dialog";
 
 interface CaptureDialogContextValue {
-  open: () => void;
+  open: (options?: { typeId?: string }) => void;
 }
 
 const CaptureDialogContext = createContext<CaptureDialogContextValue | null>(null);
@@ -27,11 +27,13 @@ export function CaptureDialogProvider({
   types: { id: string; name: string }[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [initialTypeId, setInitialTypeId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === "Space") {
         event.preventDefault();
+        setInitialTypeId(undefined);
         setIsOpen(true);
       }
     }
@@ -40,9 +42,18 @@ export function CaptureDialogProvider({
   }, []);
 
   return (
-    <CaptureDialogContext.Provider value={{ open: () => setIsOpen(true) }}>
+    <CaptureDialogContext.Provider
+      value={{
+        open: (options) => {
+          setInitialTypeId(options?.typeId);
+          setIsOpen(true);
+        },
+      }}
+    >
       {children}
-      {isOpen && <CaptureDialog spaces={spaces} types={types} onClose={() => setIsOpen(false)} />}
+      {isOpen && (
+        <CaptureDialog spaces={spaces} types={types} initialTypeId={initialTypeId} onClose={() => setIsOpen(false)} />
+      )}
     </CaptureDialogContext.Provider>
   );
 }

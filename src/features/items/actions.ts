@@ -9,10 +9,12 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
 import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
+import { positionBetween } from "@/features/spaces/lib/position";
 import { diffLinks } from "./lib/diff-links";
 import { extractMentionIds } from "./lib/extract-mention-ids";
 import { extractText } from "./lib/extract-text";
 import { remapProperties } from "./lib/remap-properties";
+import { getItemVersion, type ItemVersionDetail } from "./queries";
 
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
 const CONFLICT_ERROR = "Este item foi alterado em outro dispositivo.";
@@ -198,6 +200,21 @@ export async function softDeleteItems(itemIds: string[]): Promise<Result<null>> 
   if (error) return fail("Não foi possível excluir os itens.");
 
   revalidatePath("/inbox");
+  return ok(null);
+}
+
+/** Reordenar dentro de uma coluna do Kanban (1.15) — mesmo padrão de `reorderSpace` (1.3). */
+export async function reorderItem(
+  itemId: string,
+  beforePosition: number | null,
+  afterPosition: number | null,
+): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const position = positionBetween(beforePosition, afterPosition);
+
+  const { error } = await supabase.from("items").update({ position }).eq("id", itemId).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível reordenar os itens.");
+
   return ok(null);
 }
 
@@ -460,4 +477,108 @@ export async function createItemForMention(
   if (error || !data) return fail("Não foi possível criar o item.");
 
   return ok({ id: data.id, title: data.title });
+}
+
+/** Conteúdo completo de uma versão, buscado sob demanda ao abrir o diálogo de visualização/comparação (1.17). */
+export async function getItemVersionDetail(itemId: string, versionId: string): Promise<ItemVersionDetail | null> {
+  const { supabase } = await requireOwner();
+  return getItemVersion(supabase, itemId, versionId);
+}
+
+/** "Salvar versão agora" (1.17): snapshot manual do estado atual, com rótulo opcional. */
+export async function saveItemVersionNow(itemId: string, label: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  const { data: item, error: readError } = await supabase
+    .from("items")
+    .select("title, content, properties")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (readError || !item) return fail("Item não encontrado.");
+
+  const { error } = await supabase.from("item_versions").insert({
+    owner_id: user.id,
+    item_id: itemId,
+    title: item.title,
+    content: item.content,
+    properties: item.properties,
+    reason: "manual",
+    label: label.trim() || null,
+  });
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(`/itens/${itemId}`);
+  return ok(null);
+}
+
+/**
+ * Restaurar uma versão (1.17): salva o estado atual como uma versão nova
+ * (`reason = 'restore'`, uma rede de segurança pra desfazer a própria
+ * restauração) e só então aplica título/conteúdo/propriedades da versão
+ * escolhida — mesmo reconciliamento de menções que `updateItemContent` faz,
+ * já que o conteúdo restaurado pode ter `[[menções]]` diferentes do atual.
+ */
+export async function restoreItemVersion(itemId: string, versionId: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  const [{ data: current, error: currentError }, { data: target, error: targetError }] = await Promise.all([
+    supabase.from("items").select("title, content, properties").eq("id", itemId).maybeSingle(),
+    supabase.from("item_versions").select("title, content, properties").eq("id", versionId).eq("item_id", itemId).maybeSingle(),
+  ]);
+  if (currentError || !current) return fail("Item não encontrado.");
+  if (targetError || !target) return fail("Versão não encontrada.");
+
+  const { error: snapshotError } = await supabase.from("item_versions").insert({
+    owner_id: user.id,
+    item_id: itemId,
+    title: current.title,
+    content: current.content,
+    properties: current.properties,
+    reason: "restore",
+  });
+  if (snapshotError) return fail(GENERIC_ERROR);
+
+  const targetContent = (target.content as unknown as JSONContent | null) ?? null;
+
+  const { data: existingLinks, error: linksReadError } = await supabase
+    .from("links")
+    .select("target_id")
+    .eq("source_id", itemId)
+    .eq("kind", "mention");
+  if (linksReadError) return fail(GENERIC_ERROR);
+
+  const currentMentionIds = existingLinks.map((l) => l.target_id);
+  const nextMentionIds = extractMentionIds(targetContent);
+  const { add, remove } = diffLinks(currentMentionIds, nextMentionIds);
+
+  const { error } = await supabase
+    .from("items")
+    .update({
+      title: target.title,
+      content: target.content,
+      content_text: extractText(targetContent),
+      properties: target.properties,
+    })
+    .eq("id", itemId)
+    .eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+
+  if (remove.length > 0) {
+    await supabase.from("links").delete().eq("source_id", itemId).eq("kind", "mention").in("target_id", remove);
+  }
+  if (add.length > 0) {
+    await supabase.from("links").insert(
+      add.map((targetId) => ({
+        owner_id: user.id,
+        source_id: itemId,
+        target_id: targetId,
+        kind: "mention",
+      })),
+    );
+  }
+
+  await attachHashtagsFromText(supabase, user.id, itemId, target.title);
+
+  revalidatePath(`/itens/${itemId}`);
+  return ok(null);
 }

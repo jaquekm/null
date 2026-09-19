@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
-import type { TagOption } from "@/features/tags/queries";
+import { listTagsByItemIds, type TagOption } from "@/features/tags/queries";
 
 type Client = SupabaseClient<Database>;
 
@@ -101,18 +101,51 @@ export interface ItemVersionRow {
   id: string;
   title: string;
   reason: string;
+  label: string | null;
   createdAt: string;
 }
 
 export async function listItemVersions(supabase: Client, itemId: string): Promise<ItemVersionRow[]> {
   const { data, error } = await supabase
     .from("item_versions")
-    .select("id, title, reason, created_at")
+    .select("id, title, reason, label, created_at")
     .eq("item_id", itemId)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw error;
-  return data.map((v) => ({ id: v.id, title: v.title, reason: v.reason, createdAt: v.created_at }));
+  return data.map((v) => ({ id: v.id, title: v.title, reason: v.reason, label: v.label, createdAt: v.created_at }));
+}
+
+export interface ItemVersionDetail {
+  id: string;
+  title: string;
+  content: JSONContent | null;
+  properties: Record<string, unknown>;
+  reason: string;
+  label: string | null;
+  createdAt: string;
+}
+
+/** Conteúdo/propriedades completos de uma versão — buscado sob demanda ao abrir o diálogo de comparação (1.17). */
+export async function getItemVersion(supabase: Client, itemId: string, versionId: string): Promise<ItemVersionDetail | null> {
+  const { data, error } = await supabase
+    .from("item_versions")
+    .select("id, title, content, properties, reason, label, created_at")
+    .eq("id", versionId)
+    .eq("item_id", itemId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    title: data.title,
+    content: (data.content as unknown as JSONContent | null) ?? null,
+    properties: (data.properties as Record<string, unknown> | null) ?? {},
+    reason: data.reason,
+    label: data.label,
+    createdAt: data.created_at,
+  };
 }
 
 export interface TypeOptionWithFields {
@@ -155,20 +188,10 @@ export async function listInboxItems(supabase: Client): Promise<InboxItemRow[]> 
   if (error) throw error;
   if (data.length === 0) return [];
 
-  const ids = data.map((item) => item.id);
-  const { data: itemTags, error: tagsError } = await supabase
-    .from("item_tags")
-    .select("item_id, tags(id, name, color)")
-    .in("item_id", ids);
-  if (tagsError) throw tagsError;
-
-  const tagsByItem = new Map<string, TagOption[]>();
-  for (const row of itemTags) {
-    if (!row.tags) continue;
-    const list = tagsByItem.get(row.item_id) ?? [];
-    list.push(row.tags);
-    tagsByItem.set(row.item_id, list);
-  }
+  const tagsByItem = await listTagsByItemIds(
+    supabase,
+    data.map((item) => item.id),
+  );
 
   return data.map((item) => ({
     id: item.id,
@@ -192,6 +215,39 @@ export async function countInboxItems(supabase: Client): Promise<number> {
     .is("deleted_at", null);
   if (error) throw error;
   return count ?? 0;
+}
+
+export interface BrowseItemRow {
+  id: string;
+  title: string;
+  spaceId: string | null;
+  typeId: string | null;
+  updatedAt: string;
+}
+
+/** Itens fixados — mostrados na busca (1.14) quando a caixa de texto está vazia. */
+export async function listPinnedItems(supabase: Client, limit = 8): Promise<BrowseItemRow[]> {
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, title, space_id, type_id, updated_at")
+    .eq("pinned", true)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data.map((item) => ({ id: item.id, title: item.title, spaceId: item.space_id, typeId: item.type_id, updatedAt: item.updated_at }));
+}
+
+/** Itens recentes — mostrados na busca (1.14) quando a caixa de texto está vazia. */
+export async function listRecentItems(supabase: Client, limit = 8): Promise<BrowseItemRow[]> {
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, title, space_id, type_id, updated_at")
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data.map((item) => ({ id: item.id, title: item.title, spaceId: item.space_id, typeId: item.type_id, updatedAt: item.updated_at }));
 }
 
 export interface TrashedItemRow {

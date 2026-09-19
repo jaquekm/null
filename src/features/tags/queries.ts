@@ -42,9 +42,23 @@ export async function listItemTags(supabase: Client, itemId: string): Promise<Ta
   return data.map((row) => row.tags).filter((tag): tag is TagOption => Boolean(tag));
 }
 
-/** Ids dos itens que têm a tag — usado pelo filtro por tag na página do espaço. */
-export async function listItemIdsForTag(supabase: Client, tagId: string): Promise<string[]> {
-  const { data, error } = await supabase.from("item_tags").select("item_id").eq("tag_id", tagId);
+/**
+ * Tags de vários itens de uma vez, agrupadas por `item_id` — usada por
+ * qualquer lista de itens que precisa mostrar tags sem uma consulta por
+ * linha (Inbox 1.13, Visões 1.15).
+ */
+export async function listTagsByItemIds(supabase: Client, itemIds: string[]): Promise<Map<string, TagOption[]>> {
+  const tagsByItem = new Map<string, TagOption[]>();
+  if (itemIds.length === 0) return tagsByItem;
+
+  const { data, error } = await supabase.from("item_tags").select("item_id, tags(id, name, color)").in("item_id", itemIds);
   if (error) throw error;
-  return data.map((row) => row.item_id);
+
+  for (const row of data) {
+    if (!row.tags) continue;
+    const list = tagsByItem.get(row.item_id) ?? [];
+    list.push(row.tags);
+    tagsByItem.set(row.item_id, list);
+  }
+  return tagsByItem;
 }

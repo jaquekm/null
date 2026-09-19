@@ -160,6 +160,15 @@ describe("buildPropertiesSchema", () => {
     expect(schema.safeParse({ relacionados: ["não-é-uuid"] }).success).toBe(false);
   });
 
+  it("contact aceita array de uuids, mesma regra de relation", () => {
+    const schema = buildPropertiesSchema([field({ key: "contatos", type: "contact", multiple: false })]);
+    const uuid1 = "11111111-1111-4111-8111-111111111111";
+    const uuid2 = "22222222-2222-4222-8222-222222222222";
+    expect(schema.safeParse({ contatos: [uuid1] }).success).toBe(true);
+    expect(schema.safeParse({ contatos: [uuid1, uuid2] }).success).toBe(false);
+    expect(schema.safeParse({ contatos: ["não-é-uuid"] }).success).toBe(false);
+  });
+
   it("file aceita array de uuids de anexos", () => {
     const schema = buildPropertiesSchema([field({ key: "arquivos", type: "file" })]);
     const uuid = "33333333-3333-4333-8333-333333333333";
