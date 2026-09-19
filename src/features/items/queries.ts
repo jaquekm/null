@@ -194,6 +194,39 @@ export async function countInboxItems(supabase: Client): Promise<number> {
   return count ?? 0;
 }
 
+export interface BrowseItemRow {
+  id: string;
+  title: string;
+  spaceId: string | null;
+  typeId: string | null;
+  updatedAt: string;
+}
+
+/** Itens fixados — mostrados na busca (1.14) quando a caixa de texto está vazia. */
+export async function listPinnedItems(supabase: Client, limit = 8): Promise<BrowseItemRow[]> {
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, title, space_id, type_id, updated_at")
+    .eq("pinned", true)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data.map((item) => ({ id: item.id, title: item.title, spaceId: item.space_id, typeId: item.type_id, updatedAt: item.updated_at }));
+}
+
+/** Itens recentes — mostrados na busca (1.14) quando a caixa de texto está vazia. */
+export async function listRecentItems(supabase: Client, limit = 8): Promise<BrowseItemRow[]> {
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, title, space_id, type_id, updated_at")
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data.map((item) => ({ id: item.id, title: item.title, spaceId: item.space_id, typeId: item.type_id, updatedAt: item.updated_at }));
+}
+
 export interface TrashedItemRow {
   id: string;
   title: string;
