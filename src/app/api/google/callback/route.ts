@@ -8,6 +8,8 @@ import { OAUTH_STATE_COOKIE, verifyOAuthStateCookie } from "@/lib/google/state-c
 import { enqueueJob } from "@/lib/jobs/enqueue";
 
 const INTEGRATIONS_PATH = "/configuracoes/integracoes";
+/** `job_schedules.interval_seconds` do `calendar_sync` (3.5) — "a cada 10 min", enunciado da fase 3. */
+const CALENDAR_SYNC_INTERVAL_SECONDS = 10 * 60;
 
 function redirectWithError(requestUrl: string, message: string) {
   const url = new URL(INTEGRATIONS_PATH, requestUrl);
@@ -89,6 +91,13 @@ export async function GET(request: Request) {
     return redirectWithError(request.url, "Não foi possível salvar a conexão com o Google.");
   }
 
+  // Só faz sentido existir a partir da primeira conexão — `onConflict: "kind"`
+  // faz isso ser um no-op nas reconexões seguintes (3.5).
+  await supabase.from("job_schedules").upsert(
+    { kind: "calendar_sync", owner_id: user.id, interval_seconds: CALENDAR_SYNC_INTERVAL_SECONDS, enabled: true },
+    { onConflict: "kind" },
+  );
+
   try {
     const calendars = await listGoogleCalendars(tokens.accessToken);
     if (calendars.length > 0) {
@@ -111,7 +120,7 @@ export async function GET(request: Request) {
     // depois (botão "Sincronizar agora", 3.5) — não bloqueia o fluxo.
   }
 
-  await enqueueJob({ ownerId: user.id, kind: "calendar_sync", payload: { connectionId: connection.id } });
+  await enqueueJob({ ownerId: user.id, kind: "calendar_sync" });
 
   return NextResponse.redirect(new URL(INTEGRATIONS_PATH, request.url));
 }

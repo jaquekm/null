@@ -1,6 +1,7 @@
 import { CalendarPlus, RotateCw } from "lucide-react";
 import { CalendarRow } from "@/features/integrations/components/calendar-row";
 import { DisconnectButton } from "@/features/integrations/components/disconnect-button";
+import { SyncNowButton } from "@/features/integrations/components/sync-now-button";
 import { listGoogleConnections } from "@/features/integrations/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { requireOwner } from "@/lib/auth";
@@ -14,9 +15,12 @@ export default async function IntegrationsSettingsPage(props: PageProps<"/config
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Integrações</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">Conexão com o Google Calendar.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Integrações</h1>
+          <p className="text-sm text-black/60 dark:text-white/60">Conexão com o Google Calendar.</p>
+        </div>
+        {connections.some((connection) => connection.status === "active") && <SyncNowButton />}
       </div>
 
       {erro && (

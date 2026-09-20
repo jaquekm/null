@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { decrypt } from "@/lib/crypto";
 import { revokeGoogleToken } from "@/lib/google/oauth";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -68,5 +69,12 @@ export async function updateCalendarSync(input: z.infer<typeof updateCalendarSch
   if (error) return fail("Não foi possível salvar.");
 
   revalidatePath(INTEGRATIONS_PATH);
+  return ok(null);
+}
+
+/** Botão "Sincronizar agora" (3.5) — enfileira o `calendar_sync` pra rodar já, sem esperar o ciclo de 10 min. */
+export async function syncNow(): Promise<Result<null>> {
+  const { user } = await requireOwner();
+  await enqueueJob({ ownerId: user.id, kind: "calendar_sync", dedupeKey: "calendar_sync:manual" });
   return ok(null);
 }

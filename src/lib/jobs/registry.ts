@@ -1,4 +1,6 @@
 import "server-only";
+import { calendarPush } from "./handlers/calendar-push";
+import { calendarSync } from "./handlers/calendar-sync";
 import { extractAttachment } from "./handlers/extract-attachment";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { purgeTrash } from "./handlers/purge-trash";
@@ -8,7 +10,7 @@ import type { JobHandler } from "./types";
 
 /**
  * Um handler por `kind` de job (2.2). Fases seguintes registram mais:
- * `calendar_sync`/`dispatch_reminders`/`generate_reminders` (fase 3),
+ * `dispatch_reminders`/`generate_reminders` (fase 3),
  * `index_item`/`run_automation` (fase 5), `generate_report` (fase 6).
  */
 export const handlers: Record<string, JobHandler> = {
@@ -17,4 +19,6 @@ export const handlers: Record<string, JobHandler> = {
   poll_transcription: pollTranscription,
   summarize_transcript: summarizeTranscript,
   extract_attachment: extractAttachment,
+  calendar_sync: calendarSync,
+  calendar_push: calendarPush,
 };
