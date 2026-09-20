@@ -356,6 +356,21 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b). Dois motivos: primeiro, o próprio enunciado da 3.3 pede um "Mention **separado** do de itens", texto literal. Segundo, e mais importante: `extractMentionIds` (1.7, já em produção) varre o documento assumindo que **todo** nó `mention` é uma menção de item, sem checar nenhum atributo — reaproveitar o mesmo tipo de nó exigiria alterar essa função já usada em produção (`updateItemContent`/`restoreItemVersion`) pra filtrar por `mentionSuggestionChar`. Sem essa alteração, uma menção de contato seria capturada por engano como menção de item, e o código tentaria inserir o id do contato em `links.target_id` — coluna com FK pra `items(id)`, que falharia (e falharia **silenciosamente**, já que o `insert` em `links` nesses dois pontos não confere `error`). Um nó separado elimina esse risco de raiz, sem tocar em nada que já funciona.
 - **Consequências:** dois arquivos de extensão paralelos (`mention-suggestion.ts`/`contact-mention-suggestion.ts`), mas reaproveitando o mesmo componente de lista (`MentionList` — a UI é idêntica). `extractContactMentionIds` (novo) é o par de `extractMentionIds`, e as duas convivem no editor sem interferência: cada uma só enxerga nós do próprio tipo.
 
+### 2026-09-20 — E-mail da conta Google via endpoint UserInfo, não decodificando o ID token
+
+- **Fase/tarefa:** 3.4 (Conexão com o Google Calendar)
+- **Contexto:** a troca do código OAuth devolve, além do `access_token`, um `id_token` (JWT) que já carrega o e-mail do usuário — decodificá-lo evitaria uma chamada de rede extra no callback.
+- **Opções consideradas:** (a) decodificar e **validar** o `id_token` (assinatura, `iss`, `aud`, expiração) — exigiria adicionar uma biblioteca de verificação de JWT (ex.: `jose`) só pra isso, já que decodificar sem validar a assinatura seria confiar cegamente num payload que, em tese, poderia vir de qualquer lugar; (b) chamar `GET https://openidconnect.googleapis.com/v1/userinfo` com o `access_token` recém-obtido.
+- **Decisão:** (b). O endpoint UserInfo só responde com um `access_token` válido emitido pelo próprio Google segundos antes — a validação "é do Google mesmo" já está embutida no fato de o `access_token` ter vindo direto da troca de código que acabamos de fazer, sem precisar verificar assinatura de JWT manualmente nem adicionar dependência nova pra isso (CLAUDE.md: não adicionar dependência fora da stack sem justificar).
+- **Consequências:** uma chamada de rede a mais no callback (latência desprezível frente ao redirecionamento OAuth inteiro). Se no futuro o Hub precisar de outros claims do ID token (ex.: `sub` estável entre re-consentimentos), essa decisão precisa ser revisitada.
+
+### 2026-09-20 — Calendários já existentes não são sobrescritos ao reconectar a mesma conta Google
+
+- **Fase/tarefa:** 3.4 (Conexão com o Google Calendar)
+- **Contexto:** o callback grava a lista de calendários do Google toda vez que roda — inclusive numa reconexão (token expirado por o app estar "Em teste", ou o dono desconectando e conectando de novo a mesma conta). Um `upsert` comum, por `(connection_id, external_id)`, sobrescreveria `sync_enabled`/`space_id` de calendários que o dono já tinha configurado manualmente em `/configuracoes/integracoes`, apagando essa curadoria a cada reconexão.
+- **Decisão:** `supabase.from("calendars").upsert(..., { onConflict: "connection_id,external_id", ignoreDuplicates: true })` — só insere calendários que ainda não existem (novos calendários criados no Google desde a última conexão); calendários já conhecidos ficam intocados, com o que o dono já escolheu.
+- **Consequências:** um calendário renomeado ou com cor trocada no lado do Google não atualiza `name`/`color` numa reconexão (fica com o valor salvo da primeira vez) — aceitável porque esses dois campos são só exibição; se isso incomodar na prática, a sincronização periódica (3.5, que já vai ler o calendário via `events.list`) é o lugar certo pra também atualizar metadados do calendário, não o callback de conexão.
+
 ## Decisões em aberto previstas no plano
 - [ ] Estratégia de eventos recorrentes do Google Calendar (fase 3.5)
 - [ ] Biblioteca da agenda: FullCalendar ou componente próprio (fase 3.6)
