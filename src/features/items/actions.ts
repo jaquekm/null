@@ -15,6 +15,7 @@ import { diffLinks } from "./lib/diff-links";
 import { extractMentionIds } from "./lib/extract-mention-ids";
 import { extractText } from "./lib/extract-text";
 import { remapProperties } from "./lib/remap-properties";
+import { syncContactMentions } from "./lib/sync-contact-mentions";
 import { getItemVersion, type ItemVersionDetail } from "./queries";
 
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
@@ -437,6 +438,7 @@ export async function updateItemContent(
       })),
     );
   }
+  await syncContactMentions(supabase, user.id, itemId, content);
 
   revalidatePath(`/itens/${itemId}`);
   return ok({ updatedAt: data.updated_at });
@@ -579,6 +581,7 @@ export async function restoreItemVersion(itemId: string, versionId: string): Pro
       })),
     );
   }
+  await syncContactMentions(supabase, user.id, itemId, targetContent);
 
   await attachHashtagsFromText(supabase, user.id, itemId, target.title);
 

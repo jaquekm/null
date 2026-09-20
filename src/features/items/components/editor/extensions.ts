@@ -9,6 +9,7 @@ import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
 import StarterKit from "@tiptap/starter-kit";
 import { common, createLowlight } from "lowlight";
+import { createContactMentionSuggestion } from "./contact-mention-suggestion";
 import { ImagePaste } from "./image-paste-extension";
 import { MarkdownPaste } from "./markdown-paste-extension";
 import { createMentionSuggestion } from "./mention-suggestion";
@@ -60,6 +61,28 @@ export function buildEditorExtensions(spaceId: string | null, itemId: string) {
       renderText({ node }) {
         const label = (node.attrs.label as string | null) ?? (node.attrs.id as string);
         return `[[${label}]]`;
+      },
+    }),
+    // Menção de contatos (3.3) — nó separado do de itens acima (`kind = 'contactMention'`),
+    // trigger `@`, grava em `item_contacts` em vez de `links`.
+    Mention.extend({ name: "contactMention" }).configure({
+      suggestion: createContactMentionSuggestion(),
+      renderHTML({ node }) {
+        const label = (node.attrs.label as string | null) ?? (node.attrs.id as string);
+        return [
+          "a",
+          {
+            "data-type": "contact-mention",
+            "data-id": node.attrs.id as string,
+            href: `/contatos/${node.attrs.id as string}`,
+            class: "mention",
+          },
+          `@${label}`,
+        ] as const;
+      },
+      renderText({ node }) {
+        const label = (node.attrs.label as string | null) ?? (node.attrs.id as string);
+        return `@${label}`;
       },
     }),
   ];

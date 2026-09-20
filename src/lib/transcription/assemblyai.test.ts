@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AssemblyAiProvider } from "./assemblyai";
+
+/** Resposta no formato real do endpoint `GET /v2/transcript/{id}` da AssemblyAI (2.11). */
+const completedFixture = JSON.parse(
+  readFileSync(path.join(import.meta.dirname, "../../../tests/fixtures/assemblyai-transcript-completed.json"), "utf-8"),
+);
 
 const fetchMock = vi.fn();
 
@@ -117,6 +124,22 @@ describe("AssemblyAiProvider.fetchResult", () => {
   it("lança erro em HTTP não-ok", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({}, false, 500));
     await expect(provider.fetchResult("id-1")).rejects.toThrow(/HTTP 500/);
+  });
+
+  it("normaliza uma resposta real de transcrição completa (fixture de tests/fixtures)", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(completedFixture));
+
+    const result = await provider.fetchResult("9c9b4a1f-2c3e-4b8b-9a1a-7e6b7b9b7c1d");
+
+    expect(result).toEqual({
+      status: "completed",
+      text: completedFixture.text,
+      durationSeconds: 8,
+      segments: [
+        { speaker: "A", start: 0.04, end: 4.2, text: "Bom dia, pessoal. Vamos começar revisando o roadmap do trimestre." },
+        { speaker: "B", start: 4.3, end: 8.1, text: "Concordamos em adiar o lançamento em duas semanas." },
+      ],
+    });
   });
 });
 

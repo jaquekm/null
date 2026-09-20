@@ -4,6 +4,7 @@ import { Mic, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { SidebarSpace } from "@/features/spaces/queries";
+import { ScanCapture } from "@/features/attachments/components/scan-capture";
 import { createRecordingItem } from "@/features/media/actions";
 import { AudioRecorder } from "@/features/media/components/audio-recorder";
 import { CaptureForm } from "./capture-form";
@@ -91,6 +92,7 @@ export function CapturePanel({
           <Users className="h-4 w-4" />
           Gravar reunião
         </button>
+        <ScanCapture onDone={onDone} />
       </div>
       {error && (
         <p role="alert" className="text-xs text-red-600 dark:text-red-400">

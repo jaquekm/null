@@ -1,0 +1,50 @@
+{
+  "id": "9c9b4a1f-2c3e-4b8b-9a1a-7e6b7b9b7c1d",
+  "language_model": "assemblyai_default",
+  "acoustic_model": "assemblyai_default",
+  "language_code": "pt",
+  "status": "completed",
+  "audio_url": "https://storage.example.com/attachments/owner-1/item-1/reuniao.webm",
+  "text": "Bom dia, pessoal. Vamos começar revisando o roadmap do trimestre. Concordamos em adiar o lançamento em duas semanas.",
+  "words": [
+    { "text": "Bom", "start": 40, "end": 200, "confidence": 0.99, "speaker": "A" },
+    { "text": "dia,", "start": 200, "end": 480, "confidence": 0.98, "speaker": "A" }
+  ],
+  "utterances": [
+    {
+      "speaker": "A",
+      "text": "Bom dia, pessoal. Vamos começar revisando o roadmap do trimestre.",
+      "start": 40,
+      "end": 4200,
+      "confidence": 0.97,
+      "words": [
+        { "text": "Bom", "start": 40, "end": 200, "confidence": 0.99, "speaker": "A" },
+        { "text": "dia,", "start": 200, "end": 480, "confidence": 0.98, "speaker": "A" }
+      ]
+    },
+    {
+      "speaker": "B",
+      "text": "Concordamos em adiar o lançamento em duas semanas.",
+      "start": 4300,
+      "end": 8100,
+      "confidence": 0.95,
+      "words": [
+        { "text": "Concordamos", "start": 4300, "end": 4900, "confidence": 0.94, "speaker": "B" }
+      ]
+    }
+  ],
+  "confidence": 0.96,
+  "audio_duration": 8,
+  "punctuate": true,
+  "format_text": true,
+  "dual_channel": null,
+  "speaker_labels": true,
+  "webhook_url": "https://hub.example/api/webhooks/transcription",
+  "webhook_status_code": 200,
+  "webhook_auth": true,
+  "auto_highlights_result": null,
+  "content_safety_labels": null,
+  "sentiment_analysis_results": null,
+  "entities": null,
+  "error": null
+}

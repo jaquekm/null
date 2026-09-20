@@ -44,6 +44,7 @@
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "diff": "^9.0.0",
+    "libphonenumber-js": "^1.13.13",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.46.0",
     "mammoth": "^1.12.3",

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
+import { createCaptureItem } from "@/features/capture/lib/create-capture-item";
 import { extractText } from "@/features/items/lib/extract-text";
 import { markdownToTiptapDoc } from "@/features/items/lib/markdown-to-tiptap";
 import { getObjectTypeBySlug } from "@/features/types/queries";
@@ -49,6 +50,8 @@ const recordSchema = z.object({
   sizeBytes: z.number().int().nonnegative(),
   sha256: z.string().length(64),
   durationSeconds: z.number().positive().optional(),
+  /** 2.10: o PDF combinado do "Escanear" não precisa de OCR automático — o texto de cada foto já foi extraído individualmente. */
+  skipExtraction: z.boolean().optional(),
 });
 
 /** Enfileira `extract_attachment` (2.9) se o MIME for elegível — mesma checagem usada pro `extraction_status` inicial na linha. */
@@ -68,7 +71,7 @@ export async function recordAttachment(input: z.infer<typeof recordSchema>): Pro
   if (!parsed.success) return fail(GENERIC_ERROR);
 
   const { supabase, user } = await requireOwner();
-  const eligible = pickExtractionStrategy(parsed.data.mimeType) !== null;
+  const eligible = !parsed.data.skipExtraction && pickExtractionStrategy(parsed.data.mimeType) !== null;
 
   const { data, error } = await supabase
     .from("attachments")
@@ -370,4 +373,30 @@ export async function summarizeDocument(attachmentId: string): Promise<Result<nu
 
   revalidatePath(`/itens/${attachment.item_id}`);
   return ok(null);
+}
+
+/**
+ * "Escanear" (2.10): cria o item que vai receber as fotos digitalizadas —
+ * mesmo padrão do "Gravar"/"Gravar reunião" (2.5, `createRecordingItem`):
+ * cria o item vazio primeiro, só pra ter um `itemId` pra anexar as fotos
+ * conforme cada uma é enviada.
+ */
+export async function createScanItem(): Promise<Result<{ id: string }>> {
+  const { supabase, user } = await requireOwner();
+
+  const docType = await getObjectTypeBySlug(supabase, "documento");
+  const title = `Documento escaneado — ${new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`;
+
+  const result = await createCaptureItem(supabase, {
+    ownerId: user.id,
+    title,
+    body: "",
+    spaceId: null,
+    typeId: docType?.id ?? null,
+    source: "scan",
+  });
+  if (!result) return fail("Não foi possível criar o item.");
+
+  revalidatePath("/inbox");
+  return ok(result);
 }
