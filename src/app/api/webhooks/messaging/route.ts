@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hmacSha256Hex, safeEqual } from "@/lib/crypto";
 import { serverEnv } from "@/lib/env";
+import { applyContactOptOut } from "@/lib/messaging/apply-contact-opt-out";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const deliveryUpdateSchema = z.object({
@@ -44,10 +45,7 @@ export async function POST(request: Request) {
 
   const optOut = optOutSchema.safeParse(payload);
   if (optOut.success) {
-    await admin
-      .from("contacts")
-      .update({ opted_out_at: new Date().toISOString(), whatsapp_opt_in: false, email_opt_in: false })
-      .eq("phone_e164", optOut.data.phone);
+    await applyContactOptOut(admin, { phone: optOut.data.phone });
     return NextResponse.json({ ok: true });
   }
 

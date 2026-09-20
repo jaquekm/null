@@ -21,6 +21,9 @@ import { TagSelector } from "@/features/tags/components/tag-selector";
 import { listItemTags } from "@/features/tags/queries";
 import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
 import { getUserTimezone } from "@/features/reminders/queries";
+import { ItemShareComments } from "@/features/sharing/components/item-share-comments";
+import { ShareDialog } from "@/features/sharing/components/share-dialog";
+import { listItemShareComments, listShareLinksForItem } from "@/features/sharing/queries";
 import { MeetingSummaryActions } from "@/features/transcripts/components/meeting-summary-actions";
 import { TranscriptViewer } from "@/features/transcripts/components/transcript-viewer";
 import { getTranscriptForItem } from "@/features/transcripts/queries";
@@ -33,18 +36,21 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
-  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments, transcript, timezone] = await Promise.all([
-    listActiveSpaces(supabase),
-    listObjectTypesForPicker(supabase),
-    listSubitems(supabase, item.id),
-    listBacklinks(supabase, item.id),
-    listItemVersions(supabase, item.id),
-    item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
-    listItemTags(supabase, item.id),
-    listItemAttachments(supabase, item.id),
-    getTranscriptForItem(supabase, item.id),
-    getUserTimezone(supabase, user.id),
-  ]);
+  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments, transcript, timezone, shareComments, shareLinks] =
+    await Promise.all([
+      listActiveSpaces(supabase),
+      listObjectTypesForPicker(supabase),
+      listSubitems(supabase, item.id),
+      listBacklinks(supabase, item.id),
+      listItemVersions(supabase, item.id),
+      item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
+      listItemTags(supabase, item.id),
+      listItemAttachments(supabase, item.id),
+      getTranscriptForItem(supabase, item.id),
+      getUserTimezone(supabase, user.id),
+      listItemShareComments(supabase, item.id),
+      listShareLinksForItem(supabase, item.id),
+    ]);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -93,13 +99,16 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 
       <TagSelector itemId={item.id} tags={tags} />
 
-      <RemindAboutButton
-        defaultTitle={item.title || "Sem título"}
-        defaultTimezone={timezone}
-        itemId={item.id}
-        sourceType="item"
-        sourceId={item.id}
-      />
+      <div className="flex flex-wrap gap-2">
+        <RemindAboutButton
+          defaultTitle={item.title || "Sem título"}
+          defaultTimezone={timezone}
+          itemId={item.id}
+          sourceType="item"
+          sourceId={item.id}
+        />
+        <ShareDialog itemId={item.id} links={shareLinks} />
+      </div>
 
       <ItemActionsBar
         itemId={item.id}
@@ -123,6 +132,8 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       </dl>
 
       <AttachmentList itemId={item.id} attachments={attachments} />
+
+      <ItemShareComments comments={shareComments} />
 
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
       <BacklinksPanel backlinks={backlinks} />
