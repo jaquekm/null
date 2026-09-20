@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reminderInputSchema } from "./schemas";
+import { reminderInputSchema, reminderRuleInputSchema } from "./schemas";
 
 function baseInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,5 +59,40 @@ describe("reminderInputSchema", () => {
 
   it("data em formato errado: inválido", () => {
     expect(reminderInputSchema.safeParse(baseInput({ date: "01/02/2026" })).success).toBe(false);
+  });
+});
+
+function baseRuleInput(overrides: Record<string, unknown> = {}) {
+  return {
+    name: "Lembrete de reunião para participantes",
+    kind: "event_before",
+    channel: "auto",
+    recipientType: "contacts",
+    messageTemplate: "Oi {{nome}}, sua reunião é {{data}} às {{hora}}.",
+    enabled: true,
+    config: { hoursBefore: 24 },
+    ...overrides,
+  };
+}
+
+describe("reminderRuleInputSchema", () => {
+  it("aceita uma regra válida", () => {
+    expect(reminderRuleInputSchema.safeParse(baseRuleInput()).success).toBe(true);
+  });
+
+  it("nome vazio: inválido", () => {
+    expect(reminderRuleInputSchema.safeParse(baseRuleInput({ name: "  " })).success).toBe(false);
+  });
+
+  it("kind fora do enum: inválido", () => {
+    expect(reminderRuleInputSchema.safeParse(baseRuleInput({ kind: "bill_due" })).success).toBe(false);
+  });
+
+  it("config vazio (sem valores default ainda escolhidos): ainda válido — os builders usam padrões", () => {
+    expect(reminderRuleInputSchema.safeParse(baseRuleInput({ config: {} })).success).toBe(true);
+  });
+
+  it("mensagem vazia: inválido", () => {
+    expect(reminderRuleInputSchema.safeParse(baseRuleInput({ messageTemplate: "  " })).success).toBe(false);
   });
 });

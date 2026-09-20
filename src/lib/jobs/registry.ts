@@ -3,6 +3,7 @@ import { calendarPush } from "./handlers/calendar-push";
 import { calendarSync } from "./handlers/calendar-sync";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
 import { extractAttachment } from "./handlers/extract-attachment";
+import { generateReminders } from "./handlers/generate-reminders";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
@@ -12,8 +13,7 @@ import type { JobHandler } from "./types";
 
 /**
  * Um handler por `kind` de job (2.2). Fases seguintes registram mais:
- * `generate_reminders` (3.10), `index_item`/`run_automation` (fase 5),
- * `generate_report` (fase 6).
+ * `index_item`/`run_automation` (fase 5), `generate_report` (fase 6).
  */
 export const handlers: Record<string, JobHandler> = {
   purge_trash: purgeTrash,
@@ -25,4 +25,5 @@ export const handlers: Record<string, JobHandler> = {
   calendar_push: calendarPush,
   prepare_meeting_notes: prepareMeetingNotes,
   dispatch_reminders: dispatchReminders,
+  generate_reminders: generateReminders,
 };

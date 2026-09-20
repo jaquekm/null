@@ -1,7 +1,8 @@
 "use client";
 
 import { formatInTimeZone } from "date-fns-tz";
-import { Bell, Plus } from "lucide-react";
+import { Bell, Plus, Settings2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -72,16 +73,24 @@ export function RemindersWorkspace({ contacts, defaultTimezone, initialUpcoming,
         <h1 className="flex items-center gap-2 text-xl font-semibold text-black dark:text-zinc-50">
           <Bell className="h-5 w-5" /> Lembretes
         </h1>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
-        >
-          <Plus className="h-4 w-4" /> Novo lembrete
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/lembretes/regras"
+            className="flex items-center gap-1.5 rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]"
+          >
+            <Settings2 className="h-4 w-4" /> Regras automáticas
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
+          >
+            <Plus className="h-4 w-4" /> Novo lembrete
+          </button>
+        </div>
       </div>
 
       {showForm && (

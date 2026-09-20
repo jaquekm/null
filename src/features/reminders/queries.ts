@@ -138,3 +138,33 @@ export async function listFailedDeliveries(supabase: Client): Promise<DeliveryLi
     .limit(200);
   return ((data ?? []) as unknown as DeliveryJoinedRow[]).map(mapDeliveryRow);
 }
+
+export interface ReminderRuleRow {
+  id: string;
+  name: string;
+  kind: string;
+  config: Record<string, unknown>;
+  channel: string;
+  recipientType: string;
+  messageTemplate: string;
+  enabled: boolean;
+}
+
+/** Regras automáticas (3.10, `/lembretes/regras`). */
+export async function listReminderRules(supabase: Client): Promise<ReminderRuleRow[]> {
+  const { data } = await supabase
+    .from("reminder_rules")
+    .select("id, name, kind, config, channel, recipient_type, message_template, enabled")
+    .order("created_at", { ascending: true });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    config: (row.config as Record<string, unknown>) ?? {},
+    channel: row.channel,
+    recipientType: row.recipient_type,
+    messageTemplate: row.message_template,
+    enabled: row.enabled,
+  }));
+}

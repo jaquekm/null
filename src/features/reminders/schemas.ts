@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RELATIONSHIPS } from "@/features/contacts/schemas";
 
 export const REMINDER_CHANNELS = ["whatsapp", "email", "push", "auto"] as const;
 export type ReminderChannel = (typeof REMINDER_CHANNELS)[number];
@@ -56,3 +57,37 @@ export type ReminderInput = z.infer<typeof reminderInputSchema>;
 
 export const REMINDER_STATUSES = ["scheduled", "paused", "completed", "canceled"] as const;
 export type ReminderStatus = (typeof REMINDER_STATUSES)[number];
+
+/** `bill_due`/`split_open` (enunciado) são fase 4 — não expostos na UI de regras (3.10) ainda. */
+export const REMINDER_RULE_KINDS = ["event_before", "birthday", "item_date_field"] as const;
+export type ReminderRuleKind = (typeof REMINDER_RULE_KINDS)[number];
+
+/** `config` é jsonb livre por natureza (cada `kind` usa campos diferentes) — o formulário monta a forma certa por `kind`; só os campos em comum a todo `kind` (nome, mensagem) são validados de forma estrita aqui. */
+export const reminderRuleInputSchema = z.object({
+  name: z.string().trim().min(1, "Nome é obrigatório."),
+  kind: z.enum(REMINDER_RULE_KINDS),
+  channel: z.enum(REMINDER_CHANNELS).default("auto"),
+  recipientType: z.enum(REMINDER_RECIPIENT_TYPES).default("contacts"),
+  messageTemplate: z.string().trim().min(1, "Mensagem é obrigatória."),
+  enabled: z.boolean().default(true),
+  config: z.record(z.string(), z.unknown()).default({}),
+});
+
+export type ReminderRuleInput = z.infer<typeof reminderRuleInputSchema>;
+
+export const eventBeforeRuleConfigSchema = z.object({
+  hoursBefore: z.coerce.number().int().positive().optional(),
+  minutesBefore: z.coerce.number().int().positive().optional(),
+  onlyRelationships: z.array(z.enum(RELATIONSHIPS)).optional(),
+});
+
+export const birthdayRuleConfigSchema = z.object({
+  sendToContact: z.boolean().optional(),
+});
+
+export const itemDateFieldRuleConfigSchema = z.object({
+  typeId: z.string().uuid().optional(),
+  fieldKey: z.string().optional(),
+  fieldType: z.enum(["date", "datetime"]).optional(),
+  daysBefore: z.coerce.number().int().positive().optional(),
+});

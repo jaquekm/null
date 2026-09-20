@@ -5,13 +5,15 @@ import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
+import type { Json } from "@/lib/supabase/database.types";
 import { dispatchReminderOccurrence } from "./lib/dispatch";
 import { buildRRuleString } from "./lib/recurrence";
 import { findUnknownTemplateVariables } from "./lib/render-template";
-import { reminderInputSchema } from "./schemas";
+import { reminderInputSchema, reminderRuleInputSchema } from "./schemas";
 
 const GENERIC_ERROR = "Não foi possível salvar o lembrete. Tente de novo.";
 const REMINDERS_PATH = "/lembretes";
+const REMINDER_RULES_PATH = "/lembretes/regras";
 
 function unknownVariablesError(messageTemplate: string, variables: Record<string, string>): Result<never> | null {
   const unknown = findUnknownTemplateVariables(messageTemplate, Object.keys(variables));
@@ -122,5 +124,93 @@ export async function sendReminderNow(id: string): Promise<Result<null>> {
   await dispatchReminderOccurrence(supabase, user.id, { ...reminder, send_at: new Date().toISOString() }, { bypassQuietHours: true });
 
   revalidatePath(REMINDERS_PATH);
+  return ok(null);
+}
+
+/** `{{contato}}` (3.10, regra "Aniversários") não é uma variável fixa do template (`render-template.ts`) — só existe pra essa regra. */
+const RULE_EXTRA_TEMPLATE_VARS: Record<string, string[]> = { birthday: ["contato"] };
+
+function ruleUnknownVariablesError(kind: string, messageTemplate: string): Result<never> | null {
+  const unknown = findUnknownTemplateVariables(messageTemplate, RULE_EXTRA_TEMPLATE_VARS[kind] ?? []);
+  if (unknown.length === 0) return null;
+  const list = unknown.map((name) => `{{${name}}}`).join(", ");
+  return fail(`Variável desconhecida no template: ${list}.`, { messageTemplate: [`Variável desconhecida: ${list}`] });
+}
+
+/** Criar regra automática (3.10, `/lembretes/regras`). */
+export async function createReminderRule(input: z.input<typeof reminderRuleInputSchema>): Promise<Result<{ id: string }>> {
+  const parsed = reminderRuleInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+
+  const variablesError = ruleUnknownVariablesError(parsed.data.kind, parsed.data.messageTemplate);
+  if (variablesError) return variablesError;
+
+  const { supabase, user } = await requireOwner();
+
+  const { data, error } = await supabase
+    .from("reminder_rules")
+    .insert({
+      owner_id: user.id,
+      name: parsed.data.name,
+      kind: parsed.data.kind,
+      channel: parsed.data.channel,
+      recipient_type: parsed.data.recipientType,
+      message_template: parsed.data.messageTemplate,
+      enabled: parsed.data.enabled,
+      config: parsed.data.config as unknown as Json,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) return fail(GENERIC_ERROR);
+
+  revalidatePath(REMINDER_RULES_PATH);
+  return ok({ id: data.id });
+}
+
+/** Editar regra automática (3.10) — não mexe nos lembretes já gerados por ela; o próximo ciclo do `generate_reminders` aplica as mudanças. */
+export async function updateReminderRule(id: string, input: z.input<typeof reminderRuleInputSchema>): Promise<Result<null>> {
+  const parsed = reminderRuleInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+
+  const variablesError = ruleUnknownVariablesError(parsed.data.kind, parsed.data.messageTemplate);
+  if (variablesError) return variablesError;
+
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase
+    .from("reminder_rules")
+    .update({
+      name: parsed.data.name,
+      kind: parsed.data.kind,
+      channel: parsed.data.channel,
+      recipient_type: parsed.data.recipientType,
+      message_template: parsed.data.messageTemplate,
+      enabled: parsed.data.enabled,
+      config: parsed.data.config as unknown as Json,
+    })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(REMINDER_RULES_PATH);
+  return ok(null);
+}
+
+export async function setReminderRuleEnabled(id: string, enabled: boolean): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("reminder_rules").update({ enabled }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível atualizar a regra. Tente de novo.");
+  revalidatePath(REMINDER_RULES_PATH);
+  return ok(null);
+}
+
+/** Apaga só a regra — lembretes já gerados por ela continuam existindo (com `rule_id` apontando pra um registro que não existe mais), o que é intencional: já foram criados, o dono decide se quer cancelar cada um manualmente. */
+export async function deleteReminderRule(id: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("reminder_rules").delete().eq("id", id).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível apagar a regra. Tente de novo.");
+  revalidatePath(REMINDER_RULES_PATH);
   return ok(null);
 }

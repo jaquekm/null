@@ -17,6 +17,9 @@ vi.mock("@/lib/google/client", () => ({
   GoogleConnectionNotFoundError: MockGoogleConnectionNotFoundError,
 }));
 
+const enqueueJobMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("../enqueue", () => ({ enqueueJob: enqueueJobMock }));
+
 const { calendarSync } = await import("./calendar-sync");
 
 function fakeJob(overrides: Partial<Job> = {}): Job {
@@ -140,6 +143,7 @@ describe("calendarSync", () => {
     listCalendarEventsMock.mockReset();
     getAccessTokenMock.mockReset();
     getAccessTokenMock.mockResolvedValue("access-token");
+    enqueueJobMock.mockClear();
   });
 
   it("sem calendários com sync_enabled: done, nada é chamado", async () => {
@@ -147,6 +151,7 @@ describe("calendarSync", () => {
     const outcome = await calendarSync(fakeJob(), { supabase: client });
     expect(outcome).toEqual({ status: "done", result: { calendarsSynced: 0 } });
     expect(getAccessTokenMock).not.toHaveBeenCalled();
+    expect(enqueueJobMock).not.toHaveBeenCalled();
   });
 
   it("erro ao listar calendários: retry", async () => {
@@ -185,6 +190,8 @@ describe("calendarSync", () => {
     );
     expect(eventUpserts[0]?.[0]).toMatchObject({ owner_id: "owner-1", calendar_id: "cal-1", external_id: "ev-1" });
     expect(calendarUpdates[0]).toMatchObject({ sync_token: "sync-novo" });
+    // 3.10: pelo menos um calendário sincronizado -> enfileira generate_reminders
+    expect(enqueueJobMock).toHaveBeenCalledWith(expect.objectContaining({ ownerId: "owner-1", kind: "generate_reminders" }));
   });
 
   it("sincronização incremental (com sync_token): não manda timeMin", async () => {
