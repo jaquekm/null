@@ -225,6 +225,27 @@ export async function searchContactsForMention(supabase: Client, query: string):
   return data;
 }
 
+export interface ContactAttendeeResult {
+  id: string;
+  name: string;
+  email: string;
+}
+
+/** Busca de convidados a partir de contatos, pro diálogo de criar/editar evento (3.6) — só quem tem e-mail cadastrado. */
+export async function searchContactsForAttendees(supabase: Client, query: string): Promise<ContactAttendeeResult[]> {
+  if (!query.trim()) return [];
+  const { data, error } = await supabase
+    .from("contacts")
+    .select("id, name, email")
+    .is("archived_at", null)
+    .not("email", "is", null)
+    .ilike("name", `%${query.trim()}%`)
+    .order("name", { ascending: true })
+    .limit(8);
+  if (error) return [];
+  return data as ContactAttendeeResult[];
+}
+
 export interface DuplicateMatch {
   id: string;
   name: string;

@@ -15,12 +15,25 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { mapGoogleEventToRow } from "./lib/map-google-event";
 import { mapRowToGoogleEventInput, type EventRowForPush } from "./lib/map-row-to-google-event-input";
+import { getEventDetailForEdit, type EventDetailForEdit } from "./queries";
 import { createEventSchema, updateEventSchema } from "./schemas";
 
 const AGENDA_PATH = "/agenda";
+const AGENDA_TODAY_PATH = "/agenda/hoje";
+
+function revalidateAgenda(): void {
+  revalidatePath(AGENDA_PATH);
+  revalidatePath(AGENDA_TODAY_PATH);
+}
 
 function toAttendeesJson(emails: string[]): Json {
   return emails.map((email) => ({ email, name: null, response: null })) as unknown as Json;
+}
+
+/** Detalhe pra reabrir o diálogo de edição preenchido (3.6). */
+export async function getEventForEdit(eventId: string): Promise<EventDetailForEdit | null> {
+  const { supabase, user } = await requireOwner();
+  return getEventDetailForEdit(supabase, eventId, user.id);
 }
 
 /**
@@ -44,6 +57,11 @@ export async function createEvent(input: unknown): Promise<Result<{ id: string }
     .maybeSingle();
   if (!calendar) return fail("Calendário não encontrado.");
 
+  if (data.itemId) {
+    const { data: item } = await supabase.from("items").select("id").eq("id", data.itemId).eq("owner_id", user.id).maybeSingle();
+    if (!item) return fail("Item não encontrado.");
+  }
+
   const { data: row, error: insertError } = await supabase
     .from("events")
     .insert({
@@ -59,6 +77,7 @@ export async function createEvent(input: unknown): Promise<Result<{ id: string }
       timezone: data.timezone ?? null,
       status: "confirmed",
       attendees: toAttendeesJson(data.attendeeEmails),
+      item_id: data.itemId ?? null,
       local_dirty: true,
     })
     .select(
@@ -82,7 +101,7 @@ export async function createEvent(input: unknown): Promise<Result<{ id: string }
     await enqueueJob({ ownerId: user.id, kind: "calendar_push", payload: { eventId: row.id, operation: "create" } });
   }
 
-  revalidatePath(AGENDA_PATH);
+  revalidateAgenda();
   return ok({ id: row.id });
 }
 
@@ -133,7 +152,7 @@ export async function updateEvent(input: unknown): Promise<Result<null>> {
   if (!event.external_id) {
     // Ainda nem existe no Google (criação original ainda pendente) — o
     // `calendar_push` de criação, quando rodar, já pega este texto mais novo.
-    revalidatePath(AGENDA_PATH);
+    revalidateAgenda();
     return ok(null);
   }
 
@@ -163,7 +182,7 @@ export async function updateEvent(input: unknown): Promise<Result<null>> {
     await enqueueJob({ ownerId: user.id, kind: "calendar_push", payload: { eventId: event.id, operation: "update" } });
   }
 
-  revalidatePath(AGENDA_PATH);
+  revalidateAgenda();
   return ok(null);
 }
 
@@ -181,7 +200,7 @@ export async function deleteEvent(eventId: string): Promise<Result<null>> {
 
   if (!event.external_id) {
     await supabase.from("events").delete().eq("id", event.id);
-    revalidatePath(AGENDA_PATH);
+    revalidateAgenda();
     return ok(null);
   }
 
@@ -207,6 +226,6 @@ export async function deleteEvent(eventId: string): Promise<Result<null>> {
     }
   }
 
-  revalidatePath(AGENDA_PATH);
+  revalidateAgenda();
   return ok(null);
 }

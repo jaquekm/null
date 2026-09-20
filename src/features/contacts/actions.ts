@@ -8,7 +8,9 @@ import type { Json } from "@/lib/supabase/database.types";
 import {
   findDuplicateContacts,
   listContacts,
+  searchContactsForAttendees as searchContactsForAttendeesQuery,
   searchContactsForMention as searchContactsForMentionQuery,
+  type ContactAttendeeResult,
   type ContactFilters,
   type ContactRow,
 } from "./queries";
@@ -314,6 +316,12 @@ export async function importCsvContacts(input: z.input<typeof csvImportInputSche
 export async function searchContactsForMention(query: string): Promise<{ id: string; name: string }[]> {
   const { supabase } = await requireOwner();
   return searchContactsForMentionQuery(supabase, query);
+}
+
+/** Busca de convidados pro diálogo de criar/editar evento (3.6). */
+export async function searchContactsForAttendees(query: string): Promise<ContactAttendeeResult[]> {
+  const { supabase } = await requireOwner();
+  return searchContactsForAttendeesQuery(supabase, query);
 }
 
 /** Lista filtrada de `/contatos` (3.3) — chamada pelo cliente a cada mudança de busca/filtro. */
