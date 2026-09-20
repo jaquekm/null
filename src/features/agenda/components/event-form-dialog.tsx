@@ -1,9 +1,11 @@
 "use client";
 
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createEvent, getEventForEdit, updateEvent } from "@/features/events/actions";
+import { createMeetingNote } from "@/features/meeting-notes/actions";
 import type { CalendarOption } from "../queries";
 import { AttendeePicker } from "./attendee-picker";
 
@@ -32,8 +34,11 @@ function splitLocal(instant: Date, timezone: string): { date: string; time: stri
 /** Diálogo de criar/editar evento (3.5/3.6) — mesmo formulário nos dois modos. */
 export function EventFormDialog(props: EventFormDialogProps) {
   const { calendars, timezone, onClose, onSaved } = props;
+  const router = useRouter();
 
   const [loading, setLoading] = useState(props.mode === "edit");
+  const [meetingItemId, setMeetingItemId] = useState<string | null>(null);
+  const [creatingNote, setCreatingNote] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -70,6 +75,7 @@ export function EventFormDialog(props: EventFormDialogProps) {
       setEndTime(end.time);
       if (detail.calendarId) setCalendarId(detail.calendarId);
       setAttendees(detail.attendeeEmails.map((email) => ({ email, name: email })));
+      setMeetingItemId(detail.itemId);
       setLoading(false);
     });
     return () => {
@@ -77,6 +83,23 @@ export function EventFormDialog(props: EventFormDialogProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handleMeetingNoteClick() {
+    if (meetingItemId) {
+      router.push(`/itens/${meetingItemId}`);
+      return;
+    }
+    if (props.mode !== "edit") return;
+    setCreatingNote(true);
+    void createMeetingNote(props.eventId).then((result) => {
+      setCreatingNote(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.push(`/itens/${result.data.itemId}`);
+    });
+  }
 
   function toInstant(date: string, time: string): Date {
     return allDay ? fromZonedTime(`${date}T00:00:00`, timezone) : fromZonedTime(`${date}T${time}:00`, timezone);
@@ -238,6 +261,17 @@ export function EventFormDialog(props: EventFormDialogProps) {
                 <input type="checkbox" checked={addMeet} onChange={(e) => setAddMeet(e.target.checked)} />
                 Adicionar Google Meet
               </label>
+            )}
+
+            {props.mode === "edit" && (
+              <button
+                type="button"
+                onClick={handleMeetingNoteClick}
+                disabled={creatingNote}
+                className="self-start rounded-lg border border-black/[.12] px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-black/[.04] disabled:opacity-60 dark:border-white/[.16] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+              >
+                {creatingNote ? "Criando…" : meetingItemId ? "Abrir nota" : "Criar nota da reunião"}
+              </button>
             )}
 
             <div className="flex items-center justify-between pt-1">

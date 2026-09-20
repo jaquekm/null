@@ -419,10 +419,27 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b). O CLAUDE.md é explícito: "espaços, tipos de objeto, campos... são dados criados pelo usuário, não código fixo". A opção (a) amarraria o planejador a um `slug` e a um formato de campo específicos do tipo semeado no onboarding — um tipo criado do zero pelo próprio dono (ou um tipo de um pack futuro, fase 5) com um campo de data não teria esse comportamento, uma inconsistência maior do que a que a opção (b) aceita.
 - **Consequências:** uma tarefa marcada "Feito" continua aparecendo como atrasada/do dia até o dono mudar a data do campo ou apagar/arquivar o item — o planejador não sabe distinguir "tarefa pendente" de "tarefa feita com prazo no passado". Isso é sobretudo um problema do tipo sistema "Tarefa" especificamente (que TEM um jeito de marcar conclusão, só não é lido aqui); se incomodar na prática, o motor de automações (fase 5) ou uma convenção mais forte de "campo de conclusão" no modelo de tipos seria o lugar certo pra resolver isso de forma genérica, não um caso especial hardcoded no planejador.
 
+### 2026-09-20 — "O template do tipo" na nota de reunião é `object_types.template` (conteúdo), não `title_template`
+
+- **Fase/tarefa:** 3.7 (Nota de reunião a partir de evento)
+- **Contexto:** o enunciado pede um item "com título do evento, `data`, participantes..., link do Meet **e o template do tipo**". `object_types` tem duas colunas de template desde a fase 1: `title_template` (string com placeholders, ex.: `"Reunião {{date}}"`, editável na tela de tipos) e `template` (`Json`, pensado pra ser o conteúdo inicial do item) — nenhuma das duas é lida em código nenhum hoje (confirmado por busca: só são gravadas/exibidas no editor de tipos, nunca aplicadas na criação de um item).
+- **Opções consideradas:** (a) interpretar "o template do tipo" como `title_template`, interpolando `{{...}}` pra montar o título; (b) interpretar como `template` (conteúdo Tiptap), aplicado como o corpo inicial da nota.
+- **Decisão:** (b). O próprio enunciado já diz que o título vem "do evento" — não do template — então (a) contradiria a frase anterior da mesma lista. `template` como conteúdo inicial é a leitura consistente, e como é a primeira vez que esse campo é de fato consumido, `buildMeetingNoteContent` (`src/features/meeting-notes/lib/`) virou também a primeira implementação real dessa parte do modelo de tipos.
+- **Consequências:** `title_template` continua sem nenhum consumidor no código — permanece só armazenado/exibido, como já estava antes desta tarefa. Não é uma regressão: só não é o problema que a 3.7 pediu pra resolver. Fica registrado caso uma fase futura precise da interpolação de título de verdade.
+
+### 2026-09-20 — "Ações pendentes" da reunião anterior filtram por `status !== "done"`, diferente da 3.6
+
+- **Fase/tarefa:** 3.7 (Nota de reunião a partir de evento)
+- **Contexto:** a 3.6 decidiu (ver acima) **não** filtrar prazos de item por nenhum campo de "conclusão", porque isso não é um conceito genérico do modelo de tipos. A 3.7 pede uma seção "ações pendentes" dos subitens da reunião anterior — à primeira vista, o mesmo dilema.
+- **Opções consideradas:** (a) manter a mesma postura da 3.6: listar todos os subitens, sem tentar inferir "pendente"; (b) excluir só os subitens cujo `properties.status` seja explicitamente `"done"`, mostrando o resto (inclusive itens sem campo `status` nenhum).
+- **Decisão:** (b) — não é uma inconsistência com a decisão da 3.6, é um contexto diferente: lá, a lista de prazos serve pra **qualquer** tipo de item na agenda/planejador (uma feature genérica, onde inventar um conceito de "conclusão" seria overreach). Aqui, a seção inteira **é** sobre "o que ficou pendente" — o enunciado já nomeia isso; um filtro leve que só remove o que está explicitamente marcado como feito, sem inventar semântica nova, é proporcional ao que foi pedido, não uma generalização indevida.
+- **Consequências:** subitens de tipos sem campo `status` (a maioria dos tipos que não são "Tarefa") sempre aparecem na lista de "ações pendentes", mesmo que o dono considere aquilo "resolvido" de algum outro jeito. Aceitável porque a alternativa (a) esvaziaria a seção quase sempre (a maior parte dos subitens não usa a convenção `status` da "Tarefa").
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Distinguir "tarefa concluída" de "tarefa pendente" de forma genérica no planejador do dia (fase 3.6/5 — revisitar se incomodar na prática)
+- [ ] Interpolar `object_types.title_template` de verdade em algum fluxo de criação de item (fase 3.7+ — hoje só é gravado/exibido)
 - [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9)
 - [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
 - [ ] Destino dos backups externos (fase 7.1)

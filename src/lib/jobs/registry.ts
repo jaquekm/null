@@ -3,6 +3,7 @@ import { calendarPush } from "./handlers/calendar-push";
 import { calendarSync } from "./handlers/calendar-sync";
 import { extractAttachment } from "./handlers/extract-attachment";
 import { pollTranscription } from "./handlers/poll-transcription";
+import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
 import { summarizeTranscript } from "./handlers/summarize-transcript";
 import { transcribeAudio } from "./handlers/transcribe-audio";
@@ -21,4 +22,5 @@ export const handlers: Record<string, JobHandler> = {
   extract_attachment: extractAttachment,
   calendar_sync: calendarSync,
   calendar_push: calendarPush,
+  prepare_meeting_notes: prepareMeetingNotes,
 };

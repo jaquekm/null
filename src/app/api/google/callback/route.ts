@@ -10,6 +10,8 @@ import { enqueueJob } from "@/lib/jobs/enqueue";
 const INTEGRATIONS_PATH = "/configuracoes/integracoes";
 /** `job_schedules.interval_seconds` do `calendar_sync` (3.5) — "a cada 10 min", enunciado da fase 3. */
 const CALENDAR_SYNC_INTERVAL_SECONDS = 10 * 60;
+/** `prepare_meeting_notes` (3.7) roda mais seguido — a janela "X minutos antes" perde precisão se checar só a cada 10 min. */
+const PREPARE_MEETING_NOTES_INTERVAL_SECONDS = 5 * 60;
 
 function redirectWithError(requestUrl: string, message: string) {
   const url = new URL(INTEGRATIONS_PATH, requestUrl);
@@ -91,10 +93,15 @@ export async function GET(request: Request) {
     return redirectWithError(request.url, "Não foi possível salvar a conexão com o Google.");
   }
 
-  // Só faz sentido existir a partir da primeira conexão — `onConflict: "kind"`
-  // faz isso ser um no-op nas reconexões seguintes (3.5).
+  // Só fazem sentido existir a partir da primeira conexão — `onConflict: "kind"`
+  // faz isso ser um no-op nas reconexões seguintes (3.5/3.7). `prepare_meeting_notes`
+  // sempre entra habilitado aqui; quem decide se faz algo é o próprio handler,
+  // lendo a preferência do dono (desligada por padrão) a cada execução.
   await supabase.from("job_schedules").upsert(
-    { kind: "calendar_sync", owner_id: user.id, interval_seconds: CALENDAR_SYNC_INTERVAL_SECONDS, enabled: true },
+    [
+      { kind: "calendar_sync", owner_id: user.id, interval_seconds: CALENDAR_SYNC_INTERVAL_SECONDS, enabled: true },
+      { kind: "prepare_meeting_notes", owner_id: user.id, interval_seconds: PREPARE_MEETING_NOTES_INTERVAL_SECONDS, enabled: true },
+    ],
     { onConflict: "kind" },
   );
 

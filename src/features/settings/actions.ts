@@ -20,3 +20,24 @@ export async function setAutoOcr(enabled: boolean): Promise<Result<null>> {
   revalidatePath("/configuracoes/midia");
   return ok(null);
 }
+
+/** "Criar notas de reunião automaticamente X minutos antes" (3.7) — liga/desliga e ajusta o `X`. */
+export async function setMeetingNotesSettings(enabled: boolean, minutesBefore: number): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  if (!Number.isFinite(minutesBefore) || minutesBefore <= 0) return fail("Informe um número de minutos válido.");
+
+  const { data: current } = await supabase.from("user_settings").select("preferences").eq("owner_id", user.id).maybeSingle();
+  const preferences = {
+    ...((current?.preferences as Record<string, unknown> | null) ?? {}),
+    autoCreateMeetingNotes: enabled,
+    meetingNotesMinutesBefore: minutesBefore,
+  };
+
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ owner_id: user.id, preferences: preferences as unknown as Json }, { onConflict: "owner_id" });
+  if (error) return fail("Não foi possível salvar.");
+
+  revalidatePath("/configuracoes/integracoes");
+  return ok(null);
+}

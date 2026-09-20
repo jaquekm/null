@@ -14,13 +14,14 @@ export interface EventDetailForEdit {
   endsAt: string;
   allDay: boolean;
   attendeeEmails: string[];
+  itemId: string | null;
 }
 
 /** Detalhe de um evento pro diálogo de edição (3.6) — só o que o formulário precisa reabrir preenchido. */
 export async function getEventDetailForEdit(supabase: Client, eventId: string, ownerId: string): Promise<EventDetailForEdit | null> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, calendar_id, title, description, location, starts_at, ends_at, all_day, attendees")
+    .select("id, calendar_id, title, description, location, starts_at, ends_at, all_day, attendees, item_id")
     .eq("id", eventId)
     .eq("owner_id", ownerId)
     .maybeSingle();
@@ -39,5 +40,6 @@ export async function getEventDetailForEdit(supabase: Client, eventId: string, o
     endsAt: data.ends_at,
     allDay: data.all_day,
     attendeeEmails,
+    itemId: data.item_id,
   };
 }

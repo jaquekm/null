@@ -14,3 +14,25 @@ export async function isAutoOcrEnabled(supabase: Client, ownerId: string): Promi
   const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
   return preferences.autoOcr !== false;
 }
+
+export interface MeetingNotesSettings {
+  enabled: boolean;
+  minutesBefore: number;
+}
+
+const DEFAULT_MEETING_NOTES_MINUTES_BEFORE = 15;
+
+/**
+ * "Criar notas de reunião automaticamente X minutos antes" (3.7) — desligado
+ * por padrão (diferente do OCR automático: aqui o dono precisa optar,
+ * `job prepare_meeting_notes` só age em quem ligou).
+ */
+export async function getMeetingNotesSettings(supabase: Client, ownerId: string): Promise<MeetingNotesSettings> {
+  const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", ownerId).maybeSingle();
+  const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
+  const minutesBefore = Number(preferences.meetingNotesMinutesBefore);
+  return {
+    enabled: preferences.autoCreateMeetingNotes === true,
+    minutesBefore: Number.isFinite(minutesBefore) && minutesBefore > 0 ? minutesBefore : DEFAULT_MEETING_NOTES_MINUTES_BEFORE,
+  };
+}
