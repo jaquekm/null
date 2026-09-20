@@ -480,12 +480,12 @@ Página `/lembretes/regras` com regras prontas para ativar e ajustar:
 
 ## Definição de pronto da fase
 
-- [ ] Contatos com consentimento, importação e mesclagem
-- [ ] Google Calendar conectado com sincronização nos dois sentidos
-- [ ] Agenda e planejador do dia com tarefas e blocos de tempo
-- [ ] Nota de reunião a partir de evento
-- [ ] Lembretes únicos e recorrentes por WhatsApp, e-mail e push, sem duplicidade
-- [ ] Regras automáticas (reuniões, aniversários, campos de data)
-- [ ] Links de compartilhamento com validade, senha, comentários e revogação
-- [ ] `docs/n8n-whatsapp.md` escrito
-- [ ] Testes passando e `PROGRESSO.md` atualizado
+- [x] Contatos com consentimento, importação e mesclagem
+- [x] Google Calendar conectado com sincronização nos dois sentidos
+- [x] Agenda e planejador do dia com tarefas e blocos de tempo
+- [x] Nota de reunião a partir de evento
+- [x] Lembretes únicos e recorrentes por WhatsApp, e-mail e push, sem duplicidade
+- [x] Regras automáticas (reuniões, aniversários, campos de data)
+- [x] Links de compartilhamento com validade, senha, comentários e revogação
+- [x] `docs/n8n-whatsapp.md` escrito
+- [x] Testes passando e `PROGRESSO.md` atualizado

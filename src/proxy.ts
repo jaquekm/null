@@ -8,7 +8,16 @@ export async function proxy(request: NextRequest) {
   // seção Segurança) e não devem depender do Supabase estar configurado ou
   // acessível — nem gastar uma chamada de rede à toa.
   if (isPublicPath(request.nextUrl.pathname)) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // `/p/*` (3.11) não pode ser indexado, não deve vazar referrer pro recurso
+    // compartilhado, nem ficar em cache de proxy/CDN — página muda por token e
+    // pode conter algo que só quem tem o link devia ver.
+    if (request.nextUrl.pathname.startsWith("/p/")) {
+      response.headers.set("X-Robots-Tag", "noindex");
+      response.headers.set("Referrer-Policy", "no-referrer");
+      response.headers.set("Cache-Control", "private, no-store");
+    }
+    return response;
   }
 
   // Repassado para Server Components via `headers()` — o App Router não expõe

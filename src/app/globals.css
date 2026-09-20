@@ -25,3 +25,38 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Checklist clicável da página pública com permissão `check` (3.11). */
+.share-content .share-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.share-content .share-check-box {
+  margin-top: 0.2rem;
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+  border: 1px solid currentColor;
+  opacity: 0.5;
+}
+
+.share-content .share-check-item.is-checked .share-check-box {
+  background: currentColor;
+  opacity: 1;
+}
+
+.share-content .share-check-item.is-checked {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.share-content .mention-text {
+  color: inherit;
+  opacity: 0.8;
+}

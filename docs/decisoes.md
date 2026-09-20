@@ -467,6 +467,38 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b), com uma exceção: `canceled` nunca reativa, seja qual for o `send_at` novo — é a palavra final do dono (ele cancelou aquela instância de propósito), diferente de `completed` (que só significa "essa ocorrência específica já foi resolvida"). A opção (a) faria o aniversário do ano seguinte, ou o prazo adiado da tarefa, nunca mais gerar lembrete nenhum depois da primeira vez — um bug sério que só apareceria meses depois de usar a feature, difícil de notar em teste manual rápido.
 - **Consequências:** `reconcileGeneratedReminders` (pura, testada) é o único lugar que decide isso — o job em si só executa o resultado. Reativar um `completed` muda `status` mas não `message_template`/`title`/`channel`/`recipient_type` (só `send_at`/`variables`/`contactIds`), preservando qualquer edição manual do dono no texto do lembrete gerado.
 
+### 2026-09-20 — Propriedades públicas: excluir também `relation`/`contact`/`file`, não só `hidden`
+
+- **Fase/tarefa:** 3.11 (Links de compartilhamento)
+- **Contexto:** o enunciado da página pública pede "montando um objeto com campos permitidos... nunca... backlinks ou outros itens" — mas não lista explicitamente quais *tipos* de campo contam como "outro item" além de backlinks propriamente ditos.
+- **Opções consideradas:** (a) seguir a letra do enunciado: excluir só campos marcados `hidden`, deixando qualquer outro tipo passar; (b) excluir também `relation` e `contact` (referenciam outro item/contato que o visitante anônimo não tem como abrir) e `file` (guarda um caminho de storage cru, não uma URL assinada — os anexos de verdade já saem por um mecanismo separado).
+- **Decisão:** (b). Um campo `relation`/`contact` **é**, na prática, uma referência a outro item — a mesma coisa que um backlink, só que guardada como valor de propriedade em vez de como link no editor. Deixar passar violaria o espírito da regra mesmo respeitando a letra.
+- **Consequências:** `buildPublicProperties` (`src/features/sharing/lib/build-public-item.ts`) é mais restritivo que o mínimo pedido — um item com campos `relation`/`contact`/`file` mostra essas propriedades pro dono normalmente, mas elas somem da versão pública, mesmo sem estarem marcadas `hidden`. Se algum dia for preciso expor uma relação específica publicamente, vai precisar de uma exceção explícita (não existe hoje).
+
+### 2026-09-20 — Rate limit dos links públicos: em memória do processo, não distribuído
+
+- **Fase/tarefa:** 3.11 (Links de compartilhamento)
+- **Contexto:** o enunciado pede "limite de taxa por IP" na página pública e nas tentativas de senha. A stack não tem Redis/Upstash nem qualquer armazenamento compartilhado de baixa latência entre instâncias serverless.
+- **Opções consideradas:** (a) implementar um limitador em memória (`Map` por processo, janela deslizante) — simples, sem dependência nova, mas não sobrevive a redeploy nem é compartilhado entre instâncias da Vercel rodando em paralelo; (b) adicionar uma dependência nova (Upstash Redis ou equivalente) só pra isso.
+- **Decisão:** (a) — `createRateLimiter` (`src/features/sharing/lib/rate-limit.ts`). Pra um app pessoal de dono único, com poucos links ativos por vez, um rate limit "por instância, best-effort" já eleva bastante o custo de força bruta contra senha/token em relação a nenhum limite, e adicionar uma dependência de infraestrutura paga só por causa disso não pareceu proporcional (regra do `CLAUDE.md`: "não adicione dependências fora da stack sem justificar").
+- **Consequências:** um atacante que force várias instâncias serverless em paralelo (ou espere um redeploy) contorna o limite. Documentado no próprio código-fonte. Revisitar se o app algum dia ganhar Redis por outro motivo (fase 6/7) — nesse caso, trocar a implementação interna de `createRateLimiter` sem mudar quem chama.
+
+### 2026-09-20 — Opt-out público desliga os dois canais, mesmo o token sendo de um canal só
+
+- **Fase/tarefa:** 3.11 (Opt-out público `/p/opt-out/[token]`)
+- **Contexto:** `verifyOptOutToken` (3.9) carrega `contactId` **e** `channel` (`whatsapp`/`email`) — dava pra desligar só o opt-in daquele canal específico. Mas o webhook do N8N (3.9, "SAIR"/"PARE"/"STOP" recebido no WhatsApp) já desligava os dois canais de uma vez e gravava `opted_out_at`, e o schema só tem uma coluna `opted_out_at` (não uma por canal).
+- **Opções consideradas:** (a) opt-out granular por canal: só desliga `whatsapp_opt_in` ou só `email_opt_in`, conforme o token, sem tocar em `opted_out_at`; (b) manter o mesmo comportamento "tudo out" já em produção desde a 3.9 pro webhook, agora reaproveitado (`applyContactOptOut`) pelos dois fluxos.
+- **Decisão:** (b). `delivery-rules.ts` (3.8) já trata **qualquer** `opted_out_at` não nulo como bloqueio total, independente do canal (`decideDelivery`) — um opt-out "só de e-mail" que gravasse `opted_out_at` acabaria bloqueando WhatsApp também, um bug sutil de inconsistência entre o que o dado diz e o que o dado *faz*. Fazer opt-out granular de verdade exigiria uma coluna por canal, migration nova, fora do escopo desta tarefa.
+- **Consequências:** clicar em "sair" a partir do rodapé de um e-mail também para o WhatsApp desse contato (e vice-versa) — mais amplo do que o texto do link individual sugere, mas consistente com o resto do sistema e com o comportamento que já existe desde a 3.9. Revisitar junto de um eventual opt-out granular de verdade (exigiria `opted_out_at` por canal em toda a base de regras de envio, não só aqui).
+
+### 2026-09-20 — `parseBRL`: separador decimal decidido por posição/contagem de dígitos, sem parâmetro de formato
+
+- **Fase/tarefa:** 4.1 (Regras de dinheiro)
+- **Contexto:** o enunciado pede que `parseBRL` aceite os dois formatos que o app realmente recebe — digitado pelo dono (`"1.234,56"`, ponto de milhar/vírgula decimal) e vindo de extrato OFX (`"1234.56"`, ponto decimal, sem milhar) — na mesma função, sem o chamador precisar dizer qual é qual.
+- **Opções consideradas:** (a) um parâmetro `format?: "brl" | "ofx"` explícito, decidido por quem chama (ex.: a tela de lançamento manual sempre passa `"brl"`, o importador de OFX sempre passa `"ofx"`); (b) inferir o formato pela própria string — posição do separador quando os dois aparecem (o último é sempre o decimal), contagem de dígitos depois dele quando só um aparece (1-2 = centavos, exatamente 3 sem outro separador = milhar).
+- **Decisão:** (b). A assinatura do enunciado é `parseBRL(input: string): Cents`, sem segundo parâmetro — um formato explícito mudaria a interface pedida. A inferência por posição/contagem cobre os quatro exemplos do enunciado sem ambiguidade real (`"1.234,56"`, `"1234,5"`, `"R$ -10"`, `"1234.56"`) e generaliza bem pra formatos vizinhos (múltiplos pontos de milhar, número puro sem separador nenhum). Onde a regra genuinamente não dá pra decidir sem contexto — vírgula seguida de 3+ dígitos sem nenhum ponto, por exemplo, que tanto pode ser "1 real e 234 milésimos" (inválido, moeda só tem 2 casas) quanto um milhar em formato não-BRL (`"1,234"` = 1234) — a função lança erro em vez de escolher, exatamente como o enunciado pede ("lança erro para entradas ambíguas ou inválidas").
+- **Consequências:** funciona sem o chamador saber a origem do valor, mas alguns formatos ficam de fora por serem ambíguos demais mesmo sendo "razoáveis" numa leitura isolada (ex.: `"1,234"` sozinho, sem mais contexto, lança em vez de assumir 1234). Se a 4.5 (importação de OFX/CSV) encontrar um formato real de extrato que colida com essa regra, revisitar — até lá, os formatos testados (`money.test.ts`) cobrem os dois casos reais do enunciado.
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
@@ -474,7 +506,6 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - [ ] Interpolar `object_types.title_template` de verdade em algum fluxo de criação de item (fase 3.7+ — hoje só é gravado/exibido)
 - [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9) — documentado em `docs/n8n-whatsapp.md`, fluxo de verdade é trabalho do dono
 - [ ] Preferência "lembretes pessoais" (notificações ao dono) não tem efeito ainda — precisaria de um `skip_reason` novo em `reminder_deliveries` (fase 3.9, ver decisão acima)
-- [ ] Preferência "comentários em links compartilhados" (notificações ao dono) só passa a valer quando `share_comments` existir (fase 3.11)
 - [ ] Reagendamento de horário silencioso por destinatário dentro do mesmo `tick` de `dispatch_reminders` (fase 3.8 — revisitar se incomodar na prática; hoje a ocorrência já nasce fora da janela silenciosa na maioria dos casos, ver decisão acima)
 - [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
 - [ ] Destino dos backups externos (fase 7.1)
