@@ -403,10 +403,26 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b). Adicionar uma coluna só pra uma preferência efêmera de uma chamada específica (não um dado do evento em si) pareceu desproporcional a uma falha de rede bem específica (rede cair *exatamente* durante a criação de um evento com Meet pedido) — e o `payload` do job foi deliberadamente mantido mínimo (`{eventId, operation}`, ver a decisão do `map-row-to-google-event-input` no `PROGRESSO.md`) porque a linha local já é a fonte da verdade de tudo que **é** o evento; `addMeet` não é.
 - **Consequências:** numa falha de rede bem no momento da criação com Meet pedido (janela pequena), o dono precisa adicionar o Meet manualmente depois. Registrado aqui pra não ser confundido com um bug se alguém notar um evento sem Meet depois de um retry.
 
+### 2026-09-20 — Biblioteca da agenda: FullCalendar, pinado na v6 (não a v7 recém-lançada)
+
+- **Fase/tarefa:** 3.6 (Agenda e planejador do dia) — decisão em aberto prevista no plano
+- **Contexto:** o enunciado sugere "FullCalendar React, plugins de licença MIT, ou implementação própria". Pesquisei a documentação atual antes de instalar (mesmo cuidado de sempre com dependência nova): a v7 do FullCalendar saiu há poucos dias e tirou o CSS embutido do core por completo — virou um sistema de tema por plugin (`skeleton.css` + tema + paleta, mais *class-name props* em cada elemento), uma refatoração grande e recente. A v6 (última da série anterior, `6.1.21`) mantém a solução mais simples introduzida ali: o próprio JS injeta o CSS padrão, sem nenhuma configuração extra — nem o antigo "importar .css manualmente" da v5, nem o sistema de tema novo da v7.
+- **Opções consideradas:** (a) `@fullcalendar/*@latest` (v7); (b) `@fullcalendar/*@^6` (v6.1.21); (c) implementação própria de calendário (permitida pelo enunciado).
+- **Decisão:** (b). Descartei (a) porque não tinha como verificar visualmente o resultado de um sistema de tema tão novo e mais complexo neste sandbox sem navegador — v6 chega already-styled sem esse risco. Descartei (c) porque o enunciado pede visões dia/semana/mês/lista, navegação, arrastar/redimensionar e fuso de exibição — reimplementar tudo isso corretamente (recorrência visual, grades de horário, etc.) custaria muito mais do que usar uma biblioteca madura e already-instalada nesta versão.
+- **Consequências:** o projeto fica uma versão major atrás do "latest" do FullCalendar por escolha deliberada, não por desatualização — revisitar quando a v7 estiver mais madura/documentada por terceiros, ou se a v6 parar de receber patches de segurança. Plugins usados: `core`, `react`, `daygrid`, `timegrid`, `list`, `interaction` — todos MIT, como o enunciado pede.
+
+### 2026-09-20 — "Tarefas atrasadas/do dia" são só prazos, sem filtrar por status de conclusão
+
+- **Fase/tarefa:** 3.6 (Agenda e planejador do dia)
+- **Contexto:** o planejador do dia (`/agenda/hoje`) precisa listar "tarefas com prazo hoje ou atrasadas". O tipo sistema "Tarefa" (seed do onboarding, fase 1) tem um campo `select` chamado `status` com uma opção `done` — daria pra usar isso pra esconder tarefas já concluídas da lista de atrasadas.
+- **Opções consideradas:** (a) filtrar itens do tipo `slug === "tarefa"` cujo campo `status` não seja `done`; (b) tratar "tarefa com prazo" como qualquer item de qualquer tipo com um campo `date`/`datetime` preenchido dentro do intervalo, sem tentar inferir "concluído" de nenhum campo.
+- **Decisão:** (b). O CLAUDE.md é explícito: "espaços, tipos de objeto, campos... são dados criados pelo usuário, não código fixo". A opção (a) amarraria o planejador a um `slug` e a um formato de campo específicos do tipo semeado no onboarding — um tipo criado do zero pelo próprio dono (ou um tipo de um pack futuro, fase 5) com um campo de data não teria esse comportamento, uma inconsistência maior do que a que a opção (b) aceita.
+- **Consequências:** uma tarefa marcada "Feito" continua aparecendo como atrasada/do dia até o dono mudar a data do campo ou apagar/arquivar o item — o planejador não sabe distinguir "tarefa pendente" de "tarefa feita com prazo no passado". Isso é sobretudo um problema do tipo sistema "Tarefa" especificamente (que TEM um jeito de marcar conclusão, só não é lido aqui); se incomodar na prática, o motor de automações (fase 5) ou uma convenção mais forte de "campo de conclusão" no modelo de tipos seria o lugar certo pra resolver isso de forma genérica, não um caso especial hardcoded no planejador.
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
-- [ ] Biblioteca da agenda: FullCalendar ou componente próprio (fase 3.6)
+- [ ] Distinguir "tarefa concluída" de "tarefa pendente" de forma genérica no planejador do dia (fase 3.6/5 — revisitar se incomodar na prática)
 - [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9)
 - [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
 - [ ] Destino dos backups externos (fase 7.1)

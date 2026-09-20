@@ -12,6 +12,8 @@ export const createEventSchema = z
     timezone: z.string().trim().optional(),
     attendeeEmails: z.array(z.string().email()).max(50).default([]),
     addMeet: z.boolean().default(false),
+    /** Bloco de tempo criado a partir de uma tarefa no planejador do dia (3.6) — liga o evento ao item. */
+    itemId: z.string().uuid().optional(),
   })
   .refine((input) => new Date(input.endsAt) > new Date(input.startsAt), {
     message: "O fim precisa ser depois do início.",
