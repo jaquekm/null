@@ -435,12 +435,29 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b) — não é uma inconsistência com a decisão da 3.6, é um contexto diferente: lá, a lista de prazos serve pra **qualquer** tipo de item na agenda/planejador (uma feature genérica, onde inventar um conceito de "conclusão" seria overreach). Aqui, a seção inteira **é** sobre "o que ficou pendente" — o enunciado já nomeia isso; um filtro leve que só remove o que está explicitamente marcado como feito, sem inventar semântica nova, é proporcional ao que foi pedido, não uma generalização indevida.
 - **Consequências:** subitens de tipos sem campo `status` (a maioria dos tipos que não são "Tarefa") sempre aparecem na lista de "ações pendentes", mesmo que o dono considere aquilo "resolvido" de algum outro jeito. Aceitável porque a alternativa (a) esvaziaria a seção quase sempre (a maior parte dos subitens não usa a convenção `status` da "Tarefa").
 
+### 2026-09-20 — `src/lib/messaging/types.ts` nasce só como interface + stub; provedores de verdade ficam pra 3.9
+
+- **Fase/tarefa:** 3.8 (Motor de lembretes)
+- **Contexto:** o job `dispatch_reminders` (3.8) precisa "enviar pelo provedor do canal" pra funcionar de ponta a ponta, mas o enunciado da 3.9 (`docs/fase-03-...md`) nomeia `src/lib/messaging/types.ts` explicitamente como caminho de arquivo **dela**, com a interface `MessageChannel` dada literalmente. Construir os provedores de verdade (Resend, N8N/WhatsApp, web-push) agora seria antecipar trabalho de outra tarefa numerada.
+- **Opções consideradas:** (a) implementar `MessageChannel`/`getMessageChannel` só com a assinatura pedida, sempre devolvendo `null` até a 3.9 existir; (b) adiantar pelo menos o provedor de e-mail (Resend), já que é o mais simples dos três.
+- **Decisão:** (a) — mesmo padrão já usado pra `getTranscriptionProvider` (fase 2) quando a chave/provedor não está configurado: quem chama recebe `null` e decide o que fazer (aqui, o despacho marca a entrega como `failed` com `error='Canal não configurado.'`). Fazer só um provedor (b) quebraria a simetria entre os três canais sem necessidade — a 3.9 é uma tarefa só, não faz sentido meio-implementá-la de dentro da 3.8.
+- **Consequências:** nenhum lembrete é entregue de verdade até a 3.9 existir — toda entrega que passa nas verificações de envio (opt-in, horário, limite) vira `reminder_deliveries.status='failed'`, visível na aba "Com falha" de `/lembretes`. O job, o dispatcher e a UI estão prontos e testados; só falta plugar os provedores reais.
+
+### 2026-09-20 — Horário silencioso: duas camadas (agendamento + despacho), sem reagendar por destinatário dentro do mesmo `tick`
+
+- **Fase/tarefa:** 3.8 (Motor de lembretes)
+- **Contexto:** o enunciado pede que uma ocorrência que cairia entre 21h–8h (terceiros) seja "movida para as 8h do dia seguinte". O modelo de dados tem um único `send_at` **por lembrete**, não por destinatário — um lembrete pra vários contatos processa todos no mesmo `tick`, então "mover só esse destinatário pras 8h" exigiria separar "quando calcular a próxima ocorrência" de "quando de fato tentar enviar pra cada um", o que não existe hoje (precisaria de uma coluna/fila nova).
+- **Opções consideradas:** (a) aplicar `applyQuietHours` só como checagem no momento do despacho (`decideDelivery`), pulando a entrega (`skip_reason='quiet_hours'`) sem reagendar; (b) aplicar `applyQuietHours` sempre que uma nova `send_at` é calculada pra um lembrete de contatos (criação e próxima ocorrência), fazendo a ocorrência já nascer/recalcular fora da janela — com a checagem em `decideDelivery` sobrando só como segunda camada defensiva; (c) implementar o reagendamento por destinatário de verdade (coluna/fila nova).
+- **Decisão:** (b). Resolve a esmagadora maioria dos casos sem mudança de schema: como toda `send_at` de lembrete pra contatos já nasce/recalcula fora do horário silencioso, a checagem em `decideDelivery` quase nunca deveria disparar na prática — só serve de rede de segurança pra casos de borda (regra inserida direto no banco, RRULE personalizada, etc.). Descartei (c) por ser a complexidade mais alta pro ganho mais baixo nesta tarefa.
+- **Consequências:** um lembrete **único** (sem `rrule`) cuja `send_at` caia no silêncio por algum motivo fora do fluxo normal (ex.: editado manualmente pra uma hora nessa janela) tem sua única ocorrência pulada, não reenviada — perda real, não só atraso. Fica registrado como decisão em aberto abaixo; revisitar com uma tabela/coluna de reagendamento por entrega se isso incomodar na prática.
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Distinguir "tarefa concluída" de "tarefa pendente" de forma genérica no planejador do dia (fase 3.6/5 — revisitar se incomodar na prática)
 - [ ] Interpolar `object_types.title_template` de verdade em algum fluxo de criação de item (fase 3.7+ — hoje só é gravado/exibido)
 - [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9)
+- [ ] Reagendamento de horário silencioso por destinatário dentro do mesmo `tick` de `dispatch_reminders` (fase 3.8 — revisitar se incomodar na prática; hoje a ocorrência já nasce fora da janela silenciosa na maioria dos casos, ver decisão acima)
 - [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
 - [ ] Destino dos backups externos (fase 7.1)
 - [ ] Modelo do Claude usado em `ANTHROPIC_MODEL`

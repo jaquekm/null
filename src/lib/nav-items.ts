@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bell,
   Calendar,
   GraduationCap,
   Inbox,
@@ -19,6 +20,7 @@ export type NavItem = {
 const INBOX: NavItem = { href: "/inbox", label: "Inbox", icon: Inbox };
 const BUSCAR: NavItem = { href: "/buscar", label: "Buscar", icon: Search };
 const AGENDA: NavItem = { href: "/agenda", label: "Agenda", icon: Calendar };
+const LEMBRETES: NavItem = { href: "/lembretes", label: "Lembretes", icon: Bell };
 const FINANCAS: NavItem = {
   href: "/financas",
   label: "Finanças",
@@ -46,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
   INBOX,
   BUSCAR,
   AGENDA,
+  LEMBRETES,
   FINANCAS,
   CONTATOS,
   RELATORIOS,

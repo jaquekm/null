@@ -59,6 +59,7 @@
     "pdf-lib": "^1.17.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "rrule": "^2.8.1",
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
     "tus-js-client": "^4.3.1",

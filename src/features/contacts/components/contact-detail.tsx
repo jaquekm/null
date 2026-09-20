@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { archiveContact } from "../actions";
 import type { ContactActivity, ContactDetailRow } from "../queries";
@@ -20,10 +21,12 @@ export function ContactDetail({
   spaces,
   contact,
   activity,
+  timezone,
 }: {
   spaces: SidebarSpace[];
   contact: ContactDetailRow;
   activity: ContactActivity;
+  timezone: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -69,6 +72,14 @@ export function ContactDetail({
               </button>
             </div>
           </div>
+          <RemindAboutButton
+            defaultTitle={`Lembrete para ${contact.name}`}
+            defaultTimezone={timezone}
+            defaultRecipientType="contacts"
+            defaultContactIds={[contact.id]}
+            sourceType="contact"
+            sourceId={contact.id}
+          />
           <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
             <Field label="Relação" value={RELATIONSHIP_LABELS[contact.relationship as Relationship] ?? contact.relationship} />
             <Field label="Apelido" value={contact.nickname} />
