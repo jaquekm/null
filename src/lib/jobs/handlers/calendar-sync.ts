@@ -8,6 +8,7 @@ import {
 } from "@/lib/google/calendar";
 import { GoogleConnectionNotFoundError, GoogleConnectionRevokedError, getAccessToken } from "@/lib/google/client";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { enqueueJob } from "../enqueue";
 import type { JobHandler } from "../types";
 
 type Client = SupabaseClient<Database>;
@@ -165,5 +166,12 @@ export const calendarSync: JobHandler = async (job, { supabase }) => {
   }
 
   if (errors.length > 0) return { status: "retry", error: errors.join("; ") };
+
+  // "generate_reminders roda a cada 15 min e depois do calendar_sync" (3.10) — eventos novos/
+  // remarcados só entram nas regras de lembrete de reunião depois desse job rodar de novo.
+  if (calendarsSynced > 0) {
+    await enqueueJob({ ownerId: job.owner_id, kind: "generate_reminders", dedupeKey: `generate_reminders:after_calendar_sync:${job.owner_id}` });
+  }
+
   return { status: "done", result: { calendarsSynced, eventsUpserted } };
 };

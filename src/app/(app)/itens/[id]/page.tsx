@@ -19,6 +19,8 @@ import {
 } from "@/features/items/queries";
 import { TagSelector } from "@/features/tags/components/tag-selector";
 import { listItemTags } from "@/features/tags/queries";
+import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
+import { getUserTimezone } from "@/features/reminders/queries";
 import { MeetingSummaryActions } from "@/features/transcripts/components/meeting-summary-actions";
 import { TranscriptViewer } from "@/features/transcripts/components/transcript-viewer";
 import { getTranscriptForItem } from "@/features/transcripts/queries";
@@ -26,12 +28,12 @@ import { requireOwner } from "@/lib/auth";
 
 export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const { id } = await props.params;
-  const { supabase } = await requireOwner();
+  const { supabase, user } = await requireOwner();
 
   const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
-  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments, transcript] = await Promise.all([
+  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments, transcript, timezone] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
     listSubitems(supabase, item.id),
@@ -41,6 +43,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listItemTags(supabase, item.id),
     listItemAttachments(supabase, item.id),
     getTranscriptForItem(supabase, item.id),
+    getUserTimezone(supabase, user.id),
   ]);
 
   return (
@@ -89,6 +92,14 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       )}
 
       <TagSelector itemId={item.id} tags={tags} />
+
+      <RemindAboutButton
+        defaultTitle={item.title || "Sem título"}
+        defaultTimezone={timezone}
+        itemId={item.id}
+        sourceType="item"
+        sourceId={item.id}
+      />
 
       <ItemActionsBar
         itemId={item.id}

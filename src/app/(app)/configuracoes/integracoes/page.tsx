@@ -3,15 +3,21 @@ import { CalendarRow } from "@/features/integrations/components/calendar-row";
 import { DisconnectButton } from "@/features/integrations/components/disconnect-button";
 import { SyncNowButton } from "@/features/integrations/components/sync-now-button";
 import { listGoogleConnections } from "@/features/integrations/queries";
+import { MeetingNotesToggle } from "@/features/settings/components/meeting-notes-toggle";
+import { getMeetingNotesSettings } from "@/features/settings/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function IntegrationsSettingsPage(props: PageProps<"/configuracoes/integracoes">) {
-  const { supabase } = await requireOwner();
+  const { supabase, user } = await requireOwner();
   const searchParams = await props.searchParams;
   const erro = typeof searchParams.erro === "string" ? searchParams.erro : null;
 
-  const [connections, spaces] = await Promise.all([listGoogleConnections(supabase), listActiveSpaces(supabase)]);
+  const [connections, spaces, meetingNotesSettings] = await Promise.all([
+    listGoogleConnections(supabase),
+    listActiveSpaces(supabase),
+    getMeetingNotesSettings(supabase, user.id),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-6">
@@ -76,6 +82,8 @@ export default async function IntegrationsSettingsPage(props: PageProps<"/config
         <CalendarPlus className="h-4 w-4" />
         Conectar Google Calendar
       </a>
+
+      <MeetingNotesToggle initialEnabled={meetingNotesSettings.enabled} initialMinutesBefore={meetingNotesSettings.minutesBefore} />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getOwnerNotificationPreferences } from "@/features/settings/queries";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { notifyOwner } from "@/lib/messaging/notify-owner";
 import type { Database } from "@/lib/supabase/database.types";
 import { refreshAccessToken } from "./oauth";
 
@@ -24,14 +26,29 @@ export class GoogleConnectionRevokedError extends Error {
 }
 
 /**
- * TODO(3.9): quando os canais de envio existirem, chamar daqui pra avisar o
- * dono por push/e-mail ("Reconecte o Google Calendar"), como o enunciado da
- * 3.4 pede. Por enquanto só grava `last_error` — a página
- * `/configuracoes/integracoes` (3.4) já mostra conexões com `status='revoked'`
- * em destaque, então o dono não fica sem saber.
+ * Marca a conexão como `revoked` e avisa o dono por push (3.9, resolve o
+ * TODO deixado na 3.4) — chamado só no instante da transição pra `revoked`
+ * (a próxima chamada a `getAccessToken` já lança antes de chegar aqui de
+ * novo, então isso não repete o aviso a cada `calendar_sync`). Best-effort:
+ * `notifyOwner` nunca lança, e o aviso é pulado se o dono desligou
+ * "reconexão do Google" em `/configuracoes/notificacoes`.
  */
 async function markConnectionRevoked(supabase: Client, connectionId: string, reason: string): Promise<void> {
-  await supabase.from("google_connections").update({ status: "revoked", last_error: reason }).eq("id", connectionId);
+  const { data: connection } = await supabase
+    .from("google_connections")
+    .update({ status: "revoked", last_error: reason })
+    .eq("id", connectionId)
+    .select("owner_id, google_email")
+    .maybeSingle();
+  if (!connection) return;
+
+  const preferences = await getOwnerNotificationPreferences(supabase, connection.owner_id);
+  if (!preferences.googleReconnect) return;
+
+  await notifyOwner(connection.owner_id, {
+    title: "Google Calendar desconectado",
+    text: `A conexão com ${connection.google_email} caiu. Reconecte em /configuracoes/integracoes.`,
+  });
 }
 
 /**

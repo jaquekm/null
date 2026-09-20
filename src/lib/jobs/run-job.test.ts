@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
-import { runJob } from "./run-job";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job, JobHandler } from "./types";
+
+const getOwnerNotificationPreferencesMock = vi.fn();
+vi.mock("@/features/settings/queries", () => ({ getOwnerNotificationPreferences: getOwnerNotificationPreferencesMock }));
+
+const notifyOwnerMock = vi.fn();
+vi.mock("@/lib/messaging/notify-owner", () => ({ notifyOwner: notifyOwnerMock }));
+
+const { runJob } = await import("./run-job");
 
 function fakeJob(overrides: Partial<Job> = {}): Job {
   return {
@@ -39,6 +46,16 @@ function fakeSupabase() {
 }
 
 describe("runJob", () => {
+  beforeEach(() => {
+    getOwnerNotificationPreferencesMock.mockReset().mockResolvedValue({
+      remindersPersonal: true,
+      shareComments: true,
+      jobFailures: true,
+      googleReconnect: true,
+    });
+    notifyOwnerMock.mockReset();
+  });
+
   it("done: persiste status='done' e o resultado do handler", async () => {
     const { client, getLastUpdate } = fakeSupabase();
     const handler: JobHandler = async () => ({ status: "done", result: { ok: true } });
@@ -66,6 +83,42 @@ describe("runJob", () => {
     await runJob(client, fakeJob({ attempts: 1, max_attempts: 5 }), { test_kind: handler });
 
     expect(getLastUpdate()).toMatchObject({ status: "failed", last_error: "orçamento estourado" });
+  });
+
+  it("failed: avisa o dono por push (preferência ligada por padrão)", async () => {
+    const { client } = fakeSupabase();
+    const handler: JobHandler = async () => ({ status: "failed", error: "orçamento estourado" });
+
+    await runJob(client, fakeJob({ owner_id: "owner-1", kind: "test_kind" }), { test_kind: handler });
+
+    expect(notifyOwnerMock).toHaveBeenCalledWith(
+      "owner-1",
+      expect.objectContaining({ text: expect.stringContaining("orçamento estourado") }),
+    );
+  });
+
+  it("failed: não avisa quando o dono desligou 'falhas de jobs'", async () => {
+    getOwnerNotificationPreferencesMock.mockResolvedValue({
+      remindersPersonal: true,
+      shareComments: true,
+      jobFailures: false,
+      googleReconnect: true,
+    });
+    const { client } = fakeSupabase();
+    const handler: JobHandler = async () => ({ status: "failed", error: "x" });
+
+    await runJob(client, fakeJob(), { test_kind: handler });
+
+    expect(notifyOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("done/retry: não avisa o dono (só 'failed' dispara)", async () => {
+    const { client } = fakeSupabase();
+    const handler: JobHandler = async () => ({ status: "done" });
+
+    await runJob(client, fakeJob(), { test_kind: handler });
+
+    expect(notifyOwnerMock).not.toHaveBeenCalled();
   });
 
   it("exceção não tratada no handler vira retry, não derruba o tick", async () => {
