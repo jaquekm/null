@@ -106,12 +106,7 @@ export const SYSTEM_TYPE_SEEDS: SystemTypeSeed[] = [
     icon: "Users",
     fields: fields(
       { key: "data", label: "Data", type: "datetime" },
-      {
-        key: "participantes",
-        label: "Participantes",
-        description: "Vira contato na fase 3.",
-        type: "text",
-      },
+      { key: "participantes", label: "Participantes", type: "contact" },
     ),
   },
 ];
