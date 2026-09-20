@@ -356,8 +356,56 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b). Dois motivos: primeiro, o próprio enunciado da 3.3 pede um "Mention **separado** do de itens", texto literal. Segundo, e mais importante: `extractMentionIds` (1.7, já em produção) varre o documento assumindo que **todo** nó `mention` é uma menção de item, sem checar nenhum atributo — reaproveitar o mesmo tipo de nó exigiria alterar essa função já usada em produção (`updateItemContent`/`restoreItemVersion`) pra filtrar por `mentionSuggestionChar`. Sem essa alteração, uma menção de contato seria capturada por engano como menção de item, e o código tentaria inserir o id do contato em `links.target_id` — coluna com FK pra `items(id)`, que falharia (e falharia **silenciosamente**, já que o `insert` em `links` nesses dois pontos não confere `error`). Um nó separado elimina esse risco de raiz, sem tocar em nada que já funciona.
 - **Consequências:** dois arquivos de extensão paralelos (`mention-suggestion.ts`/`contact-mention-suggestion.ts`), mas reaproveitando o mesmo componente de lista (`MentionList` — a UI é idêntica). `extractContactMentionIds` (novo) é o par de `extractMentionIds`, e as duas convivem no editor sem interferência: cada uma só enxerga nós do próprio tipo.
 
+### 2026-09-20 — E-mail da conta Google via endpoint UserInfo, não decodificando o ID token
+
+- **Fase/tarefa:** 3.4 (Conexão com o Google Calendar)
+- **Contexto:** a troca do código OAuth devolve, além do `access_token`, um `id_token` (JWT) que já carrega o e-mail do usuário — decodificá-lo evitaria uma chamada de rede extra no callback.
+- **Opções consideradas:** (a) decodificar e **validar** o `id_token` (assinatura, `iss`, `aud`, expiração) — exigiria adicionar uma biblioteca de verificação de JWT (ex.: `jose`) só pra isso, já que decodificar sem validar a assinatura seria confiar cegamente num payload que, em tese, poderia vir de qualquer lugar; (b) chamar `GET https://openidconnect.googleapis.com/v1/userinfo` com o `access_token` recém-obtido.
+- **Decisão:** (b). O endpoint UserInfo só responde com um `access_token` válido emitido pelo próprio Google segundos antes — a validação "é do Google mesmo" já está embutida no fato de o `access_token` ter vindo direto da troca de código que acabamos de fazer, sem precisar verificar assinatura de JWT manualmente nem adicionar dependência nova pra isso (CLAUDE.md: não adicionar dependência fora da stack sem justificar).
+- **Consequências:** uma chamada de rede a mais no callback (latência desprezível frente ao redirecionamento OAuth inteiro). Se no futuro o Hub precisar de outros claims do ID token (ex.: `sub` estável entre re-consentimentos), essa decisão precisa ser revisitada.
+
+### 2026-09-20 — Calendários já existentes não são sobrescritos ao reconectar a mesma conta Google
+
+- **Fase/tarefa:** 3.4 (Conexão com o Google Calendar)
+- **Contexto:** o callback grava a lista de calendários do Google toda vez que roda — inclusive numa reconexão (token expirado por o app estar "Em teste", ou o dono desconectando e conectando de novo a mesma conta). Um `upsert` comum, por `(connection_id, external_id)`, sobrescreveria `sync_enabled`/`space_id` de calendários que o dono já tinha configurado manualmente em `/configuracoes/integracoes`, apagando essa curadoria a cada reconexão.
+- **Decisão:** `supabase.from("calendars").upsert(..., { onConflict: "connection_id,external_id", ignoreDuplicates: true })` — só insere calendários que ainda não existem (novos calendários criados no Google desde a última conexão); calendários já conhecidos ficam intocados, com o que o dono já escolheu.
+- **Consequências:** um calendário renomeado ou com cor trocada no lado do Google não atualiza `name`/`color` numa reconexão (fica com o valor salvo da primeira vez) — aceitável porque esses dois campos são só exibição; se isso incomodar na prática, a sincronização periódica (3.5, que já vai ler o calendário via `events.list`) é o lugar certo pra também atualizar metadados do calendário, não o callback de conexão.
+
+### 2026-09-20 — Estratégia de recorrência: `singleEvents=true` sempre, nos dois tipos de sincronização
+
+- **Fase/tarefa:** 3.5 (Sincronização de eventos) — decisão em aberto prevista no plano, resolvida por pesquisa em vez de suposição
+- **Contexto:** o enunciado da 3.5 pedia checar na documentação quais parâmetros são compatíveis com `syncToken` e, se `singleEvents=true` (instâncias expandidas de eventos recorrentes) for compatível, preferir essa opção a guardar só o evento principal e expandir localmente com `rrule`.
+- **Opções consideradas:** (a) guardar o evento-mestre recorrente (`recurrence`) e expandir as ocorrências localmente com `rrule` ao consultar um intervalo; (b) sempre pedir `singleEvents=true`, recebendo cada ocorrência já expandida como uma linha própria em `events`.
+- **Decisão:** (b), confirmada por pesquisa (não por suposição): `timeMin`/`timeMax`/`orderBy`/`q`/etc **não podem** ser combinados com `syncToken` (só valem na sincronização completa), mas `singleEvents` **pode** conviver com `syncToken` desde que seja o **mesmo valor** usado na sincronização completa que gerou aquele token — a API responde 400 se mudar no meio do caminho. Como a decisão é simples de manter consistente (é sempre `true`, nunca varia por chamada), a opção (b) elimina a necessidade de implementar expansão de recorrência em `rrule` nesta fase.
+- **Consequências:** `events.recurring_event_external_id` (já na migration da 3.1) guarda o vínculo com a ocorrência-mestre, mas o evento-mestre em si (com o campo `recurrence`) nunca é gravado como linha própria — só as instâncias. Se uma fase futura precisar editar a série inteira de um evento recorrente (não só uma ocorrência), vai precisar buscar o evento-mestre à parte pelo `recurring_event_external_id` — não é um problema resolvido por esta decisão, só não é necessário ainda.
+
+### 2026-09-20 — Sincronização completa limitada aos últimos 90 dias pra frente
+
+- **Fase/tarefa:** 3.5 (Sincronização de eventos)
+- **Contexto:** o enunciado não define uma janela de tempo pra sincronização completa (sem `syncToken`); sem limite, `events.list` traria o histórico inteiro da conta Google — anos de eventos passados, pra um uso pessoal isso pode ser milhares de linhas irrelevantes.
+- **Opções consideradas:** (a) sem `timeMin`, trazer tudo; (b) `timeMin` fixo (ex.: últimos 90 dias) até hoje em diante, sem `timeMax`.
+- **Decisão:** (b), com `FULL_SYNC_LOOKBACK_DAYS = 90` (`src/lib/jobs/handlers/calendar-sync.ts`). Cobre o caso de uso real (ver reuniões recentes na página de contato, 3.3, e a agenda da 3.6) sem carregar histórico irrelevante.
+- **Consequências:** eventos passados de mais de 90 dias antes da primeira conexão nunca entram no Hub. Se isso incomodar na prática, é só aumentar a constante — não há nada guardado que dependa do valor atual (o `syncToken` da sincronização completa já reflete a janela usada, então mudar a constante só afeta a próxima vez que alguém reconectar do zero, não as sincronizações incrementais já em andamento).
+
+### 2026-09-20 — Conflito de `etag` (412) não busca o evento de novo — espera a próxima sincronização periódica
+
+- **Fase/tarefa:** 3.5 (Sincronização de eventos)
+- **Contexto:** o enunciado diz que, em conflito de `etag`, "o Google vence e o usuário é avisado". Pra mostrar ao dono o que o Google tem agora (não só que houve conflito), seria preciso buscar o evento atualizado — mas a API não tem um `events.get` chamado ainda no código, só `list`/`insert`/`patch`/`delete`.
+- **Opções consideradas:** (a) adicionar `getGoogleEvent` (`events.get`) só pra esse caminho de erro, e sobrescrever a linha local com a resposta na hora; (b) não buscar nada — só desistir da edição local (`local_dirty=false`), avisar o dono que houve conflito, e deixar a próxima execução do `calendar_sync` (a cada 10 min, ou o botão "Sincronizar agora") trazer o estado de verdade do Google.
+- **Decisão:** (b). Conflito de `etag` é raro (só acontece se o mesmo evento for editado nos dois lados quase ao mesmo tempo) — adicionar uma chamada de API nova só pra esse caso raro, quando a sincronização periódica já resolve isso sozinha em no máximo 10 minutos, não pareceu valer a complexidade (CLAUDE.md: não adicionar funcionalidade além do que a tarefa pede).
+- **Consequências:** por até 10 minutos (ou até o dono clicar "Sincronizar agora"), a tela pode mostrar um texto que não é nem o que o dono editou nem o que está no Google. Se isso incomodar na prática, `getGoogleEvent` é a extensão natural — um único método a mais em `src/lib/google/calendar.ts`, sem mexer no resto do desenho.
+
+### 2026-09-20 — Pedido de Google Meet (`addMeet`) não sobrevive a um retry de `calendar_push`
+
+- **Fase/tarefa:** 3.5 (Sincronização de eventos)
+- **Contexto:** `createEvent` aceita `addMeet: true` pra pedir uma sala do Google Meet na criação (`conferenceData`, enunciado da 3.5). Se a chamada de criação falhar por rede, o evento fica `local_dirty=true` e um `calendar_push` tenta de novo depois — mas `addMeet` é um parâmetro da chamada, não uma coluna da linha (a tabela `events`, da migration da 3.1, só guarda `conference_url`, que é *saída* do Google, não *pedido* de quem chama).
+- **Opções consideradas:** (a) guardar a intenção "pedir Meet" em algum lugar que sobreviva ao retry — uma coluna nova em `events`, ou duplicar o dado no `payload` do job `calendar_push`; (b) aceitar que o pedido de Meet só é tentado na chamada imediata; se falhar, o retry recria/atualiza o evento sem Meet, e o dono adiciona manualmente depois (uma edição futura, com seu próprio ciclo de imediato+retry).
+- **Decisão:** (b). Adicionar uma coluna só pra uma preferência efêmera de uma chamada específica (não um dado do evento em si) pareceu desproporcional a uma falha de rede bem específica (rede cair *exatamente* durante a criação de um evento com Meet pedido) — e o `payload` do job foi deliberadamente mantido mínimo (`{eventId, operation}`, ver a decisão do `map-row-to-google-event-input` no `PROGRESSO.md`) porque a linha local já é a fonte da verdade de tudo que **é** o evento; `addMeet` não é.
+- **Consequências:** numa falha de rede bem no momento da criação com Meet pedido (janela pequena), o dono precisa adicionar o Meet manualmente depois. Registrado aqui pra não ser confundido com um bug se alguém notar um evento sem Meet depois de um retry.
+
 ## Decisões em aberto previstas no plano
-- [ ] Estratégia de eventos recorrentes do Google Calendar (fase 3.5)
+- [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
+- [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Biblioteca da agenda: FullCalendar ou componente próprio (fase 3.6)
 - [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9)
 - [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
