@@ -325,7 +325,7 @@ Observações:
 
 Documento: `docs/fase-04-financas.md`
 
-- [ ] **4.1** Regras de dinheiro
+- [x] **4.1** Regras de dinheiro
 - [ ] **4.2** Migration
 - [ ] **4.3** Onboarding financeiro
 - [ ] **4.4** Lançamentos
@@ -341,6 +341,9 @@ Documento: `docs/fase-04-financas.md`
 - [ ] **4.14** Testes da fase
 
 Observações:
+
+- **4.1 (`src/lib/money.ts`, testado 39 vezes)**: as cinco funções do enunciado, assinatura exata (`Cents = number`). `parseBRL` aceita tanto o formato brasileiro digitado (`"1.234,56"`) quanto o de extrato OFX (`"1234.56"`) sem precisar de dois parsers separados — a regra é posicional: quando os dois separadores aparecem, o que vem **por último** é o decimal (e o outro vira separador de milhar, removido); quando só um aparece, a contagem de dígitos depois dele decide (1-2 dígitos = centavos; exatamente 3, sem nenhum outro separador = milhar, sem centavos — ex.: `"1.234"` → `123400`, não `123,40`). Casos genuinamente ambíguos (vírgula seguida de 3+ dígitos sem ponto nenhum, várias vírgulas) lançam erro em vez de adivinhar, como o próprio enunciado pede — decisão detalhada em `docs/decisoes.md`. `formatBRL` usa `Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'})` como o enunciado pede, com `signDisplay` (`exceptZero`/`auto`) pra resolver `opts.sign` sem montar a string à mão, e normaliza o espaço entre `"R$"` e o número (`Intl` às vezes usa U+00A0, espaço não-quebrável) pra um espaço comum — evita comparação/cópia de texto quebrando por um caractere invisível. `splitEqual`/`splitByWeights` (método do maior resto, com empate resolvido pela ordem original — mesmo critério dos dois) sempre somam de volta o total exato, inclusive com total negativo (útil pra estorno/reembolso dividido); testado explicitamente que a soma bate mesmo em casos com resto grande.
+- **4.1**: `pnpm lint/typecheck/test/build` passam (841 testes, 39 novos, todos em `money.test.ts` — é código 100% puro, sem banco nem UI ainda).
 
 
 ## Fase 5 — Métodos, automações, vendas, estudos, projetos, listas e canvas
