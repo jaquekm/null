@@ -4,7 +4,7 @@ import type { Tables } from "@/lib/supabase/database.types";
 vi.mock("@/lib/env", () => ({ serverEnv: { OWNER_EMAIL: "dono@example.com" } }));
 
 const getMessageChannelMock = vi.fn();
-vi.mock("@/lib/messaging/types", () => ({ getMessageChannel: getMessageChannelMock }));
+vi.mock("@/lib/messaging", () => ({ getMessageChannel: getMessageChannelMock }));
 
 const { dispatchReminderOccurrence } = await import("./dispatch");
 

@@ -451,12 +451,22 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b). Resolve a esmagadora maioria dos casos sem mudança de schema: como toda `send_at` de lembrete pra contatos já nasce/recalcula fora do horário silencioso, a checagem em `decideDelivery` quase nunca deveria disparar na prática — só serve de rede de segurança pra casos de borda (regra inserida direto no banco, RRULE personalizada, etc.). Descartei (c) por ser a complexidade mais alta pro ganho mais baixo nesta tarefa.
 - **Consequências:** um lembrete **único** (sem `rrule`) cuja `send_at` caia no silêncio por algum motivo fora do fluxo normal (ex.: editado manualmente pra uma hora nessa janela) tem sua única ocorrência pulada, não reenviada — perda real, não só atraso. Fica registrado como decisão em aberto abaixo; revisitar com uma tabela/coluna de reagendamento por entrega se isso incomodar na prática.
 
+### 2026-09-20 — Notificações "configuráveis" pro dono: só `jobFailures`/`googleReconnect` disparam de verdade na 3.9
+
+- **Fase/tarefa:** 3.9 (Canais de envio)
+- **Contexto:** o enunciado lista "Notificações para o dono (configuráveis): lembretes pessoais, comentários em links compartilhados, falhas de jobs, reconexão do Google, contas vencendo (fase 4)". As chaves e a tela de preferências (`/configuracoes/notificacoes`) são fáceis de construir todas de uma vez; disparar o push de verdade pra cada uma, nem tanto — duas delas dependem de coisa que ainda não existe ou pediria mudar schema.
+- **Opções consideradas:** (a) só guardar as 4 preferências (sem "contas vencendo", que já é fase 4) e disparar push de verdade só onde há um gatilho pronto e sem custo de schema (`jobFailures` em `run-job.ts`, `googleReconnect` resolvendo o `TODO(3.9)` da 3.4); (b) tentar disparar as 4 agora, inventando uma tabela `share_comments` mínima só pra isso (adiantando parte da 3.11) e adicionando um `skip_reason` novo em `reminder_deliveries` só pra `remindersPersonal`.
+- **Decisão:** (a). `shareComments` depende de `share_comments` (3.11) — criar essa tabela agora seria fazer a 3.11 pela metade dentro da 3.9. `remindersPersonal` exigiria o despacho de lembretes (3.8) checar essa preferência antes de mandar push pro dono, o que pediria um `skip_reason` novo no `check` de `reminder_deliveries` (hoje fixo em 4 valores) — uma migration só pra uma preferência que, por padrão, já vem ligada (ou seja, o comportamento sem a preferência checada já é o padrão esperado) não pareceu proporcional nesta tarefa.
+- **Consequências:** o dono já vê as 4 chaves na tela de notificações e pode desligá-las, mas desligar `remindersPersonal`/`shareComments` hoje **não tem efeito nenhum** — lembretes pessoais continuam sendo enviados por push independente do toggle, e nunca existe um aviso de comentário (a feature em si não existe ainda). Registrado como decisão em aberto abaixo; revisitar `remindersPersonal` quando `reminder_deliveries.skip_reason` precisar mudar por outro motivo (não vale uma migration só por isso), e `shareComments` junto da própria 3.11.
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Distinguir "tarefa concluída" de "tarefa pendente" de forma genérica no planejador do dia (fase 3.6/5 — revisitar se incomodar na prática)
 - [ ] Interpolar `object_types.title_template` de verdade em algum fluxo de criação de item (fase 3.7+ — hoje só é gravado/exibido)
-- [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9)
+- [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9) — documentado em `docs/n8n-whatsapp.md`, fluxo de verdade é trabalho do dono
+- [ ] Preferência "lembretes pessoais" (notificações ao dono) não tem efeito ainda — precisaria de um `skip_reason` novo em `reminder_deliveries` (fase 3.9, ver decisão acima)
+- [ ] Preferência "comentários em links compartilhados" (notificações ao dono) só passa a valer quando `share_comments` existir (fase 3.11)
 - [ ] Reagendamento de horário silencioso por destinatário dentro do mesmo `tick` de `dispatch_reminders` (fase 3.8 — revisitar se incomodar na prática; hoje a ocorrência já nasce fora da janela silenciosa na maioria dos casos, ver decisão acima)
 - [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
 - [ ] Destino dos backups externos (fase 7.1)

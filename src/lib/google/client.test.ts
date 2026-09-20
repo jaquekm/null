@@ -8,6 +8,12 @@ vi.mock("@/lib/crypto", () => ({
 const refreshAccessTokenMock = vi.fn();
 vi.mock("./oauth", () => ({ refreshAccessToken: refreshAccessTokenMock }));
 
+const getOwnerNotificationPreferencesMock = vi.fn();
+vi.mock("@/features/settings/queries", () => ({ getOwnerNotificationPreferences: getOwnerNotificationPreferencesMock }));
+
+const notifyOwnerMock = vi.fn();
+vi.mock("@/lib/messaging/notify-owner", () => ({ notifyOwner: notifyOwnerMock }));
+
 const { getAccessToken, GoogleConnectionNotFoundError, GoogleConnectionRevokedError } = await import("./client");
 
 function fakeSupabase(connection: Record<string, unknown> | null) {
@@ -17,7 +23,13 @@ function fakeSupabase(connection: Record<string, unknown> | null) {
       select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: connection, error: null }) }) }),
       update: (values: Record<string, unknown>) => {
         updates.push(values);
-        return { eq: () => Promise.resolve({ error: null }) };
+        return {
+          eq: () => ({
+            select: () => ({
+              maybeSingle: () => Promise.resolve({ data: { owner_id: "owner-1", google_email: "dono@gmail.com" } }),
+            }),
+          }),
+        };
       },
     }),
   };
@@ -27,6 +39,13 @@ function fakeSupabase(connection: Record<string, unknown> | null) {
 describe("getAccessToken", () => {
   beforeEach(() => {
     refreshAccessTokenMock.mockReset();
+    getOwnerNotificationPreferencesMock.mockReset().mockResolvedValue({
+      remindersPersonal: true,
+      shareComments: true,
+      jobFailures: true,
+      googleReconnect: true,
+    });
+    notifyOwnerMock.mockReset();
   });
 
   it("devolve o access token direto quando ainda não está perto de expirar", async () => {
@@ -83,6 +102,29 @@ describe("getAccessToken", () => {
 
     await expect(getAccessToken(client, "conn-1")).rejects.toThrow(GoogleConnectionRevokedError);
     expect(updates[0]).toMatchObject({ status: "revoked" });
+    expect(notifyOwnerMock).toHaveBeenCalledWith("owner-1", expect.objectContaining({ title: expect.any(String) }));
+  });
+
+  it("marca revogada mas não avisa quando o dono desligou 'reconexão do Google'", async () => {
+    getOwnerNotificationPreferencesMock.mockResolvedValue({
+      remindersPersonal: true,
+      shareComments: true,
+      jobFailures: true,
+      googleReconnect: false,
+    });
+    const almostExpired = new Date(Date.now() + 1000).toISOString();
+    const { client } = fakeSupabase({
+      status: "active",
+      refresh_token_encrypted: "enc(refresh)",
+      access_token_encrypted: "enc(old)",
+      access_token_expires_at: almostExpired,
+    });
+    const invalidGrantError = new Error("Token expirado.");
+    invalidGrantError.name = "invalid_grant";
+    refreshAccessTokenMock.mockRejectedValue(invalidGrantError);
+
+    await expect(getAccessToken(client, "conn-1")).rejects.toThrow(GoogleConnectionRevokedError);
+    expect(notifyOwnerMock).not.toHaveBeenCalled();
   });
 
   it("lança GoogleConnectionNotFoundError quando a conexão não existe", async () => {

@@ -36,3 +36,33 @@ export async function getMeetingNotesSettings(supabase: Client, ownerId: string)
     minutesBefore: Number.isFinite(minutesBefore) && minutesBefore > 0 ? minutesBefore : DEFAULT_MEETING_NOTES_MINUTES_BEFORE,
   };
 }
+
+/**
+ * "Notificações para o dono (configuráveis)" (3.9): `remindersPersonal` e
+ * `shareComments` ainda não são checadas em nenhum fluxo de envio de
+ * verdade (a primeira exigiria mexer no despacho de lembretes da 3.8, a
+ * segunda depende de `share_comments`, que só nasce na 3.11) — guardadas
+ * desde já pra não pedir de novo ao dono quando esses fluxos existirem.
+ * `googleReconnect` (3.4) e `jobFailures` (2.2) já disparam push de
+ * verdade. "Contas vencendo" fica pra fase 4. Todas ligadas por padrão.
+ */
+export interface OwnerNotificationPreferences {
+  remindersPersonal: boolean;
+  shareComments: boolean;
+  jobFailures: boolean;
+  googleReconnect: boolean;
+}
+
+const DEFAULT_OWNER_NOTIFICATIONS: OwnerNotificationPreferences = {
+  remindersPersonal: true,
+  shareComments: true,
+  jobFailures: true,
+  googleReconnect: true,
+};
+
+export async function getOwnerNotificationPreferences(supabase: Client, ownerId: string): Promise<OwnerNotificationPreferences> {
+  const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", ownerId).maybeSingle();
+  const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
+  const stored = (preferences.ownerNotifications as Partial<OwnerNotificationPreferences> | undefined) ?? {};
+  return { ...DEFAULT_OWNER_NOTIFICATIONS, ...stored };
+}

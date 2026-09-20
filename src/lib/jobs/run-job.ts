@@ -1,5 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getOwnerNotificationPreferences } from "@/features/settings/queries";
+import { notifyOwner } from "@/lib/messaging/notify-owner";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { handlers as defaultHandlers } from "./registry";
 import { resolveJobTransition } from "./resolve-transition";
@@ -43,4 +45,14 @@ export async function runJob(
       locked_at: null,
     })
     .eq("id", job.id);
+
+  if (transition.status === "failed") {
+    const preferences = await getOwnerNotificationPreferences(supabase, job.owner_id);
+    if (preferences.jobFailures) {
+      await notifyOwner(job.owner_id, {
+        title: "Job com falha",
+        text: `"${job.kind}" esgotou as tentativas: ${transition.lastError ?? "erro desconhecido"}.`,
+      });
+    }
+  }
 }

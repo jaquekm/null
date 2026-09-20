@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { serverEnv } from "@/lib/env";
-import { getMessageChannel, type MessageChannelKind } from "@/lib/messaging/types";
+import { getMessageChannel, type MessageChannelKind } from "@/lib/messaging";
 import type { Database, Tables } from "@/lib/supabase/database.types";
 import { decideDelivery } from "./delivery-rules";
 import { nextOccurrence } from "./recurrence";
