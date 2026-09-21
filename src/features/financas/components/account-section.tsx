@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -96,9 +97,16 @@ export function AccountSection({ accounts, spaces }: { accounts: AccountRow[]; s
                   {ACCOUNT_KIND_LABELS[account.kind]} · {formatBRL(account.openingBalanceCents)}
                 </span>
               </div>
-              <button type="button" onClick={() => handleArchive(account.id)} disabled={pending} className="text-xs text-red-500 hover:underline disabled:opacity-60">
-                Remover
-              </button>
+              <div className="flex items-center gap-3">
+                {account.kind === "credit_card" && (
+                  <Link href={`/financas/cartoes/${account.id}`} className="text-xs text-zinc-500 hover:underline dark:text-zinc-400">
+                    Ver fatura
+                  </Link>
+                )}
+                <button type="button" onClick={() => handleArchive(account.id)} disabled={pending} className="text-xs text-red-500 hover:underline disabled:opacity-60">
+                  Remover
+                </button>
+              </div>
             </li>
           ))}
         </ul>
