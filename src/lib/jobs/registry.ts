@@ -4,6 +4,7 @@ import { calendarSync } from "./handlers/calendar-sync";
 import { closeCardStatements } from "./handlers/close-card-statements";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
 import { extractAttachment } from "./handlers/extract-attachment";
+import { generateBills } from "./handlers/generate-bills";
 import { generateReminders } from "./handlers/generate-reminders";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
@@ -28,4 +29,5 @@ export const handlers: Record<string, JobHandler> = {
   dispatch_reminders: dispatchReminders,
   generate_reminders: generateReminders,
   close_card_statements: closeCardStatements,
+  generate_bills: generateBills,
 };

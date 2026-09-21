@@ -269,7 +269,13 @@ export async function completeFinanceOnboarding(): Promise<Result<null>> {
 
   // `job_schedules.owner_id` não tem `default auth.uid()` (mesmo motivo já registrado na 1.3: normalmente é preenchido por código de service role) —
   // só dá pra agendar aqui, na primeira vez que existe um `owner_id` de verdade vindo de uma sessão. Mesmo padrão da 1.3 pros jobs gerais (`onConflict: "kind"`).
-  await supabase.from("job_schedules").upsert([{ kind: "close_card_statements", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true }], { onConflict: "kind" });
+  await supabase.from("job_schedules").upsert(
+    [
+      { kind: "close_card_statements", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
+      { kind: "generate_bills", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
+    ],
+    { onConflict: "kind" },
+  );
 
   return ok(null);
 }
