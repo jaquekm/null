@@ -43,7 +43,8 @@ export async function findDuplicateAttachment(sha256: string): Promise<Result<Du
 }
 
 const recordSchema = z.object({
-  itemId: z.string().uuid(),
+  /** Nulo = anexo avulso, sem item (4.8: boleto de conta a pagar) — `attachments.item_id` já é opcional no banco desde a fundação. */
+  itemId: z.string().uuid().optional(),
   storagePath: z.string().min(1),
   fileName: z.string().min(1).max(255),
   mimeType: z.string().min(1),
@@ -77,7 +78,7 @@ export async function recordAttachment(input: z.infer<typeof recordSchema>): Pro
     .from("attachments")
     .insert({
       owner_id: user.id,
-      item_id: parsed.data.itemId,
+      item_id: parsed.data.itemId ?? null,
       storage_path: parsed.data.storagePath,
       file_name: parsed.data.fileName,
       mime_type: parsed.data.mimeType,
@@ -93,7 +94,7 @@ export async function recordAttachment(input: z.infer<typeof recordSchema>): Pro
 
   if (eligible) await enqueueExtractionIfEligible(user.id, data.id, parsed.data.mimeType);
 
-  revalidatePath(`/itens/${parsed.data.itemId}`);
+  if (parsed.data.itemId) revalidatePath(`/itens/${parsed.data.itemId}`);
   return ok({
     id: data.id,
     fileName: data.file_name,

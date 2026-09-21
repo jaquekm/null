@@ -321,3 +321,87 @@ export async function listTransactionsForRuleTest(supabase: Client, sinceDate: s
   if (error) throw error;
   return data.map((row) => ({ description: row.description, originalDescription: row.original_description, accountId: row.account_id, amountCents: row.amount_cents }));
 }
+
+// =========================================================
+// CARTÕES DE CRÉDITO E FATURAS (4.7)
+// =========================================================
+
+export interface CardStatementRow {
+  id: string;
+  accountId: string;
+  referenceMonth: string;
+  periodStart: string;
+  periodEnd: string;
+  dueOn: string;
+  status: "open" | "closed" | "paid" | "partial";
+  paidCents: number;
+}
+
+const CARD_STATEMENT_COLUMNS = "id, account_id, reference_month, period_start, period_end, due_on, status, paid_cents";
+
+function mapCardStatementRow(row: Record<string, unknown>): CardStatementRow {
+  return {
+    id: row.id as string,
+    accountId: row.account_id as string,
+    referenceMonth: row.reference_month as string,
+    periodStart: row.period_start as string,
+    periodEnd: row.period_end as string,
+    dueOn: row.due_on as string,
+    status: row.status as CardStatementRow["status"],
+    paidCents: row.paid_cents as number,
+  };
+}
+
+/** Faturas de um cartão, mais recente primeiro — página do cartão (4.7). */
+export async function listCardStatements(supabase: Client, accountId: string): Promise<CardStatementRow[]> {
+  const { data, error } = await supabase.from("fin_card_statements").select(CARD_STATEMENT_COLUMNS).eq("account_id", accountId).order("reference_month", { ascending: false });
+  if (error) throw error;
+  return data.map(mapCardStatementRow);
+}
+
+export async function getCardStatement(supabase: Client, statementId: string): Promise<CardStatementRow | null> {
+  const { data, error } = await supabase.from("fin_card_statements").select(CARD_STATEMENT_COLUMNS).eq("id", statementId).maybeSingle();
+  if (error) throw error;
+  return data ? mapCardStatementRow(data) : null;
+}
+
+/** Faturas já existentes pra um conjunto de `reference_month` desta conta — o find-or-create de fatura (4.7) só cria as que faltarem. */
+export async function listCardStatementsByReferenceMonths(supabase: Client, accountId: string, referenceMonths: string[]): Promise<CardStatementRow[]> {
+  if (referenceMonths.length === 0) return [];
+  const { data, error } = await supabase.from("fin_card_statements").select(CARD_STATEMENT_COLUMNS).eq("account_id", accountId).in("reference_month", referenceMonths);
+  if (error) throw error;
+  return data.map(mapCardStatementRow);
+}
+
+/** Lançamentos de uma fatura específica — mesmo formato de `listTransactions` (4.4). */
+export async function listStatementTransactions(supabase: Client, statementId: string): Promise<TransactionRow[]> {
+  const { data, error } = await supabase.from("fin_transactions").select(TRANSACTION_COLUMNS).eq("statement_id", statementId).order("occurred_on", { ascending: true });
+  if (error) throw error;
+  return data.map(mapTransactionRow);
+}
+
+/** Soma assinada das transações de uma fatura — o total devido é o valor absoluto dela (4.7). */
+export async function sumStatementTransactionAmounts(supabase: Client, statementId: string): Promise<number> {
+  const { data, error } = await supabase.from("fin_transactions").select("amount_cents").eq("statement_id", statementId);
+  if (error) throw error;
+  return data.reduce((sum, row) => sum + row.amount_cents, 0);
+}
+
+/** Soma assinada por fatura, pra listar os totais de todas as faturas de um cartão numa única consulta (página do cartão, 4.7). */
+export async function listCardStatementTotals(supabase: Client, accountId: string): Promise<Map<string, number>> {
+  const { data, error } = await supabase.from("fin_transactions").select("statement_id, amount_cents").eq("account_id", accountId).not("statement_id", "is", null);
+  if (error) throw error;
+  const totals = new Map<string, number>();
+  for (const row of data) {
+    if (!row.statement_id) continue;
+    totals.set(row.statement_id, (totals.get(row.statement_id) ?? 0) + row.amount_cents);
+  }
+  return totals;
+}
+
+/** Saldo da conta (`fin_account_balances`, 4.2) — pra cartão, negativo é o quanto está devendo; "limite usado" é o valor absoluto disso (4.7). */
+export async function getAccountBalanceCents(supabase: Client, accountId: string): Promise<number> {
+  const { data, error } = await supabase.from("fin_account_balances").select("balance_cents").eq("account_id", accountId).maybeSingle();
+  if (error) throw error;
+  return data?.balance_cents ?? 0;
+}

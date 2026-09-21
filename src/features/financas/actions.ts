@@ -14,18 +14,23 @@ import { buildInstallments } from "./lib/installments";
 import { computeOccurrenceIndexes, importHash } from "./lib/import-hash";
 import { matchBills } from "./lib/match-bills";
 import { matchRule, ruleMatchesTransaction, type CategorizationRule } from "./lib/match-rule";
+import { statementFor } from "./lib/statements";
 import { suggestCategoryId } from "./lib/suggest-category";
 import { computeTransactionTotals, type TransactionTotals } from "./lib/transaction-totals";
 import {
+  getCardStatement,
   getLastCsvMapping,
   getUserTimezone,
   listAccounts,
+  listCardStatementsByReferenceMonths,
   listExistingImportHashes,
   listOpenBillsForMatching,
   listRecentCategorizedTransactions,
   listRules,
+  listStatementTransactions,
   listTransactions,
   listTransactionsForRuleTest,
+  sumStatementTransactionAmounts,
   type TransactionRow,
 } from "./queries";
 import {
@@ -35,6 +40,7 @@ import {
   createCategorySchema,
   createPixKeySchema,
   createTransactionSchema,
+  payStatementSchema,
   previewImportSchema,
   quickExpenseSchema,
   renameCategorySchema,
@@ -48,6 +54,7 @@ import {
   type CreatePixKeyInput,
   type CreateTransactionInput,
   type DeleteTransactionScope,
+  type PayStatementInput,
   type PreviewImportInput,
   type QuickExpenseInput,
   type RuleInput,
@@ -260,6 +267,16 @@ export async function completeFinanceOnboarding(): Promise<Result<null>> {
   const { error } = await supabase.from("user_settings").upsert({ owner_id: user.id, preferences: preferences as unknown as Json }, { onConflict: "owner_id" });
   if (error) return fail(GENERIC_ERROR);
 
+  // `job_schedules.owner_id` não tem `default auth.uid()` (mesmo motivo já registrado na 1.3: normalmente é preenchido por código de service role) —
+  // só dá pra agendar aqui, na primeira vez que existe um `owner_id` de verdade vindo de uma sessão. Mesmo padrão da 1.3 pros jobs gerais (`onConflict: "kind"`).
+  await supabase.from("job_schedules").upsert(
+    [
+      { kind: "close_card_statements", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
+      { kind: "generate_bills", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
+    ],
+    { onConflict: "kind" },
+  );
+
   return ok(null);
 }
 
@@ -351,8 +368,13 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
 
   const account = accounts.find((a) => a.id === data.accountId);
   if (!account) return fail("Conta inválida.");
+  if (data.installments > 1 && account.kind !== "credit_card") {
+    return fail("Dados inválidos.", { installments: ["Parcelamento é só para contas de cartão de crédito."] });
+  }
+
   const spaceId = data.spaceId || account.spaceId || null;
   const signedAmount = data.type === "expense" ? -amountCents : amountCents;
+  const plan = data.installments > 1 ? buildInstallments(data.occurredOn, signedAmount, data.installments) : null;
 
   // "Ao salvar sem categoria, aplicar regras" (4.4/4.6) — só entra em ação quando o dono não escolheu categoria no formulário.
   let matchedRule: CategorizationRule | null = null;
@@ -364,13 +386,14 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   const contactId = data.contactId || matchedRule?.setContactId || null;
   const ruleAppliedCategory = matchedRule?.setCategoryId != null && categoryId === matchedRule.setCategoryId;
 
-  if (data.installments > 1) {
-    if (account.kind !== "credit_card") {
-      return fail("Dados inválidos.", { installments: ["Parcelamento é só para contas de cartão de crédito."] });
-    }
+  // "Ao criar transação em conta credit_card: calcular e criar (se não existir) a fatura e preencher statement_id" (4.7) — cada parcela na fatura do seu próprio período.
+  let statementIdByDate = new Map<string, string>();
+  if (account.kind === "credit_card" && account.closingDay != null && account.dueDay != null) {
+    const dates = plan ? plan.map((p) => p.occurredOn) : [data.occurredOn];
+    statementIdByDate = await findOrCreateCardStatements(supabase, user.id, account.id, account.closingDay, account.dueDay, dates);
+  }
 
-    // `statement_id` fica nulo aqui — vincular cada parcela à fatura do período (`statementFor`) é a 4.7, ainda não implementada.
-    const plan = buildInstallments(data.occurredOn, signedAmount, data.installments);
+  if (plan) {
     const installmentGroupId = crypto.randomUUID();
     const rows = plan.map((p) => ({
       owner_id: user.id,
@@ -382,6 +405,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       amount_cents: p.amountCents,
       occurred_on: p.occurredOn,
       kind: "normal" as const,
+      statement_id: statementIdByDate.get(p.occurredOn) ?? null,
       installment_group_id: installmentGroupId,
       installment_number: p.installmentNumber,
       installment_total: p.installmentTotal,
@@ -409,6 +433,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       amount_cents: signedAmount,
       occurred_on: data.occurredOn,
       kind: "normal",
+      statement_id: statementIdByDate.get(data.occurredOn) ?? null,
       tags: data.tags,
       notes: data.notes || null,
     })
@@ -698,6 +723,67 @@ export async function previewImport(input: PreviewImportInput): Promise<Result<{
 }
 
 /**
+ * Encontra (ou cria) a fatura de cada data em `dates`, pra um cartão com
+ * `closingDay`/`dueDay` já preenchidos (4.7) — devolve um mapa
+ * `occurred_on → statement_id`. Datas diferentes que caem no mesmo
+ * `reference_month` (comum em compras parceladas) compartilham a mesma
+ * fatura; só uma linha é inserida por mês que ainda não existe. Se o
+ * `insert` esbarrar num `reference_month` criado por outra chamada nesse
+ * meio-tempo (`unique(account_id, reference_month)`), reconsulta em vez de
+ * falhar a criação do lançamento por causa de uma corrida rara.
+ */
+async function findOrCreateCardStatements(
+  supabase: Client,
+  ownerId: string,
+  accountId: string,
+  closingDay: number,
+  dueDay: number,
+  dates: string[],
+): Promise<Map<string, string>> {
+  const uniqueDates = [...new Set(dates)];
+  const computed = uniqueDates.map((date) => ({ date, statement: statementFor(date, closingDay, dueDay) }));
+
+  const referenceMonths = [...new Set(computed.map(({ statement }) => statement.referenceMonth))];
+  const existing = await listCardStatementsByReferenceMonths(supabase, accountId, referenceMonths);
+  const idByMonth = new Map(existing.map((s) => [s.referenceMonth, s.id]));
+
+  const missing = new Map<string, ReturnType<typeof statementFor>>();
+  for (const { statement } of computed) {
+    if (!idByMonth.has(statement.referenceMonth)) missing.set(statement.referenceMonth, statement);
+  }
+
+  if (missing.size > 0) {
+    const { data: inserted, error } = await supabase
+      .from("fin_card_statements")
+      .insert(
+        [...missing.values()].map((s) => ({
+          owner_id: ownerId,
+          account_id: accountId,
+          reference_month: s.referenceMonth,
+          period_start: s.periodStart,
+          period_end: s.periodEnd,
+          due_on: s.dueOn,
+        })),
+      )
+      .select("id, reference_month");
+
+    if (inserted) {
+      for (const row of inserted) idByMonth.set(row.reference_month, row.id);
+    } else if (error) {
+      const retried = await listCardStatementsByReferenceMonths(supabase, accountId, [...missing.keys()]);
+      for (const row of retried) idByMonth.set(row.referenceMonth, row.id);
+    }
+  }
+
+  const result = new Map<string, string>();
+  for (const { date, statement } of computed) {
+    const id = idByMonth.get(statement.referenceMonth);
+    if (id) result.set(date, id);
+  }
+  return result;
+}
+
+/**
  * Ajusta `paid_cents`/`status`/`paid_at` de uma conta a pagar/receber quando
  * um lançamento importado é vinculado a ela (`deltaCents` positivo) ou
  * quando esse vínculo é desfeito (`deltaCents` negativo, `undoImport`).
@@ -766,6 +852,19 @@ export async function confirmImport(input: ConfirmImportInput): Promise<Result<{
   if (newRows.length > 0) {
     const rules = await listRules(supabase);
 
+    // Mesma regra da 4.4: conta de cartão com fechamento/vencimento preenchidos ganha `statement_id` por linha (find-or-create por data).
+    let statementIdByDate = new Map<string, string>();
+    if (account.kind === "credit_card" && account.closingDay != null && account.dueDay != null) {
+      statementIdByDate = await findOrCreateCardStatements(
+        supabase,
+        user.id,
+        account.id,
+        account.closingDay,
+        account.dueDay,
+        newRows.map((row) => row.occurredOn),
+      );
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from("fin_transactions")
       .insert(
@@ -780,6 +879,7 @@ export async function confirmImport(input: ConfirmImportInput): Promise<Result<{
           occurred_on: row.occurredOn,
           status: "cleared" as const,
           kind: "normal" as const,
+          statement_id: statementIdByDate.get(row.occurredOn) ?? null,
           import_id: importRow.id,
           import_hash: row.hash,
           external_id: row.fitid,
@@ -1000,4 +1100,93 @@ export async function testRule(input: RuleInput): Promise<Result<{ count: number
 
   const count = transactions.filter((transaction) => ruleMatchesTransaction(candidateRule, transaction)).length;
   return ok({ count });
+}
+
+// =========================================================
+// CARTÕES DE CRÉDITO E FATURAS (4.7)
+// =========================================================
+
+/**
+ * Pagar fatura (4.7): duas transações `kind='card_payment'` com o mesmo
+ * `transfer_group_id` (saída na conta pagadora, entrada no cartão) —
+ * nenhuma delas leva `statement_id` (esse campo é só pras compras da fatura;
+ * se o pagamento também apontasse pra lá, `sumStatementTransactionAmounts`
+ * passaria a somar pagamento + compras, zerando o total a cada quitação).
+ * Atualiza `paid_cents`/`status` da própria fatura e, se já existir a
+ * `fin_bills` vinculada (criada pelo job de fechamento), mantém ela em
+ * sincronia também (`adjustBillPayment`, mesma função da conciliação da
+ * importação, 4.5 — a tela de contas a pagar da 4.8 vai ler daqui).
+ */
+export async function payCardStatement(input: PayStatementInput): Promise<Result<null>> {
+  const parsed = payStatementSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  const statement = await getCardStatement(supabase, data.statementId);
+  if (!statement) return fail("Fatura não encontrada.");
+
+  const accounts = await listAccounts(supabase);
+  const paymentAccount = accounts.find((a) => a.id === data.paymentAccountId);
+  if (!paymentAccount) return fail("Conta inválida.");
+  const cardAccount = accounts.find((a) => a.id === statement.accountId);
+  if (!cardAccount) return fail("Conta do cartão não encontrada.");
+
+  const { data: linkedBill } = await supabase.from("fin_bills").select("id").eq("statement_id", statement.id).maybeSingle();
+
+  const transferGroupId = crypto.randomUUID();
+  const description = `Pagamento fatura ${cardAccount.name}`;
+
+  const { error: insertError } = await supabase.from("fin_transactions").insert([
+    {
+      owner_id: user.id,
+      account_id: paymentAccount.id,
+      space_id: paymentAccount.spaceId,
+      description,
+      amount_cents: -amountCents,
+      occurred_on: data.occurredOn,
+      kind: "card_payment" as const,
+      transfer_group_id: transferGroupId,
+      bill_id: linkedBill?.id ?? null,
+    },
+    {
+      owner_id: user.id,
+      account_id: cardAccount.id,
+      space_id: cardAccount.spaceId,
+      description,
+      amount_cents: amountCents,
+      occurred_on: data.occurredOn,
+      kind: "card_payment" as const,
+      transfer_group_id: transferGroupId,
+    },
+  ]);
+  if (insertError) return fail(GENERIC_ERROR);
+
+  const totalCents = Math.abs(await sumStatementTransactionAmounts(supabase, statement.id));
+  const newPaidCents = statement.paidCents + amountCents;
+  const newStatus = newPaidCents >= totalCents ? "paid" : "partial";
+
+  const { error: updateError } = await supabase.from("fin_card_statements").update({ paid_cents: newPaidCents, status: newStatus }).eq("id", statement.id);
+  if (updateError) return fail(GENERIC_ERROR);
+
+  if (linkedBill) await adjustBillPayment(supabase, linkedBill.id, amountCents);
+
+  revalidatePath(`/financas/cartoes/${cardAccount.id}`);
+  revalidatePath(LANCAMENTOS_PATH);
+  return ok(null);
+}
+
+/** Lançamentos de uma fatura, buscados só ao expandir (mesmo padrão de "sob demanda" já usado em outras abas do projeto, ex.: texto extraído da 2.9) — leitura, não `Result`. */
+export async function getStatementTransactions(statementId: string): Promise<TransactionRow[]> {
+  const { supabase } = await requireOwner();
+  return listStatementTransactions(supabase, statementId);
 }

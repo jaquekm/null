@@ -17,9 +17,12 @@ export interface UploadOutcome {
  * Orquestra o envio de um anexo (1.9): calcula o sha256, checa duplicata
  * (reaproveita se existir), senão envia — upload padrão até 6 MB, resumível
  * (TUS) acima disso — e registra a linha em `attachments`.
+ * `itemId` nulo = anexo avulso, sem item (4.8: boleto de conta a pagar) —
+ * nesse caso a reutilização por hash é pulada (o "reaproveitar" da 1.9
+ * sempre associa a cópia a um item, o que não se aplica aqui).
  */
 export async function uploadAttachment(
-  itemId: string,
+  itemId: string | null,
   file: File,
   onProgress?: (fraction: number) => void,
   durationSeconds?: number,
@@ -31,15 +34,17 @@ export async function uploadAttachment(
 
   const sha256 = await sha256OfFile(file);
 
-  const duplicate = await findDuplicateAttachment(sha256);
-  if (!duplicate.ok) return duplicate;
+  if (itemId) {
+    const duplicate = await findDuplicateAttachment(sha256);
+    if (!duplicate.ok) return duplicate;
 
-  if (duplicate.data) {
-    const reused = await reuseAttachment(duplicate.data.id, itemId);
-    if (!reused.ok) return reused;
-    if (!reused.data) return fail("Não foi possível reaproveitar o anexo.");
-    onProgress?.(1);
-    return ok({ attachment: reused.data, reused: true });
+    if (duplicate.data) {
+      const reused = await reuseAttachment(duplicate.data.id, itemId);
+      if (!reused.ok) return reused;
+      if (!reused.data) return fail("Não foi possível reaproveitar o anexo.");
+      onProgress?.(1);
+      return ok({ attachment: reused.data, reused: true });
+    }
   }
 
   const supabase = createClient();
@@ -62,7 +67,7 @@ export async function uploadAttachment(
   }
 
   const recorded = await recordAttachment({
-    itemId,
+    itemId: itemId ?? undefined,
     storagePath: path,
     fileName: file.name,
     mimeType: contentType,

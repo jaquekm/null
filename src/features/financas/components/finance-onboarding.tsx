@@ -55,7 +55,9 @@ export function FinanceOnboarding({
     <div className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
       <div>
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Configurar Finanças</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">Primeiro acesso ao módulo — pode voltar aqui depois em Finanças.</p>
+        <p className="text-sm text-black/60 dark:text-white/60">
+          Pode voltar aqui quando quiser: botão &quot;Configurar&quot; em Finanças, ou em Configurações → Finanças.
+        </p>
       </div>
 
       <AccountSection accounts={accounts} spaces={spaces} />

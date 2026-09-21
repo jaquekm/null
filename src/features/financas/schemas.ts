@@ -321,3 +321,16 @@ export const ruleInputSchema = z
   });
 
 export type RuleInput = z.infer<typeof ruleInputSchema>;
+
+// =========================================================
+// CARTÕES DE CRÉDITO E FATURAS (4.7)
+// =========================================================
+
+export const payStatementSchema = z.object({
+  statementId: z.string().uuid(),
+  paymentAccountId: z.string().uuid("Escolha a conta pagadora."),
+  amount: z.string().trim().min(1, "Digite o valor."),
+  occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida."),
+});
+
+export type PayStatementInput = z.infer<typeof payStatementSchema>;
