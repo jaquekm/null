@@ -39,7 +39,7 @@ interface EditableRow extends ImportPreviewRow {
 }
 
 function toEditableRow(row: ImportPreviewRow): EditableRow {
-  return { ...row, include: row.status === "new", categoryId: "", linkBill: row.matchedBill !== null };
+  return { ...row, include: row.status === "new", categoryId: row.suggestedCategoryId ?? "", linkBill: row.matchedBill !== null };
 }
 
 function negate(rows: ParsedStatementRow[]): ParsedStatementRow[] {

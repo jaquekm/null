@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { BillForMatching } from "./lib/match-bills";
+import type { CategorizationRule, TransactionForRuleMatch } from "./lib/match-rule";
 import type { CsvImportMapping } from "./lib/parse-statement-csv";
 import type { RecentTransactionForSuggestion } from "./lib/suggest-category";
 import type { AccountKind, ImportFormat, PixKeyType, TransactionFilters, TransactionStatus } from "./schemas";
@@ -135,10 +136,12 @@ export interface TransactionRow {
   installmentGroupId: string | null;
   installmentNumber: number | null;
   installmentTotal: number | null;
+  /** Não nulo quando o lançamento veio de uma importação (4.5) — usado pra oferecer "aprender com correções" (4.6) ao trocar a categoria. */
+  importId: string | null;
 }
 
 const TRANSACTION_COLUMNS =
-  "id, occurred_on, description, amount_cents, status, kind, account_id, category_id, contact_id, space_id, tags, notes, transfer_group_id, installment_group_id, installment_number, installment_total";
+  "id, occurred_on, description, amount_cents, status, kind, account_id, category_id, contact_id, space_id, tags, notes, transfer_group_id, installment_group_id, installment_number, installment_total, import_id";
 
 function mapTransactionRow(row: Record<string, unknown>): TransactionRow {
   return {
@@ -158,6 +161,7 @@ function mapTransactionRow(row: Record<string, unknown>): TransactionRow {
     installmentGroupId: row.installment_group_id as string | null,
     installmentNumber: row.installment_number as number | null,
     installmentTotal: row.installment_total as number | null,
+    importId: row.import_id as string | null,
   };
 }
 
@@ -273,4 +277,47 @@ export async function listRecentImports(supabase: Client, limit = 15): Promise<I
     rowsError: row.rows_error,
     createdAt: row.created_at,
   }));
+}
+
+// =========================================================
+// REGRAS DE CATEGORIZAÇÃO (4.6)
+// =========================================================
+
+export interface RuleRow extends CategorizationRule {
+  timesApplied: number;
+}
+
+const RULE_COLUMNS =
+  "id, match_field, match_type, pattern, account_id, amount_min_cents, amount_max_cents, set_category_id, set_contact_id, set_description, set_space_id, priority, times_applied";
+
+function mapRuleRow(row: Record<string, unknown>): RuleRow {
+  return {
+    id: row.id as string,
+    matchField: row.match_field as CategorizationRule["matchField"],
+    matchType: row.match_type as CategorizationRule["matchType"],
+    pattern: row.pattern as string,
+    accountId: row.account_id as string | null,
+    amountMinCents: row.amount_min_cents as number | null,
+    amountMaxCents: row.amount_max_cents as number | null,
+    setCategoryId: row.set_category_id as string | null,
+    setContactId: row.set_contact_id as string | null,
+    setDescription: row.set_description as string | null,
+    setSpaceId: row.set_space_id as string | null,
+    priority: row.priority as number,
+    timesApplied: row.times_applied as number,
+  };
+}
+
+/** Todas as regras do dono, por prioridade — mesmo formato (`CategorizationRule`) usado por `matchRule` (lib/match-rule.ts), pra não duplicar mapeamento entre a UI e a aplicação automática. */
+export async function listRules(supabase: Client): Promise<RuleRow[]> {
+  const { data, error } = await supabase.from("fin_rules").select(RULE_COLUMNS).order("priority", { ascending: true });
+  if (error) throw error;
+  return data.map(mapRuleRow);
+}
+
+/** Lançamentos dos últimos `days` dias, pro "Testar nos últimos 90 dias" (4.6) — só os campos que `ruleMatchesTransaction` usa. */
+export async function listTransactionsForRuleTest(supabase: Client, sinceDate: string): Promise<TransactionForRuleMatch[]> {
+  const { data, error } = await supabase.from("fin_transactions").select("description, original_description, account_id, amount_cents").gte("occurred_on", sinceDate);
+  if (error) throw error;
+  return data.map((row) => ({ description: row.description, originalDescription: row.original_description, accountId: row.account_id, amountCents: row.amount_cents }));
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, Upload, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Plus, Upload, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ContactRow } from "@/features/contacts/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { formatBRL } from "@/lib/money";
-import { bulkCategorizeTransactions, deleteTransaction, searchTransactions, updateTransactionCategory, updateTransactionDescription } from "../actions";
+import { bulkCategorizeTransactions, createRule, deleteTransaction, searchTransactions, updateTransactionCategory, updateTransactionDescription } from "../actions";
+import { normalizeDescription } from "../lib/normalize-description";
 import { monthPeriod, shiftMonth } from "../lib/period-range";
 import type { TransactionTotals } from "../lib/transaction-totals";
 import type { AccountRow, CategoryRow, TransactionRow } from "../queries";
@@ -108,13 +109,36 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
   }, [categories]);
 
   function handleChangeCategory(id: string, newCategoryId: string | null) {
+    const row = rows.find((r) => r.id === id);
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, categoryId: newCategoryId } : r)));
     startTransition(async () => {
       const result = await updateTransactionCategory(id, newCategoryId);
       if (!result.ok) {
         toast.error(result.error);
         reload();
+        return;
       }
+      // "Aprender com correções" (4.6): só oferece pra lançamento importado (`import_id`), onde a descrição crua do banco tende a se repetir.
+      if (newCategoryId && row?.importId) offerLearnRule(row.description, newCategoryId);
+    });
+  }
+
+  function offerLearnRule(description: string, categoryId: string) {
+    const pattern = normalizeDescription(description);
+    if (!pattern) return;
+    const categoryName = categoryLabelById.get(categoryId) ?? "esta categoria";
+    toast(`Sempre categorizar "${pattern}" como ${categoryName}?`, {
+      duration: 15000,
+      action: {
+        label: "Criar regra",
+        onClick: () => {
+          startTransition(async () => {
+            const result = await createRule({ matchField: "description", matchType: "contains", pattern, setCategoryId: categoryId, priority: 100 });
+            if (!result.ok) toast.error(result.error);
+            else toast.success("Regra criada — próximos lançamentos parecidos já chegam categorizados.");
+          });
+        },
+      },
     });
   }
 
@@ -181,6 +205,12 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Lançamentos</h1>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/financas/regras"
+            className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
+          >
+            <Filter className="h-4 w-4" /> Regras
+          </Link>
           <Link
             href="/financas/importar"
             className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"

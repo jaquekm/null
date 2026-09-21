@@ -13,6 +13,7 @@ import { recurrencePresetForRepeat, recurringDirectionForType } from "./lib/buil
 import { buildInstallments } from "./lib/installments";
 import { computeOccurrenceIndexes, importHash } from "./lib/import-hash";
 import { matchBills } from "./lib/match-bills";
+import { matchRule, ruleMatchesTransaction, type CategorizationRule } from "./lib/match-rule";
 import { suggestCategoryId } from "./lib/suggest-category";
 import { computeTransactionTotals, type TransactionTotals } from "./lib/transaction-totals";
 import {
@@ -22,7 +23,9 @@ import {
   listExistingImportHashes,
   listOpenBillsForMatching,
   listRecentCategorizedTransactions,
+  listRules,
   listTransactions,
+  listTransactionsForRuleTest,
   type TransactionRow,
 } from "./queries";
 import {
@@ -35,6 +38,7 @@ import {
   previewImportSchema,
   quickExpenseSchema,
   renameCategorySchema,
+  ruleInputSchema,
   transactionFiltersSchema,
   updateTransactionCategorySchema,
   updateTransactionDescriptionSchema,
@@ -46,6 +50,7 @@ import {
   type DeleteTransactionScope,
   type PreviewImportInput,
   type QuickExpenseInput,
+  type RuleInput,
   type TransactionFilters,
 } from "./schemas";
 
@@ -54,6 +59,17 @@ type Client = SupabaseClient<Database>;
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
 const LANCAMENTOS_PATH = "/financas/lancamentos";
 const IMPORTAR_PATH = "/financas/importar";
+const REGRAS_PATH = "/financas/regras";
+
+/** "Aplicação: ... incrementa `times_applied`" (4.6) — chamado só quando a sugestão da regra realmente vira o dado salvo (não quando é só mostrada como sugestão e depois trocada). */
+async function incrementRuleTimesApplied(supabase: Client, ruleId: string): Promise<void> {
+  const { data: rule } = await supabase.from("fin_rules").select("times_applied").eq("id", ruleId).maybeSingle();
+  if (!rule) return;
+  await supabase
+    .from("fin_rules")
+    .update({ times_applied: rule.times_applied + 1 })
+    .eq("id", ruleId);
+}
 
 /** Cria uma conta (4.3) — saldo inicial e limite de cartão em texto (`parseBRL`, 4.1), nunca `float` no banco. */
 export async function createAccount(input: CreateAccountInput): Promise<Result<{ id: string }>> {
@@ -338,6 +354,16 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   const spaceId = data.spaceId || account.spaceId || null;
   const signedAmount = data.type === "expense" ? -amountCents : amountCents;
 
+  // "Ao salvar sem categoria, aplicar regras" (4.4/4.6) — só entra em ação quando o dono não escolheu categoria no formulário.
+  let matchedRule: CategorizationRule | null = null;
+  if (!data.categoryId) {
+    const rules = await listRules(supabase);
+    matchedRule = matchRule({ description: data.description, originalDescription: null, accountId: account.id, amountCents: signedAmount }, rules);
+  }
+  const categoryId = data.categoryId || matchedRule?.setCategoryId || null;
+  const contactId = data.contactId || matchedRule?.setContactId || null;
+  const ruleAppliedCategory = matchedRule?.setCategoryId != null && categoryId === matchedRule.setCategoryId;
+
   if (data.installments > 1) {
     if (account.kind !== "credit_card") {
       return fail("Dados inválidos.", { installments: ["Parcelamento é só para contas de cartão de crédito."] });
@@ -350,8 +376,8 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       owner_id: user.id,
       account_id: account.id,
       space_id: spaceId,
-      category_id: data.categoryId || null,
-      contact_id: data.contactId || null,
+      category_id: categoryId,
+      contact_id: contactId,
       description: data.description,
       amount_cents: p.amountCents,
       occurred_on: p.occurredOn,
@@ -365,6 +391,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
 
     const { data: inserted, error } = await supabase.from("fin_transactions").insert(rows).select("id");
     if (error || !inserted) return fail(GENERIC_ERROR);
+    if (ruleAppliedCategory && matchedRule) await incrementRuleTimesApplied(supabase, matchedRule.id);
 
     revalidatePath(LANCAMENTOS_PATH);
     return ok({ ids: inserted.map((r) => r.id) });
@@ -376,8 +403,8 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       owner_id: user.id,
       account_id: account.id,
       space_id: spaceId,
-      category_id: data.categoryId || null,
-      contact_id: data.contactId || null,
+      category_id: categoryId,
+      contact_id: contactId,
       description: data.description,
       amount_cents: signedAmount,
       occurred_on: data.occurredOn,
@@ -388,6 +415,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
     .select("id")
     .single();
   if (error || !insertedRow) return fail(GENERIC_ERROR);
+  if (ruleAppliedCategory && matchedRule) await incrementRuleTimesApplied(supabase, matchedRule.id);
 
   if (data.repeat !== "none") {
     await createRecurringFromTransaction(supabase, {
@@ -590,14 +618,17 @@ export interface ImportPreviewRow {
   hash: string | null;
   status: "new" | "duplicate" | "error";
   matchedBill: { billId: string; description: string } | null;
+  suggestedCategoryId: string | null;
 }
 
 /**
  * Pré-visualização (4.5): calcula o hash de cada linha (`importHash`,
  * "ordem" via `computeOccurrenceIndexes` pra desempatar linhas idênticas no
- * mesmo arquivo), confere quais já existem nesta conta (`status`) e sugere
- * vínculo com uma conta a pagar/receber aberta (`matchBills`) nas que são
- * novas. Não grava nada — é só leitura.
+ * mesmo arquivo), confere quais já existem nesta conta (`status`), sugere
+ * vínculo com uma conta a pagar/receber aberta (`matchBills`) e categoria
+ * por regra (`matchRule`, 4.6) nas que são novas. Não grava nada — é só
+ * leitura; `times_applied` só sobe em `confirmImport`, quando a sugestão
+ * realmente vira o dado salvo.
  */
 export async function previewImport(input: PreviewImportInput): Promise<Result<{ rows: ImportPreviewRow[] }>> {
   const parsed = previewImportSchema.safeParse(input);
@@ -626,18 +657,41 @@ export async function previewImport(input: PreviewImportInput): Promise<Result<{
   });
 
   const hashesToCheck = withHash.map((row) => row.hash).filter((hash): hash is string => hash !== null);
-  const [existingHashes, openBills] = await Promise.all([
+  const [existingHashes, openBills, rules] = await Promise.all([
     listExistingImportHashes(supabase, data.accountId, hashesToCheck),
     listOpenBillsForMatching(supabase),
+    listRules(supabase),
   ]);
 
   const rows: ImportPreviewRow[] = withHash.map((row) => {
     if (row.error || !row.hash || !row.occurredOn || row.amountCents === null) {
-      return { fitid: row.fitid, occurredOn: row.occurredOn, amountCents: row.amountCents, description: row.description, error: row.error, hash: row.hash, status: "error", matchedBill: null };
+      return {
+        fitid: row.fitid,
+        occurredOn: row.occurredOn,
+        amountCents: row.amountCents,
+        description: row.description,
+        error: row.error,
+        hash: row.hash,
+        status: "error",
+        matchedBill: null,
+        suggestedCategoryId: null,
+      };
     }
     const status = existingHashes.has(row.hash) ? "duplicate" : "new";
     const matchedBill = status === "new" ? matchBills({ amountCents: row.amountCents, occurredOn: row.occurredOn }, openBills) : null;
-    return { fitid: row.fitid, occurredOn: row.occurredOn, amountCents: row.amountCents, description: row.description, error: null, hash: row.hash, status, matchedBill };
+    const matchedRule =
+      status === "new" ? matchRule({ description: row.description, originalDescription: row.description, accountId: data.accountId, amountCents: row.amountCents }, rules) : null;
+    return {
+      fitid: row.fitid,
+      occurredOn: row.occurredOn,
+      amountCents: row.amountCents,
+      description: row.description,
+      error: null,
+      hash: row.hash,
+      status,
+      matchedBill,
+      suggestedCategoryId: matchedRule?.setCategoryId ?? null,
+    };
   });
 
   return ok({ rows });
@@ -710,6 +764,8 @@ export async function confirmImport(input: ConfirmImportInput): Promise<Result<{
   if (importError || !importRow) return fail(GENERIC_ERROR);
 
   if (newRows.length > 0) {
+    const rules = await listRules(supabase);
+
     const { data: inserted, error: insertError } = await supabase
       .from("fin_transactions")
       .insert(
@@ -735,6 +791,17 @@ export async function confirmImport(input: ConfirmImportInput): Promise<Result<{
 
     for (const row of inserted) {
       if (row.bill_id) await adjustBillPayment(supabase, row.bill_id, Math.abs(row.amount_cents));
+    }
+
+    // "incrementa times_applied" (4.6) só quando a categoria final salva é a que a regra sugeriu — recalcula em vez de confiar num `ruleId` vindo do cliente.
+    const appliedRuleIds = new Set<string>();
+    for (const row of newRows) {
+      if (!row.categoryId) continue;
+      const rule = matchRule({ description: row.description, originalDescription: row.description, accountId: account.id, amountCents: row.amountCents }, rules);
+      if (rule && rule.setCategoryId === row.categoryId) appliedRuleIds.add(rule.id);
+    }
+    for (const ruleId of appliedRuleIds) {
+      await incrementRuleTimesApplied(supabase, ruleId);
     }
   }
 
@@ -797,4 +864,140 @@ export async function undoImport(importId: string): Promise<Result<{ removed: nu
   revalidatePath(IMPORTAR_PATH);
   revalidatePath(LANCAMENTOS_PATH);
   return ok({ removed: untouched.length, kept: keptCount });
+}
+
+// =========================================================
+// REGRAS DE CATEGORIZAÇÃO (4.6)
+// =========================================================
+
+/** `undefined`/vazio → `null` (sem faixa). `"invalid"` → o texto não é um valor válido (`parseBRL`). */
+function parseOptionalAmountCents(text: string | undefined): number | null | "invalid" {
+  if (!text || !text.trim()) return null;
+  try {
+    return parseBRL(text);
+  } catch {
+    return "invalid";
+  }
+}
+
+interface ParsedRuleAmounts {
+  amountMinCents: number | null;
+  amountMaxCents: number | null;
+}
+
+function parseRuleAmounts(data: RuleInput): Result<never> | ParsedRuleAmounts {
+  const amountMinCents = parseOptionalAmountCents(data.amountMin);
+  if (amountMinCents === "invalid") return fail("Dados inválidos.", { amountMin: ["Valor inválido."] });
+  const amountMaxCents = parseOptionalAmountCents(data.amountMax);
+  if (amountMaxCents === "invalid") return fail("Dados inválidos.", { amountMax: ["Valor inválido."] });
+  return { amountMinCents, amountMaxCents };
+}
+
+export async function createRule(input: RuleInput): Promise<Result<{ id: string }>> {
+  const parsed = ruleInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  const amounts = parseRuleAmounts(data);
+  if ("ok" in amounts) return amounts;
+
+  const { supabase, user } = await requireOwner();
+
+  const { data: row, error } = await supabase
+    .from("fin_rules")
+    .insert({
+      owner_id: user.id,
+      match_field: data.matchField,
+      match_type: data.matchType,
+      pattern: data.pattern,
+      account_id: data.accountId || null,
+      amount_min_cents: amounts.amountMinCents,
+      amount_max_cents: amounts.amountMaxCents,
+      set_category_id: data.setCategoryId || null,
+      set_contact_id: data.setContactId || null,
+      set_description: data.setDescription || null,
+      set_space_id: data.setSpaceId || null,
+      priority: data.priority,
+    })
+    .select("id")
+    .single();
+  if (error || !row) return fail(GENERIC_ERROR);
+
+  revalidatePath(REGRAS_PATH);
+  return ok({ id: row.id });
+}
+
+export async function updateRule(id: string, input: RuleInput): Promise<Result<null>> {
+  const parsed = ruleInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  const amounts = parseRuleAmounts(data);
+  if ("ok" in amounts) return amounts;
+
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase
+    .from("fin_rules")
+    .update({
+      match_field: data.matchField,
+      match_type: data.matchType,
+      pattern: data.pattern,
+      account_id: data.accountId || null,
+      amount_min_cents: amounts.amountMinCents,
+      amount_max_cents: amounts.amountMaxCents,
+      set_category_id: data.setCategoryId || null,
+      set_contact_id: data.setContactId || null,
+      set_description: data.setDescription || null,
+      set_space_id: data.setSpaceId || null,
+      priority: data.priority,
+    })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(REGRAS_PATH);
+  return ok(null);
+}
+
+export async function deleteRule(id: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_rules").delete().eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+  revalidatePath(REGRAS_PATH);
+  return ok(null);
+}
+
+/** "Testar nos últimos 90 dias" (4.6): quantos lançamentos batem com esta regra (salva ou ainda em edição no formulário) — não grava nada. */
+export async function testRule(input: RuleInput): Promise<Result<{ count: number }>> {
+  const parsed = ruleInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  const amounts = parseRuleAmounts(data);
+  if ("ok" in amounts) return amounts;
+
+  const { supabase } = await requireOwner();
+
+  const candidateRule: CategorizationRule = {
+    id: "candidate",
+    matchField: data.matchField,
+    matchType: data.matchType,
+    pattern: data.pattern,
+    accountId: data.accountId || null,
+    amountMinCents: amounts.amountMinCents,
+    amountMaxCents: amounts.amountMaxCents,
+    setCategoryId: data.setCategoryId || null,
+    setContactId: data.setContactId || null,
+    setDescription: data.setDescription || null,
+    setSpaceId: data.setSpaceId || null,
+    priority: data.priority,
+  };
+
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  const transactions = await listTransactionsForRuleTest(supabase, since.toISOString().slice(0, 10));
+
+  const count = transactions.filter((transaction) => ruleMatchesTransaction(candidateRule, transaction)).length;
+  return ok({ count });
 }

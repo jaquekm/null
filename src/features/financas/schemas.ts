@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RULE_MATCH_FIELDS, RULE_MATCH_TYPES, type RuleMatchField, type RuleMatchType } from "./lib/match-rule";
 import { CSV_COLUMN_ROLES, CSV_DATE_FORMATS, CSV_DECIMAL_SEPARATORS, CSV_DELIMITERS, type CsvColumnRole } from "./lib/parse-statement-csv";
 
 export const ACCOUNT_KINDS = ["checking", "savings", "credit_card", "cash", "investment", "wallet", "other"] as const;
@@ -275,3 +276,48 @@ export const confirmImportSchema = z
   });
 
 export type ConfirmImportInput = z.infer<typeof confirmImportSchema>;
+
+// =========================================================
+// REGRAS DE CATEGORIZAÇÃO (4.6)
+// =========================================================
+
+export const RULE_MATCH_FIELD_LABELS: Record<RuleMatchField, string> = {
+  description: "Descrição",
+  original_description: "Descrição original (como veio do banco)",
+};
+
+export const RULE_MATCH_TYPE_LABELS: Record<RuleMatchType, string> = {
+  contains: "Contém",
+  starts_with: "Começa com",
+  equals: "É igual a",
+  regex: "Expressão regular",
+};
+
+export const ruleInputSchema = z
+  .object({
+    matchField: z.enum(RULE_MATCH_FIELDS).default("description"),
+    matchType: z.enum(RULE_MATCH_TYPES).default("contains"),
+    pattern: z.string().trim().min(1, "Digite o padrão."),
+    accountId: z.string().uuid().optional(),
+    amountMin: z.string().trim().optional(),
+    amountMax: z.string().trim().optional(),
+    setCategoryId: z.string().uuid().optional(),
+    setContactId: z.string().uuid().optional(),
+    setDescription: z.string().trim().max(200).optional(),
+    setSpaceId: z.string().uuid().optional(),
+    priority: z.coerce.number().int().min(1).max(1000).default(100),
+  })
+  .superRefine((data, ctx) => {
+    if (data.matchType === "regex") {
+      try {
+        new RegExp(data.pattern);
+      } catch {
+        ctx.addIssue({ code: "custom", path: ["pattern"], message: "Expressão regular inválida." });
+      }
+    }
+    if (!data.setCategoryId && !data.setContactId && !data.setDescription && !data.setSpaceId) {
+      ctx.addIssue({ code: "custom", path: ["setCategoryId"], message: "A regra precisa definir ao menos categoria, contato, descrição ou espaço." });
+    }
+  });
+
+export type RuleInput = z.infer<typeof ruleInputSchema>;
