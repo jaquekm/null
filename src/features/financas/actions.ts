@@ -11,25 +11,40 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import { computeMissingChildCategories, computeMissingTopCategories, DEFAULT_CATEGORIES } from "./lib/default-categories";
 import { recurrencePresetForRepeat, recurringDirectionForType } from "./lib/build-recurring-from-transaction";
 import { buildInstallments } from "./lib/installments";
+import { computeOccurrenceIndexes, importHash } from "./lib/import-hash";
+import { matchBills } from "./lib/match-bills";
 import { suggestCategoryId } from "./lib/suggest-category";
 import { computeTransactionTotals, type TransactionTotals } from "./lib/transaction-totals";
-import { getUserTimezone, listAccounts, listRecentCategorizedTransactions, listTransactions, type TransactionRow } from "./queries";
+import {
+  getLastCsvMapping,
+  getUserTimezone,
+  listAccounts,
+  listExistingImportHashes,
+  listOpenBillsForMatching,
+  listRecentCategorizedTransactions,
+  listTransactions,
+  type TransactionRow,
+} from "./queries";
 import {
   bulkCategorizeSchema,
+  confirmImportSchema,
   createAccountSchema,
   createCategorySchema,
   createPixKeySchema,
   createTransactionSchema,
+  previewImportSchema,
   quickExpenseSchema,
   renameCategorySchema,
   transactionFiltersSchema,
   updateTransactionCategorySchema,
   updateTransactionDescriptionSchema,
+  type ConfirmImportInput,
   type CreateAccountInput,
   type CreateCategoryInput,
   type CreatePixKeyInput,
   type CreateTransactionInput,
   type DeleteTransactionScope,
+  type PreviewImportInput,
   type QuickExpenseInput,
   type TransactionFilters,
 } from "./schemas";
@@ -38,6 +53,7 @@ type Client = SupabaseClient<Database>;
 
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
 const LANCAMENTOS_PATH = "/financas/lancamentos";
+const IMPORTAR_PATH = "/financas/importar";
 
 /** Cria uma conta (4.3) — saldo inicial e limite de cartão em texto (`parseBRL`, 4.1), nunca `float` no banco. */
 export async function createAccount(input: CreateAccountInput): Promise<Result<{ id: string }>> {
@@ -553,4 +569,232 @@ export async function createQuickExpense(input: QuickExpenseInput): Promise<Resu
 
   revalidatePath(LANCAMENTOS_PATH);
   return ok({ id: data.id });
+}
+
+// =========================================================
+// IMPORTAÇÃO DE EXTRATOS (4.5)
+// =========================================================
+
+/** Mapeamento salvo da última importação CSV desta conta (se houver) — pré-preenche a tela de mapeamento. */
+export async function fetchLastCsvMapping(accountId: string) {
+  const { supabase } = await requireOwner();
+  return getLastCsvMapping(supabase, accountId);
+}
+
+export interface ImportPreviewRow {
+  fitid: string | null;
+  occurredOn: string | null;
+  amountCents: number | null;
+  description: string;
+  error: string | null;
+  hash: string | null;
+  status: "new" | "duplicate" | "error";
+  matchedBill: { billId: string; description: string } | null;
+}
+
+/**
+ * Pré-visualização (4.5): calcula o hash de cada linha (`importHash`,
+ * "ordem" via `computeOccurrenceIndexes` pra desempatar linhas idênticas no
+ * mesmo arquivo), confere quais já existem nesta conta (`status`) e sugere
+ * vínculo com uma conta a pagar/receber aberta (`matchBills`) nas que são
+ * novas. Não grava nada — é só leitura.
+ */
+export async function previewImport(input: PreviewImportInput): Promise<Result<{ rows: ImportPreviewRow[] }>> {
+  const parsed = previewImportSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  const { supabase } = await requireOwner();
+
+  const occurrenceIndexes = computeOccurrenceIndexes(
+    data.rows.map((row) => ({ occurredOn: row.occurredOn ?? "", amountCents: row.amountCents ?? 0, description: row.description })),
+  );
+
+  const withHash = data.rows.map((row, index) => {
+    if (row.error || !row.occurredOn || row.amountCents === null) {
+      return { ...row, hash: null as string | null };
+    }
+    const hash = importHash({
+      accountId: data.accountId,
+      fitid: row.fitid,
+      occurredOn: row.occurredOn,
+      amountCents: row.amountCents,
+      description: row.description,
+      occurrenceIndex: occurrenceIndexes[index]!,
+    });
+    return { ...row, hash };
+  });
+
+  const hashesToCheck = withHash.map((row) => row.hash).filter((hash): hash is string => hash !== null);
+  const [existingHashes, openBills] = await Promise.all([
+    listExistingImportHashes(supabase, data.accountId, hashesToCheck),
+    listOpenBillsForMatching(supabase),
+  ]);
+
+  const rows: ImportPreviewRow[] = withHash.map((row) => {
+    if (row.error || !row.hash || !row.occurredOn || row.amountCents === null) {
+      return { fitid: row.fitid, occurredOn: row.occurredOn, amountCents: row.amountCents, description: row.description, error: row.error, hash: row.hash, status: "error", matchedBill: null };
+    }
+    const status = existingHashes.has(row.hash) ? "duplicate" : "new";
+    const matchedBill = status === "new" ? matchBills({ amountCents: row.amountCents, occurredOn: row.occurredOn }, openBills) : null;
+    return { fitid: row.fitid, occurredOn: row.occurredOn, amountCents: row.amountCents, description: row.description, error: null, hash: row.hash, status, matchedBill };
+  });
+
+  return ok({ rows });
+}
+
+/**
+ * Ajusta `paid_cents`/`status`/`paid_at` de uma conta a pagar/receber quando
+ * um lançamento importado é vinculado a ela (`deltaCents` positivo) ou
+ * quando esse vínculo é desfeito (`deltaCents` negativo, `undoImport`).
+ * Mesma lógica que a 4.8 ("marcar como paga") vai expor manualmente depois —
+ * aqui só a fatia acionada pela conciliação da importação.
+ */
+async function adjustBillPayment(supabase: Client, billId: string, deltaCents: number): Promise<void> {
+  const { data: bill } = await supabase.from("fin_bills").select("amount_cents, paid_cents").eq("id", billId).maybeSingle();
+  if (!bill) return;
+
+  const paidCents = Math.max(0, bill.paid_cents + deltaCents);
+  const status = paidCents <= 0 ? "open" : paidCents >= bill.amount_cents ? "paid" : "partial";
+
+  await supabase
+    .from("fin_bills")
+    .update({ paid_cents: paidCents, status, paid_at: status === "paid" ? new Date().toISOString() : null })
+    .eq("id", billId);
+}
+
+/**
+ * Confirma a importação (4.5): insere as linhas aceitas (o cliente já filtrou
+ * as desmarcadas/com erro) e grava `fin_imports` com os contadores.
+ * Reconfere duplicidade contra o banco agora, na hora de gravar — não confia
+ * só no status calculado na pré-visualização (que pode ter ficado
+ * desatualizado, ex.: outra aba importou o mesmo arquivo nesse meio-tempo) —
+ * mesmo cuidado da 4.3 com `computeMissingTopCategories`, um `insert` puro
+ * (sem `on conflict`) contra o índice único parcial de `import_hash` seria
+ * arriscado de depender.
+ */
+export async function confirmImport(input: ConfirmImportInput): Promise<Result<{ importId: string; imported: number; duplicate: number }>> {
+  const parsed = confirmImportSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+  if (data.rows.length === 0) return fail("Nenhuma linha selecionada pra importar.");
+
+  const { supabase, user } = await requireOwner();
+
+  const accounts = await listAccounts(supabase);
+  const account = accounts.find((a) => a.id === data.accountId);
+  if (!account) return fail("Conta inválida.");
+
+  const existingHashes = await listExistingImportHashes(
+    supabase,
+    data.accountId,
+    data.rows.map((row) => row.hash),
+  );
+  const newRows = data.rows.filter((row) => !existingHashes.has(row.hash));
+  const duplicateCount = data.rows.length - newRows.length;
+
+  const { data: importRow, error: importError } = await supabase
+    .from("fin_imports")
+    .insert({
+      owner_id: user.id,
+      account_id: account.id,
+      format: data.format,
+      csv_mapping: (data.csvMapping as unknown as Json) ?? null,
+      rows_total: data.rows.length,
+      rows_imported: newRows.length,
+      rows_duplicate: duplicateCount,
+      status: "imported",
+    })
+    .select("id")
+    .single();
+  if (importError || !importRow) return fail(GENERIC_ERROR);
+
+  if (newRows.length > 0) {
+    const { data: inserted, error: insertError } = await supabase
+      .from("fin_transactions")
+      .insert(
+        newRows.map((row) => ({
+          owner_id: user.id,
+          account_id: account.id,
+          space_id: account.spaceId,
+          category_id: row.categoryId || null,
+          description: row.description,
+          original_description: row.description,
+          amount_cents: row.amountCents,
+          occurred_on: row.occurredOn,
+          status: "cleared" as const,
+          kind: "normal" as const,
+          import_id: importRow.id,
+          import_hash: row.hash,
+          external_id: row.fitid,
+          bill_id: row.linkBillId || null,
+        })),
+      )
+      .select("bill_id, amount_cents");
+    if (insertError || !inserted) return fail(GENERIC_ERROR);
+
+    for (const row of inserted) {
+      if (row.bill_id) await adjustBillPayment(supabase, row.bill_id, Math.abs(row.amount_cents));
+    }
+  }
+
+  revalidatePath(IMPORTAR_PATH);
+  revalidatePath(LANCAMENTOS_PATH);
+  return ok({ importId: importRow.id, imported: newRows.length, duplicate: duplicateCount });
+}
+
+/**
+ * Desfaz uma importação (4.5, até 7 dias): remove as transações que não
+ * foram editadas manualmente depois (`updated_at === created_at` — os dois
+ * vêm do mesmo `now()` na hora do `insert`, então continuam iguais até uma
+ * `update` de verdade acontecer, inclusive as próprias edições inline da 4.4)
+ * e reverte o vínculo com conta a pagar/receber que porventura tivessem.
+ */
+export async function undoImport(importId: string): Promise<Result<{ removed: number; kept: number }>> {
+  const { supabase, user } = await requireOwner();
+
+  const { data: importRow, error: readError } = await supabase
+    .from("fin_imports")
+    .select("id, created_at, status")
+    .eq("id", importId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (readError || !importRow) return fail("Importação não encontrada.");
+  if (importRow.status !== "imported") return fail("Esta importação já foi desfeita.");
+
+  const ageMs = Date.now() - new Date(importRow.created_at).getTime();
+  if (ageMs > 7 * 24 * 60 * 60 * 1000) return fail("Só é possível desfazer importações de até 7 dias.");
+
+  const { data: candidateRows, error: listError } = await supabase
+    .from("fin_transactions")
+    .select("id, created_at, updated_at, bill_id, amount_cents")
+    .eq("import_id", importId)
+    .eq("owner_id", user.id);
+  if (listError) return fail(GENERIC_ERROR);
+
+  const untouched = candidateRows.filter((row) => row.updated_at === row.created_at);
+  const keptCount = candidateRows.length - untouched.length;
+
+  if (untouched.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("fin_transactions")
+      .delete()
+      .in(
+        "id",
+        untouched.map((row) => row.id),
+      )
+      .eq("owner_id", user.id);
+    if (deleteError) return fail(GENERIC_ERROR);
+
+    for (const row of untouched) {
+      if (row.bill_id) await adjustBillPayment(supabase, row.bill_id, -Math.abs(row.amount_cents));
+    }
+  }
+
+  const { error: updateError } = await supabase.from("fin_imports").update({ status: "undone" }).eq("id", importId).eq("owner_id", user.id);
+  if (updateError) return fail(GENERIC_ERROR);
+
+  revalidatePath(IMPORTAR_PATH);
+  revalidatePath(LANCAMENTOS_PATH);
+  return ok({ removed: untouched.length, kept: keptCount });
 }

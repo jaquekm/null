@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CSV_COLUMN_ROLES, CSV_DATE_FORMATS, CSV_DECIMAL_SEPARATORS, CSV_DELIMITERS, type CsvColumnRole } from "./lib/parse-statement-csv";
 
 export const ACCOUNT_KINDS = ["checking", "savings", "credit_card", "cash", "investment", "wallet", "other"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
@@ -194,3 +195,83 @@ export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
 
 export const DELETE_TRANSACTION_SCOPES = ["this", "future"] as const;
 export type DeleteTransactionScope = (typeof DELETE_TRANSACTION_SCOPES)[number];
+
+// =========================================================
+// IMPORTAÇÃO DE EXTRATOS (4.5)
+// =========================================================
+
+export const IMPORT_FORMATS = ["ofx", "csv"] as const;
+export type ImportFormat = (typeof IMPORT_FORMATS)[number];
+
+export const CSV_COLUMN_ROLE_LABELS: Record<CsvColumnRole, string> = {
+  ignore: "Ignorar",
+  date: "Data",
+  description: "Descrição",
+  amount: "Valor",
+  debit: "Débito",
+  credit: "Crédito",
+};
+
+export const CSV_DELIMITER_LABELS: Record<(typeof CSV_DELIMITERS)[number], string> = { ",": "Vírgula ( , )", ";": "Ponto e vírgula ( ; )" };
+export const CSV_DECIMAL_LABELS: Record<(typeof CSV_DECIMAL_SEPARATORS)[number], string> = { ",": "Vírgula (1.234,56)", ".": "Ponto (1,234.56)" };
+
+const csvImportMappingSchema = z.object({
+  delimiter: z.enum(CSV_DELIMITERS),
+  decimalSeparator: z.enum(CSV_DECIMAL_SEPARATORS),
+  dateFormat: z.enum(CSV_DATE_FORMATS),
+  headerRowsToSkip: z.coerce.number().int().min(0).max(20),
+  columns: z.array(z.enum(CSV_COLUMN_ROLES)).min(1),
+});
+
+const isoDateOrNullSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.")
+  .nullable();
+
+const statementRowInputSchema = z.object({
+  fitid: z.string().trim().min(1).nullable(),
+  occurredOn: isoDateOrNullSchema,
+  amountCents: z.number().int().nullable(),
+  description: z.string(),
+  error: z.string().nullable(),
+});
+
+export const previewImportSchema = z
+  .object({
+    accountId: z.string().uuid("Escolha uma conta."),
+    format: z.enum(IMPORT_FORMATS),
+    csvMapping: csvImportMappingSchema.optional(),
+    rows: z.array(statementRowInputSchema).min(1, "O arquivo não tem nenhuma linha."),
+  })
+  .superRefine((data, ctx) => {
+    if (data.format === "csv" && !data.csvMapping) {
+      ctx.addIssue({ code: "custom", path: ["csvMapping"], message: "Mapeamento de colunas é obrigatório pra CSV." });
+    }
+  });
+
+export type PreviewImportInput = z.infer<typeof previewImportSchema>;
+
+const confirmImportRowSchema = z.object({
+  fitid: z.string().trim().min(1).nullable(),
+  occurredOn: isoDateSchema,
+  amountCents: z.number().int().refine((v) => v !== 0, "Valor não pode ser zero."),
+  description: z.string().trim().min(1, "Digite uma descrição.").max(200),
+  hash: z.string().length(64),
+  categoryId: z.string().uuid().optional(),
+  linkBillId: z.string().uuid().optional(),
+});
+
+export const confirmImportSchema = z
+  .object({
+    accountId: z.string().uuid("Escolha uma conta."),
+    format: z.enum(IMPORT_FORMATS),
+    csvMapping: csvImportMappingSchema.optional(),
+    rows: z.array(confirmImportRowSchema),
+  })
+  .superRefine((data, ctx) => {
+    if (data.format === "csv" && !data.csvMapping) {
+      ctx.addIssue({ code: "custom", path: ["csvMapping"], message: "Mapeamento de colunas é obrigatório pra CSV." });
+    }
+  });
+
+export type ConfirmImportInput = z.infer<typeof confirmImportSchema>;

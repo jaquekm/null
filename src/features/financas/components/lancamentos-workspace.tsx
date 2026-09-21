@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Upload, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -181,6 +181,12 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Lançamentos</h1>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/financas/importar"
+            className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
+          >
+            <Upload className="h-4 w-4" /> Importar extrato
+          </Link>
           <button
             type="button"
             onClick={() => setShowQuick(true)}

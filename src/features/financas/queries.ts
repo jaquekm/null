@@ -1,8 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import type { BillForMatching } from "./lib/match-bills";
+import type { CsvImportMapping } from "./lib/parse-statement-csv";
 import type { RecentTransactionForSuggestion } from "./lib/suggest-category";
-import type { AccountKind, PixKeyType, TransactionFilters, TransactionStatus } from "./schemas";
+import type { AccountKind, ImportFormat, PixKeyType, TransactionFilters, TransactionStatus } from "./schemas";
 
 type Client = SupabaseClient<Database>;
 
@@ -199,4 +201,76 @@ export async function listRecentCategorizedTransactions(supabase: Client, limit 
     .limit(limit);
   if (error) throw error;
   return data.map((row) => ({ description: row.description, categoryId: row.category_id as string, occurredOn: row.occurred_on }));
+}
+
+// =========================================================
+// IMPORTAÇÃO DE EXTRATOS (4.5)
+// =========================================================
+
+/** Contas a pagar/receber ainda abertas (ou parcialmente pagas), pra sugerir vínculo na importação (`matchBills`, `lib/match-bills.ts`). */
+export async function listOpenBillsForMatching(supabase: Client): Promise<BillForMatching[]> {
+  const { data, error } = await supabase.from("fin_bills").select("id, direction, amount_cents, paid_cents, due_on, description").in("status", ["open", "partial"]);
+  if (error) throw error;
+  return data.map((row) => ({
+    id: row.id,
+    direction: row.direction as "payable" | "receivable",
+    remainingCents: row.amount_cents - row.paid_cents,
+    dueOn: row.due_on,
+    description: row.description,
+  }));
+}
+
+/** Último mapeamento de colunas usado numa importação CSV desta conta — "salvar o mapeamento na conta para próximas importações" (4.5), sem precisar de coluna nova em `fin_accounts`. */
+export async function getLastCsvMapping(supabase: Client, accountId: string): Promise<CsvImportMapping | null> {
+  const { data } = await supabase
+    .from("fin_imports")
+    .select("csv_mapping")
+    .eq("account_id", accountId)
+    .eq("format", "csv")
+    .not("csv_mapping", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.csv_mapping as unknown as CsvImportMapping | null) ?? null;
+}
+
+/** Hashes já usados nesta conta, dentre os informados — pra marcar "Duplicado" na pré-visualização (4.5). */
+export async function listExistingImportHashes(supabase: Client, accountId: string, hashes: string[]): Promise<Set<string>> {
+  if (hashes.length === 0) return new Set();
+  const { data, error } = await supabase.from("fin_transactions").select("import_hash").eq("account_id", accountId).in("import_hash", hashes);
+  if (error) throw error;
+  return new Set(data.map((row) => row.import_hash).filter((hash): hash is string => hash != null));
+}
+
+export interface ImportSummaryRow {
+  id: string;
+  accountId: string;
+  format: ImportFormat;
+  status: "preview" | "imported" | "undone";
+  rowsTotal: number;
+  rowsImported: number;
+  rowsDuplicate: number;
+  rowsError: number;
+  createdAt: string;
+}
+
+/** Importações recentes (qualquer conta), pra listar em `/financas/importar` com opção de desfazer (4.5). */
+export async function listRecentImports(supabase: Client, limit = 15): Promise<ImportSummaryRow[]> {
+  const { data, error } = await supabase
+    .from("fin_imports")
+    .select("id, account_id, format, status, rows_total, rows_imported, rows_duplicate, rows_error, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data.map((row) => ({
+    id: row.id,
+    accountId: row.account_id,
+    format: row.format as ImportFormat,
+    status: row.status as "preview" | "imported" | "undone",
+    rowsTotal: row.rows_total,
+    rowsImported: row.rows_imported,
+    rowsDuplicate: row.rows_duplicate,
+    rowsError: row.rows_error,
+    createdAt: row.created_at,
+  }));
 }
