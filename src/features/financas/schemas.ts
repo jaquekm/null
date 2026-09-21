@@ -334,3 +334,69 @@ export const payStatementSchema = z.object({
 });
 
 export type PayStatementInput = z.infer<typeof payStatementSchema>;
+
+// =========================================================
+// CONTAS A PAGAR/RECEBER (4.8)
+// =========================================================
+
+export const BILL_DIRECTIONS = ["payable", "receivable"] as const;
+export type BillDirection = (typeof BILL_DIRECTIONS)[number];
+
+export const BILL_DIRECTION_LABELS: Record<BillDirection, string> = {
+  payable: "A pagar",
+  receivable: "A receber",
+};
+
+export const BILL_STATUSES = ["open", "partial", "paid", "canceled"] as const;
+export type BillStatus = (typeof BILL_STATUSES)[number];
+
+export const BILL_STATUS_LABELS: Record<BillStatus, string> = {
+  open: "Em aberto",
+  partial: "Parcialmente paga",
+  paid: "Paga",
+  canceled: "Cancelada",
+};
+
+/** Abas de `/financas/contas` (4.8): "pagas" é só `status='paid'`; "a pagar"/"a receber" excluem pagas e canceladas; "todas" não filtra nada. */
+export const BILL_TABS = ["payable", "receivable", "paid", "all"] as const;
+export type BillTab = (typeof BILL_TABS)[number];
+
+export const createBillSchema = z.object({
+  direction: z.enum(BILL_DIRECTIONS),
+  description: z.string().trim().min(1, "Digite uma descrição.").max(200),
+  amount: z.string().trim().min(1, "Digite o valor."),
+  /** Só usado quando `repeat !== "none"` — vira `fin_recurring.amount_is_estimate` ("conta de luz: valor varia"). Uma conta avulsa já tem valor exato, não precisa disso. */
+  amountIsEstimate: z.boolean().default(false),
+  dueOn: isoDateSchema,
+  contactId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  accountId: z.string().uuid().optional(),
+  spaceId: z.string().uuid().optional(),
+  attachmentId: z.string().uuid().optional(),
+  barcode: z.string().trim().max(200).optional(),
+  pixCode: z.string().trim().max(2000).optional(),
+  notes: z.string().trim().max(2000).optional(),
+  repeat: z.enum(TRANSACTION_REPEAT_OPTIONS).default("none"),
+});
+
+export type CreateBillInput = z.infer<typeof createBillSchema>;
+
+/** Edição (4.8): sem `repeat`/`amountIsEstimate` — recorrência é decidida só na criação; uma conta já existente tem valor exato. */
+export const updateBillSchema = createBillSchema.omit({ repeat: true, amountIsEstimate: true });
+export type UpdateBillInput = z.infer<typeof updateBillSchema>;
+
+export const markBillPaidSchema = z.object({
+  billId: z.string().uuid(),
+  amount: z.string().trim().min(1, "Digite o valor."),
+  paidOn: isoDateSchema,
+  accountId: z.string().uuid("Escolha uma conta."),
+});
+
+export type MarkBillPaidInput = z.infer<typeof markBillPaidSchema>;
+
+export const billFiltersSchema = z.object({
+  tab: z.enum(BILL_TABS).default("all"),
+  spaceId: z.string().uuid().optional(),
+});
+
+export type BillFilters = z.infer<typeof billFiltersSchema>;

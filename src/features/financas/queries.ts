@@ -5,7 +5,7 @@ import type { BillForMatching } from "./lib/match-bills";
 import type { CategorizationRule, TransactionForRuleMatch } from "./lib/match-rule";
 import type { CsvImportMapping } from "./lib/parse-statement-csv";
 import type { RecentTransactionForSuggestion } from "./lib/suggest-category";
-import type { AccountKind, ImportFormat, PixKeyType, TransactionFilters, TransactionStatus } from "./schemas";
+import type { AccountKind, BillDirection, BillFilters, BillStatus, ImportFormat, PixKeyType, TransactionFilters, TransactionStatus } from "./schemas";
 
 type Client = SupabaseClient<Database>;
 
@@ -404,4 +404,82 @@ export async function getAccountBalanceCents(supabase: Client, accountId: string
   const { data, error } = await supabase.from("fin_account_balances").select("balance_cents").eq("account_id", accountId).maybeSingle();
   if (error) throw error;
   return data?.balance_cents ?? 0;
+}
+
+// =========================================================
+// CONTAS A PAGAR/RECEBER (4.8)
+// =========================================================
+
+export interface BillRow {
+  id: string;
+  spaceId: string | null;
+  direction: BillDirection;
+  description: string;
+  contactId: string | null;
+  categoryId: string | null;
+  accountId: string | null;
+  amountCents: number;
+  paidCents: number;
+  dueOn: string;
+  status: BillStatus;
+  recurringId: string | null;
+  statementId: string | null;
+  attachmentId: string | null;
+  barcode: string | null;
+  pixCode: string | null;
+  notes: string | null;
+  paidAt: string | null;
+  /** `status='open' and due_on < hoje` (calculado na consulta, sem job — 4.8). */
+  overdue: boolean;
+}
+
+const BILL_COLUMNS =
+  "id, space_id, direction, description, contact_id, category_id, account_id, amount_cents, paid_cents, due_on, status, recurring_id, statement_id, attachment_id, barcode, pix_code, notes, paid_at";
+
+function mapBillRow(row: Record<string, unknown>, today: string): BillRow {
+  const status = row.status as BillStatus;
+  const dueOn = row.due_on as string;
+  return {
+    id: row.id as string,
+    spaceId: row.space_id as string | null,
+    direction: row.direction as BillDirection,
+    description: row.description as string,
+    contactId: row.contact_id as string | null,
+    categoryId: row.category_id as string | null,
+    accountId: row.account_id as string | null,
+    amountCents: row.amount_cents as number,
+    paidCents: row.paid_cents as number,
+    dueOn,
+    status,
+    recurringId: row.recurring_id as string | null,
+    statementId: row.statement_id as string | null,
+    attachmentId: row.attachment_id as string | null,
+    barcode: row.barcode as string | null,
+    pixCode: row.pix_code as string | null,
+    notes: row.notes as string | null,
+    paidAt: row.paid_at as string | null,
+    overdue: status === "open" && dueOn < today,
+  };
+}
+
+/** Contas por aba (4.8) — "payable"/"receivable" só as ainda abertas/parciais dessa direção; "paid" só pagas; "all" sem filtro. */
+export async function listBills(supabase: Client, filters: BillFilters, today: string): Promise<BillRow[]> {
+  let query = supabase.from("fin_bills").select(BILL_COLUMNS);
+
+  if (filters.tab === "payable" || filters.tab === "receivable") {
+    query = query.eq("direction", filters.tab).in("status", ["open", "partial"]);
+  } else if (filters.tab === "paid") {
+    query = query.eq("status", "paid");
+  }
+  if (filters.spaceId) query = query.eq("space_id", filters.spaceId);
+
+  const { data, error } = await query.order("due_on", { ascending: true });
+  if (error) throw error;
+  return data.map((row) => mapBillRow(row, today));
+}
+
+export async function getBill(supabase: Client, id: string, today: string): Promise<BillRow | null> {
+  const { data, error } = await supabase.from("fin_bills").select(BILL_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapBillRow(data, today) : null;
 }
