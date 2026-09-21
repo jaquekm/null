@@ -16,6 +16,9 @@ import { buildInstallments } from "./lib/installments";
 import { computeOccurrenceIndexes, importHash } from "./lib/import-hash";
 import { matchBills } from "./lib/match-bills";
 import { matchRule, ruleMatchesTransaction, type CategorizationRule } from "./lib/match-rule";
+import { computeNetBalances } from "./lib/net-balances";
+import { computeSettlementTransfers, type SettlementTransfer } from "./lib/settlement-transfers";
+import { computeSplitShares, type SplitShareResult } from "./lib/split-shares";
 import { statementFor } from "./lib/statements";
 import { suggestCategoryId } from "./lib/suggest-category";
 import { computeTransactionTotals, type TransactionTotals } from "./lib/transaction-totals";
@@ -23,21 +26,32 @@ import {
   getBill,
   getCardStatement,
   getLastCsvMapping,
+  getSplit,
   getUserTimezone,
   listAccounts,
   listBills,
   listCardStatementsByReferenceMonths,
+  listContactBalances,
   listExistingImportHashes,
   listOpenBillsForMatching,
   listRecentCategorizedTransactions,
   listRecurring,
   listRules,
+  listSplitGroupLabels,
+  listSplitShares,
+  listSplits,
+  listSplitSharesForSplits,
   listStatementTransactions,
   listTransactions,
   listTransactionsForRuleTest,
+  listUnlinkedExpenseTransactions,
   sumStatementTransactionAmounts,
   type BillRow,
+  type LinkableTransactionRow,
   type RecurringRow,
+  type SplitFilters,
+  type SplitRow,
+  type SplitShareRow,
   type TransactionRow,
 } from "./queries";
 import {
@@ -50,11 +64,13 @@ import {
   createCategorySchema,
   createPixKeySchema,
   createRecurringSchema,
+  createSplitSchema,
   createTransactionSchema,
   markBillPaidSchema,
   payStatementSchema,
   previewImportSchema,
   quickExpenseSchema,
+  registerSplitPaymentSchema,
   renameCategorySchema,
   ruleInputSchema,
   transactionFiltersSchema,
@@ -69,12 +85,14 @@ import {
   type CreateCategoryInput,
   type CreatePixKeyInput,
   type CreateRecurringInput,
+  type CreateSplitInput,
   type CreateTransactionInput,
   type DeleteTransactionScope,
   type MarkBillPaidInput,
   type PayStatementInput,
   type PreviewImportInput,
   type QuickExpenseInput,
+  type RegisterSplitPaymentInput,
   type RuleInput,
   type TransactionFilters,
   type TransactionRepeatOption,
@@ -90,6 +108,7 @@ const IMPORTAR_PATH = "/financas/importar";
 const REGRAS_PATH = "/financas/regras";
 const CONTAS_PATH = "/financas/contas";
 const RECORRENCIAS_PATH = "/financas/recorrencias";
+const DIVIDIR_PATH = "/financas/dividir";
 
 /** "Aplicação: ... incrementa `times_applied`" (4.6) — chamado só quando a sugestão da regra realmente vira o dado salvo (não quando é só mostrada como sugestão e depois trocada). */
 async function incrementRuleTimesApplied(supabase: Client, ruleId: string): Promise<void> {
@@ -1649,4 +1668,269 @@ export async function setRecurringActive(id: string, active: boolean): Promise<R
   if (error) return fail(GENERIC_ERROR);
   revalidatePath(RECORRENCIAS_PATH);
   return ok(null);
+}
+
+// =========================================================
+// DIVISÃO DE CONTAS (4.9)
+// =========================================================
+
+export async function searchSplits(filters: SplitFilters = {}): Promise<SplitRow[]> {
+  const { supabase } = await requireOwner();
+  return listSplits(supabase, filters);
+}
+
+export interface SplitDetail {
+  split: SplitRow;
+  shares: SplitShareRow[];
+}
+
+export async function getSplitDetail(id: string): Promise<SplitDetail | null> {
+  const { supabase } = await requireOwner();
+  const split = await getSplit(supabase, id);
+  if (!split) return null;
+  const shares = await listSplitShares(supabase, id);
+  return { split, shares };
+}
+
+export interface ContactBalanceRow {
+  contactId: string;
+  balanceCents: number;
+}
+
+/** Saldo por contato (4.9), já achatado pro cliente (a query devolve um `Map`, que não cruza o limite de server action). */
+export async function searchContactBalances(): Promise<ContactBalanceRow[]> {
+  const { supabase } = await requireOwner();
+  const balances = await listContactBalances(supabase);
+  return [...balances.entries()].map(([contactId, balanceCents]) => ({ contactId, balanceCents }));
+}
+
+export async function searchSplitGroupLabels(): Promise<string[]> {
+  const { supabase } = await requireOwner();
+  return listSplitGroupLabels(supabase);
+}
+
+/** "Vincular a um lançamento existente" (4.9) — despesas dos últimos 90 dias ainda sem divisão. */
+export async function searchLinkableTransactions(): Promise<LinkableTransactionRow[]> {
+  const { supabase } = await requireOwner();
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  return listUnlinkedExpenseTransactions(supabase, since.toISOString().slice(0, 10));
+}
+
+/**
+ * Cria uma divisão (4.9): calcula a parte de cada participante
+ * (`computeSplitShares`) e, se `originMode` for `create`, cria a transação
+ * da minha despesa total (o valor que efetivamente saiu da minha conta —
+ * "lançamento contábil correto" do enunciado: a saída é do total, as partes
+ * dos outros viram valores a receber via `fin_split_shares`, não desconto na
+ * transação); se for `link`, só aponta pra uma já existente. Os dois só
+ * fazem sentido quando eu paguei — validado no schema.
+ *
+ * A parte de quem pagou (`payerIdentity`) já nasce quitada (`settled_cents
+ * = share_cents`): é a fatia que ela já cobriu ao pagar o total, não uma
+ * dívida com ninguém. Se isso cobrir todas as partes (ex.: só a própria
+ * pessoa que pagou está na lista), a divisão já nasce `settled`.
+ */
+export async function createSplit(input: CreateSplitInput): Promise<Result<{ id: string }>> {
+  const parsed = createSplitSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let totalCents: number;
+  try {
+    totalCents = Math.abs(parseBRL(data.totalAmount));
+  } catch {
+    return fail("Dados inválidos.", { totalAmount: ["Valor inválido."] });
+  }
+  if (totalCents === 0) return fail("Dados inválidos.", { totalAmount: ["O valor não pode ser zero."] });
+
+  let shares: SplitShareResult[];
+  try {
+    shares = computeSplitShares(
+      data.method,
+      totalCents,
+      data.participants.map((p) => ({ contactId: p.contactId, value: p.value, weight: p.weight })),
+    );
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível calcular as partes.");
+  }
+
+  const { supabase, user } = await requireOwner();
+
+  let transactionId: string | null = null;
+  if (data.originMode === "link") {
+    transactionId = data.linkTransactionId ?? null;
+  } else if (data.originMode === "create") {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.createAccountId);
+    if (!account) return fail("Conta inválida.");
+
+    const { data: txRow, error: txError } = await supabase
+      .from("fin_transactions")
+      .insert({
+        owner_id: user.id,
+        account_id: account.id,
+        space_id: account.spaceId,
+        category_id: data.createCategoryId || null,
+        description: data.title,
+        amount_cents: -totalCents,
+        occurred_on: data.occurredOn,
+        kind: "normal",
+      })
+      .select("id")
+      .single();
+    if (txError || !txRow) return fail(GENERIC_ERROR);
+    transactionId = txRow.id;
+  }
+
+  const payerIdentity = data.paidByContactId ?? null;
+  const nowIso = new Date().toISOString();
+  const allSettledAtCreation = shares.every((s) => s.contactId === payerIdentity);
+
+  const { data: splitRow, error: splitError } = await supabase
+    .from("fin_splits")
+    .insert({
+      owner_id: user.id,
+      title: data.title,
+      total_cents: totalCents,
+      occurred_on: data.occurredOn,
+      paid_by_contact_id: data.paidByContactId || null,
+      method: data.method,
+      transaction_id: transactionId,
+      group_label: data.groupLabel || null,
+      attachment_id: data.attachmentId || null,
+      status: allSettledAtCreation ? "settled" : "open",
+      notes: data.notes || null,
+    })
+    .select("id")
+    .single();
+  if (splitError || !splitRow) return fail(GENERIC_ERROR);
+
+  const { error: sharesError } = await supabase.from("fin_split_shares").insert(
+    shares.map((s) => ({
+      owner_id: user.id,
+      split_id: splitRow.id,
+      contact_id: s.contactId,
+      weight: s.weight,
+      share_cents: s.shareCents,
+      settled_cents: s.contactId === payerIdentity ? s.shareCents : 0,
+      settled_at: s.contactId === payerIdentity ? nowIso : null,
+    })),
+  );
+  if (sharesError) return fail(GENERIC_ERROR);
+
+  revalidatePath(DIVIDIR_PATH);
+  if (data.originMode === "create") revalidatePath(LANCAMENTOS_PATH);
+  return ok({ id: splitRow.id });
+}
+
+/** "Cancelar" é a exclusão lógica de uma divisão (4.9) — `fin_splits` não tem `deleted_at`, `status='canceled'` cobre o mesmo papel (mesmo padrão de `cancelBill`, 4.8). */
+export async function cancelSplit(id: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_splits").update({ status: "canceled" }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+  revalidatePath(DIVIDIR_PATH);
+  return ok(null);
+}
+
+/**
+ * "Registrar pagamento de uma pessoa" (4.9): cria a transação e atualiza
+ * `settled_cents`/`settled_at` da parte quitada. Direção decidida por quem é
+ * a parte: a minha própria (`contact_id` nulo) é uma dívida que **eu**
+ * tenho com quem pagou — registrar é uma despesa minha; a de um contato é
+ * uma dívida dele **comigo** — registrar é uma receita minha. Quando todas
+ * as partes da divisão estiverem quitadas, a divisão vira `settled`.
+ */
+export async function registerSplitPayment(input: RegisterSplitPaymentInput): Promise<Result<null>> {
+  const parsed = registerSplitPaymentSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  const { data: share, error: shareError } = await supabase
+    .from("fin_split_shares")
+    .select("id, split_id, contact_id, share_cents, settled_cents")
+    .eq("id", data.shareId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (shareError || !share) return fail("Parte não encontrada.");
+
+  const { data: split, error: splitReadError } = await supabase.from("fin_splits").select("id, title, status").eq("id", share.split_id).maybeSingle();
+  if (splitReadError || !split) return fail("Divisão não encontrada.");
+  if (split.status === "canceled") return fail("Esta divisão foi cancelada.");
+
+  const accounts = await listAccounts(supabase);
+  const account = accounts.find((a) => a.id === data.accountId);
+  if (!account) return fail("Conta inválida.");
+
+  const signedAmount = share.contact_id === null ? -amountCents : amountCents;
+
+  const { data: txRow, error: txError } = await supabase
+    .from("fin_transactions")
+    .insert({
+      owner_id: user.id,
+      account_id: account.id,
+      space_id: account.spaceId,
+      description: split.title,
+      amount_cents: signedAmount,
+      occurred_on: data.occurredOn,
+      kind: "normal",
+    })
+    .select("id")
+    .single();
+  if (txError || !txRow) return fail(GENERIC_ERROR);
+
+  const newSettledCents = share.settled_cents + amountCents;
+  const { error: updateShareError } = await supabase
+    .from("fin_split_shares")
+    .update({
+      settled_cents: newSettledCents,
+      settled_at: newSettledCents >= share.share_cents ? new Date().toISOString() : null,
+      settlement_transaction_id: txRow.id,
+    })
+    .eq("id", share.id);
+  if (updateShareError) return fail(GENERIC_ERROR);
+
+  const { data: allShares } = await supabase.from("fin_split_shares").select("share_cents, settled_cents").eq("split_id", split.id);
+  if (allShares && allShares.every((s) => s.settled_cents >= s.share_cents)) {
+    await supabase.from("fin_splits").update({ status: "settled" }).eq("id", split.id);
+  }
+
+  revalidatePath(DIVIDIR_PATH);
+  revalidatePath(LANCAMENTOS_PATH);
+  return ok(null);
+}
+
+export interface GroupSettlementResult {
+  balances: { personId: string; balanceCents: number }[];
+  transfers: SettlementTransfer[];
+}
+
+/** "Visão de acerto" de um grupo (4.9): saldo líquido de cada pessoa (`ME` = eu) e as transferências mínimas pra zerar tudo. */
+export async function getGroupSettlement(groupLabel: string): Promise<GroupSettlementResult> {
+  const { supabase } = await requireOwner();
+
+  const splits = await listSplits(supabase, { groupLabel });
+  const active = splits.filter((s) => s.status !== "canceled");
+  const shares = await listSplitSharesForSplits(
+    supabase,
+    active.map((s) => s.id),
+  );
+
+  const balances = computeNetBalances(
+    active.map((s) => ({ id: s.id, paidByContactId: s.paidByContactId })),
+    shares.map((s) => ({ splitId: s.splitId, contactId: s.contactId, shareCents: s.shareCents, settledCents: s.settledCents })),
+  );
+  const balanceList = [...balances.entries()].map(([personId, balanceCents]) => ({ personId, balanceCents }));
+
+  return { balances: balanceList, transfers: computeSettlementTransfers(balanceList) };
 }
