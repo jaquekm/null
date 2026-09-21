@@ -1,4 +1,4 @@
-import { Bell, CalendarClock, CircleDollarSign, FileScan, KeyRound, Keyboard, Link2, ListChecks, Shapes, Shield, Smartphone, Tag, Trash2 } from "lucide-react";
+import { Bell, CalendarClock, CircleDollarSign, FileScan, KeyRound, Keyboard, Link2, ListChecks, Shapes, Shield, Smartphone, Tag, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { countFailedJobs } from "@/features/jobs/queries";
 import { requireOwner } from "@/lib/auth";
@@ -45,6 +45,17 @@ export default async function ConfiguracoesPage() {
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Tags</p>
           <p className="text-zinc-500 dark:text-zinc-400">Renomear, mesclar, excluir</p>
+        </div>
+      </Link>
+
+      <Link
+        href="/financas/configurar"
+        className="flex items-center gap-3 rounded-lg border border-black/[.08] px-4 py-3 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.08] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+      >
+        <Wallet className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-medium text-black dark:text-zinc-50">Finanças</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Contas, cartões, categorias e chaves Pix</p>
         </div>
       </Link>
 
