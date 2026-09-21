@@ -85,7 +85,7 @@ describe("reminderRuleInputSchema", () => {
   });
 
   it("kind fora do enum: inválido", () => {
-    expect(reminderRuleInputSchema.safeParse(baseRuleInput({ kind: "bill_due" })).success).toBe(false);
+    expect(reminderRuleInputSchema.safeParse(baseRuleInput({ kind: "split_open" })).success).toBe(false);
   });
 
   it("config vazio (sem valores default ainda escolhidos): ainda válido — os builders usam padrões", () => {

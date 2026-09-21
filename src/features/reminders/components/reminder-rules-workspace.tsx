@@ -47,12 +47,31 @@ const PRESETS: (RulePreset & { label: string; description: string })[] = [
     messageTemplate: "Lembrete: {{titulo}} vence {{data}}. {{link}}",
     config: { daysBefore: 1 },
   },
+  {
+    kind: "bill_due",
+    recipientType: "me",
+    label: "Contas a pagar (para mim)",
+    description: "Push/e-mail X dias antes e no dia do vencimento.",
+    name: "Contas a pagar",
+    messageTemplate: "Conta a pagar: {{titulo}}, {{valor}}, vence {{data}}.",
+    config: { daysBefore: 3 },
+  },
+  {
+    kind: "bill_due",
+    recipientType: "contacts",
+    label: "Cobrança de contas a receber",
+    description: "Contatos com opt-in — X dias antes e no dia seguinte ao vencimento.",
+    name: "Cobrança de contas a receber",
+    messageTemplate: "Oi {{nome}}! Passando pra lembrar: {{titulo}}, {{valor}}, vence {{data}}. {{link}}",
+    config: { daysBefore: 3 },
+  },
 ];
 
 const KIND_LABELS: Record<string, string> = {
   event_before: "Reunião",
   birthday: "Aniversário",
   item_date_field: "Campo de data",
+  bill_due: "Conta a vencer",
 };
 
 export function ReminderRulesWorkspace({ types, initialRules }: { types: TypeOptionWithFields[]; initialRules: ReminderRuleRow[] }) {
