@@ -71,3 +71,126 @@ export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export const renameCategorySchema = z.object({
   name: z.string().trim().min(1, "Digite um nome.").max(120),
 });
+
+// =========================================================
+// LANÇAMENTOS (4.4)
+// =========================================================
+
+export const TRANSACTION_TYPES = ["expense", "income", "transfer"] as const;
+export type TransactionType = (typeof TRANSACTION_TYPES)[number];
+
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  expense: "Despesa",
+  income: "Receita",
+  transfer: "Transferência",
+};
+
+/** Filtro "tipo" da página de lançamentos — `expense`/`income` são o `kind='normal'` do banco, separados pelo sinal de `amount_cents` (a tabela não tem coluna própria pra isso). */
+export const TRANSACTION_TYPE_FILTERS = ["expense", "income", "transfer", "card_payment", "adjustment"] as const;
+export type TransactionTypeFilter = (typeof TRANSACTION_TYPE_FILTERS)[number];
+
+export const TRANSACTION_TYPE_FILTER_LABELS: Record<TransactionTypeFilter, string> = {
+  expense: "Despesas",
+  income: "Receitas",
+  transfer: "Transferências",
+  card_payment: "Pagamento de fatura",
+  adjustment: "Ajuste",
+};
+
+export const TRANSACTION_STATUSES = ["pending", "cleared", "reconciled"] as const;
+export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
+
+export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
+  pending: "Pendente",
+  cleared: "Efetivado",
+  reconciled: "Conciliado",
+};
+
+/** "Repetir" (4.4) — presets simples derivados da data do lançamento, sem pedir dia da semana/mês de novo (ver `lib/build-recurring-from-transaction.ts`). */
+export const TRANSACTION_REPEAT_OPTIONS = ["none", "weekly", "monthly", "yearly"] as const;
+export type TransactionRepeatOption = (typeof TRANSACTION_REPEAT_OPTIONS)[number];
+
+export const TRANSACTION_REPEAT_LABELS: Record<TransactionRepeatOption, string> = {
+  none: "Não repetir",
+  weekly: "Toda semana",
+  monthly: "Todo mês",
+  yearly: "Todo ano",
+};
+
+const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.");
+const tagsSchema = z.array(z.string().trim().min(1).max(40)).max(20).default([]);
+
+export const createTransactionSchema = z
+  .object({
+    type: z.enum(TRANSACTION_TYPES),
+    amount: z.string().trim().min(1, "Digite o valor."),
+    occurredOn: isoDateSchema,
+    description: z.string().trim().min(1, "Digite uma descrição.").max(200),
+    accountId: z.string().uuid().optional(),
+    fromAccountId: z.string().uuid().optional(),
+    toAccountId: z.string().uuid().optional(),
+    categoryId: z.string().uuid().optional(),
+    contactId: z.string().uuid().optional(),
+    spaceId: z.string().uuid().optional(),
+    tags: tagsSchema,
+    notes: z.string().trim().max(2000).optional(),
+    installments: z.coerce.number().int().min(1).max(60).default(1),
+    repeat: z.enum(TRANSACTION_REPEAT_OPTIONS).default("none"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "transfer") {
+      if (!data.fromAccountId) ctx.addIssue({ code: "custom", path: ["fromAccountId"], message: "Escolha a conta de origem." });
+      if (!data.toAccountId) ctx.addIssue({ code: "custom", path: ["toAccountId"], message: "Escolha a conta de destino." });
+      if (data.fromAccountId && data.toAccountId && data.fromAccountId === data.toAccountId) {
+        ctx.addIssue({ code: "custom", path: ["toAccountId"], message: "Escolha contas diferentes." });
+      }
+    } else {
+      if (!data.accountId) ctx.addIssue({ code: "custom", path: ["accountId"], message: "Escolha uma conta." });
+      if (data.installments > 1 && data.repeat !== "none") {
+        ctx.addIssue({ code: "custom", path: ["repeat"], message: "Escolha parcelamento ou repetição, não as duas." });
+      }
+    }
+  });
+
+export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
+
+export const updateTransactionDescriptionSchema = z.object({
+  description: z.string().trim().min(1, "Digite uma descrição.").max(200),
+});
+
+export const updateTransactionCategorySchema = z.object({
+  categoryId: z.string().uuid().nullable(),
+});
+
+export const bulkCategorizeSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "Selecione ao menos um lançamento."),
+  categoryId: z.string().uuid("Escolha uma categoria."),
+});
+
+export const quickExpenseSchema = z.object({
+  accountId: z.string().uuid("Escolha uma conta."),
+  amount: z.string().trim().min(1, "Digite o valor."),
+  description: z.string().trim().min(1, "Digite uma descrição.").max(200),
+  categoryId: z.string().uuid().optional(),
+  occurredOn: isoDateSchema,
+});
+
+export type QuickExpenseInput = z.infer<typeof quickExpenseSchema>;
+
+export const transactionFiltersSchema = z.object({
+  periodStart: isoDateSchema,
+  periodEnd: isoDateSchema,
+  accountId: z.string().uuid().optional(),
+  spaceId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  contactId: z.string().uuid().optional(),
+  type: z.enum(TRANSACTION_TYPE_FILTERS).optional(),
+  status: z.enum(TRANSACTION_STATUSES).optional(),
+  text: z.string().trim().max(200).optional(),
+  noCategory: z.boolean().optional(),
+});
+
+export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
+
+export const DELETE_TRANSACTION_SCOPES = ["this", "future"] as const;
+export type DeleteTransactionScope = (typeof DELETE_TRANSACTION_SCOPES)[number];
