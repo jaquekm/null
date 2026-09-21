@@ -11,7 +11,8 @@ export function AttachmentUploader({
   itemId,
   onUploaded,
 }: {
-  itemId: string;
+  /** `null` = anexo avulso, sem item (4.8: boleto de conta a pagar antes de existir um item) — transcrição automática não se aplica a esse caso. */
+  itemId: string | null;
   onUploaded: (attachment: AttachmentRow) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +43,7 @@ export function AttachmentUploader({
         // em qualquer item → pergunta 'Transcrever?'". Anexo reaproveitado
         // (duplicata) já tem transcrição associada se algum dia teve —
         // evita reoferecer.
-        if (isMedia && !result.data.reused) {
+        if (isMedia && !result.data.reused && itemId) {
           setSummarize(false);
           setTranscribePrompt({ attachmentId: result.data.attachment.id, fileName: result.data.attachment.fileName });
         }
@@ -51,7 +52,7 @@ export function AttachmentUploader({
   }
 
   function handleTranscribe() {
-    if (!transcribePrompt) return;
+    if (!transcribePrompt || !itemId) return;
     const { attachmentId } = transcribePrompt;
     const shouldSummarize = summarize;
     setTranscribePrompt(null);
