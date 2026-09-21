@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Plus, Repeat } from "lucide-react";
+import { Copy, Plus, Repeat, Users } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -99,6 +99,12 @@ export function BillsWorkspace({ accounts, categories, spaces, contacts, initial
             className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
           >
             <Repeat className="h-4 w-4" /> Recorrências
+          </Link>
+          <Link
+            href="/financas/dividir"
+            className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
+          >
+            <Users className="h-4 w-4" /> Dividir
           </Link>
           <button
             type="button"
