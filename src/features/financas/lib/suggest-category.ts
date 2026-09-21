@@ -1,16 +1,9 @@
+import { normalizeDescription } from "./normalize-description";
+
 export interface RecentTransactionForSuggestion {
   description: string;
   categoryId: string;
   occurredOn: string;
-}
-
-function normalize(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }
 
 /**
@@ -22,11 +15,11 @@ function normalize(text: string): string {
  * "uber *trip help.uber.com".
  */
 export function suggestCategoryId(recent: RecentTransactionForSuggestion[], description: string): string | null {
-  const term = normalize(description);
+  const term = normalizeDescription(description);
   if (term.length < 3) return null;
 
   for (const tx of recent) {
-    const candidate = normalize(tx.description);
+    const candidate = normalizeDescription(tx.description);
     if (candidate.length < 3) continue;
     if (candidate === term || candidate.includes(term) || term.includes(candidate)) {
       return tx.categoryId;
