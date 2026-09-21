@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { RULE_MATCH_FIELDS, RULE_MATCH_TYPES, type RuleMatchField, type RuleMatchType } from "./lib/match-rule";
 import { CSV_COLUMN_ROLES, CSV_DATE_FORMATS, CSV_DECIMAL_SEPARATORS, CSV_DELIMITERS, type CsvColumnRole } from "./lib/parse-statement-csv";
+import { SPLIT_METHODS, type SplitMethod } from "./lib/split-shares";
 
 export const ACCOUNT_KINDS = ["checking", "savings", "credit_card", "cash", "investment", "wallet", "other"] as const;
 export type AccountKind = (typeof ACCOUNT_KINDS)[number];
@@ -443,3 +444,82 @@ export type CreateRecurringInput = z.infer<typeof createRecurringSchema>;
 /** Edição (4.8): não muda a frequência/âncora (RRULE) — pra outra cadência, desativa esta e cria outra. */
 export const updateRecurringSchema = createRecurringSchema.omit({ direction: true, repeat: true, anchorDate: true });
 export type UpdateRecurringInput = z.infer<typeof updateRecurringSchema>;
+
+// =========================================================
+// DIVISÃO DE CONTAS (4.9)
+// =========================================================
+
+export const SPLIT_METHOD_LABELS: Record<SplitMethod, string> = {
+  equal: "Igual",
+  exact: "Valores exatos",
+  percent: "Porcentagem",
+  shares: "Cotas",
+};
+
+export const SPLIT_STATUSES = ["open", "settled", "canceled"] as const;
+export type SplitStatus = (typeof SPLIT_STATUSES)[number];
+
+export const SPLIT_STATUS_LABELS: Record<SplitStatus, string> = {
+  open: "Em aberto",
+  settled: "Quitada",
+  canceled: "Cancelada",
+};
+
+/** Origem da transação do total (4.9) — só faz sentido quando eu paguei (`paidByContactId` vazio): se um contato pagou, não há lançamento meu do total pra criar/vincular. */
+export const SPLIT_ORIGIN_MODES = ["none", "create", "link"] as const;
+export type SplitOriginMode = (typeof SPLIT_ORIGIN_MODES)[number];
+
+const splitParticipantSchema = z.object({
+  /** `null` = eu. */
+  contactId: z.string().uuid().nullable(),
+  /** Método `exact` — valor em texto (`parseBRL`). */
+  value: z.string().trim().optional(),
+  /** Métodos `percent`/`shares` — peso numérico. */
+  weight: z.coerce.number().positive().optional(),
+});
+
+export type SplitParticipantFormInput = z.infer<typeof splitParticipantSchema>;
+
+export const createSplitSchema = z
+  .object({
+    title: z.string().trim().min(1, "Digite um título.").max(200),
+    totalAmount: z.string().trim().min(1, "Digite o valor total."),
+    occurredOn: isoDateSchema,
+    /** Vazio = eu paguei. */
+    paidByContactId: z.string().uuid().optional(),
+    method: z.enum(SPLIT_METHODS),
+    participants: z.array(splitParticipantSchema).min(1, "Escolha ao menos um participante."),
+    originMode: z.enum(SPLIT_ORIGIN_MODES).default("none"),
+    linkTransactionId: z.string().uuid().optional(),
+    createAccountId: z.string().uuid().optional(),
+    createCategoryId: z.string().uuid().optional(),
+    attachmentId: z.string().uuid().optional(),
+    groupLabel: z.string().trim().max(120).optional(),
+    notes: z.string().trim().max(2000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.originMode !== "none" && data.paidByContactId) {
+      ctx.addIssue({ code: "custom", path: ["originMode"], message: "Só é possível criar ou vincular um lançamento quando eu paguei." });
+    }
+    if (data.originMode === "link" && !data.linkTransactionId) {
+      ctx.addIssue({ code: "custom", path: ["linkTransactionId"], message: "Escolha um lançamento." });
+    }
+    if (data.originMode === "create" && !data.createAccountId) {
+      ctx.addIssue({ code: "custom", path: ["createAccountId"], message: "Escolha uma conta." });
+    }
+    const contactIds = data.participants.map((p) => p.contactId ?? "__eu__");
+    if (new Set(contactIds).size !== contactIds.length) {
+      ctx.addIssue({ code: "custom", path: ["participants"], message: "Cada participante só pode aparecer uma vez." });
+    }
+  });
+
+export type CreateSplitInput = z.infer<typeof createSplitSchema>;
+
+export const registerSplitPaymentSchema = z.object({
+  shareId: z.string().uuid(),
+  amount: z.string().trim().min(1, "Digite o valor."),
+  occurredOn: isoDateSchema,
+  accountId: z.string().uuid("Escolha uma conta."),
+});
+
+export type RegisterSplitPaymentInput = z.infer<typeof registerSplitPaymentSchema>;

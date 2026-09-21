@@ -4,8 +4,9 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { BillForMatching } from "./lib/match-bills";
 import type { CategorizationRule, TransactionForRuleMatch } from "./lib/match-rule";
 import type { CsvImportMapping } from "./lib/parse-statement-csv";
+import type { SplitMethod } from "./lib/split-shares";
 import type { RecentTransactionForSuggestion } from "./lib/suggest-category";
-import type { AccountKind, BillDirection, BillFilters, BillStatus, ImportFormat, PixKeyType, TransactionFilters, TransactionStatus } from "./schemas";
+import type { AccountKind, BillDirection, BillFilters, BillStatus, ImportFormat, PixKeyType, SplitStatus, TransactionFilters, TransactionStatus } from "./schemas";
 
 type Client = SupabaseClient<Database>;
 
@@ -532,4 +533,159 @@ export async function listRecurring(supabase: Client): Promise<RecurringRow[]> {
   const { data, error } = await supabase.from("fin_recurring").select(RECURRING_COLUMNS).order("active", { ascending: false }).order("next_due_on", { ascending: true });
   if (error) throw error;
   return data.map(mapRecurringRow);
+}
+
+// =========================================================
+// DIVISÃO DE CONTAS (4.9)
+// =========================================================
+
+export interface SplitRow {
+  id: string;
+  title: string;
+  totalCents: number;
+  occurredOn: string;
+  paidByContactId: string | null;
+  method: SplitMethod;
+  transactionId: string | null;
+  groupLabel: string | null;
+  attachmentId: string | null;
+  status: SplitStatus;
+  notes: string | null;
+}
+
+const SPLIT_COLUMNS = "id, title, total_cents, occurred_on, paid_by_contact_id, method, transaction_id, group_label, attachment_id, status, notes";
+
+function mapSplitRow(row: Record<string, unknown>): SplitRow {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    totalCents: row.total_cents as number,
+    occurredOn: row.occurred_on as string,
+    paidByContactId: row.paid_by_contact_id as string | null,
+    method: row.method as SplitMethod,
+    transactionId: row.transaction_id as string | null,
+    groupLabel: row.group_label as string | null,
+    attachmentId: row.attachment_id as string | null,
+    status: row.status as SplitStatus,
+    notes: row.notes as string | null,
+  };
+}
+
+export interface SplitFilters {
+  status?: SplitStatus;
+  groupLabel?: string;
+}
+
+/** Divisões do dono, mais recente primeiro — lista de `/financas/dividir` (4.9). */
+export async function listSplits(supabase: Client, filters: SplitFilters = {}): Promise<SplitRow[]> {
+  let query = supabase.from("fin_splits").select(SPLIT_COLUMNS);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.groupLabel) query = query.eq("group_label", filters.groupLabel);
+
+  const { data, error } = await query.order("occurred_on", { ascending: false }).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data.map(mapSplitRow);
+}
+
+export async function getSplit(supabase: Client, id: string): Promise<SplitRow | null> {
+  const { data, error } = await supabase.from("fin_splits").select(SPLIT_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapSplitRow(data) : null;
+}
+
+/** Rótulos de grupo em uso (ex.: "Viagem Floripa") entre as divisões ainda não canceladas — alimenta o seletor da "visão de acerto" (4.9). */
+export async function listSplitGroupLabels(supabase: Client): Promise<string[]> {
+  const { data, error } = await supabase.from("fin_splits").select("group_label").not("group_label", "is", null).neq("status", "canceled");
+  if (error) throw error;
+  return [...new Set(data.map((row) => row.group_label as string))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+export interface SplitShareRow {
+  id: string;
+  splitId: string;
+  /** `null` = minha parte. */
+  contactId: string | null;
+  weight: number | null;
+  shareCents: number;
+  settledCents: number;
+  settledAt: string | null;
+  settlementTransactionId: string | null;
+}
+
+const SPLIT_SHARE_COLUMNS = "id, split_id, contact_id, weight, share_cents, settled_cents, settled_at, settlement_transaction_id";
+
+function mapSplitShareRow(row: Record<string, unknown>): SplitShareRow {
+  return {
+    id: row.id as string,
+    splitId: row.split_id as string,
+    contactId: row.contact_id as string | null,
+    weight: row.weight as number | null,
+    shareCents: row.share_cents as number,
+    settledCents: row.settled_cents as number,
+    settledAt: row.settled_at as string | null,
+    settlementTransactionId: row.settlement_transaction_id as string | null,
+  };
+}
+
+export async function listSplitShares(supabase: Client, splitId: string): Promise<SplitShareRow[]> {
+  const { data, error } = await supabase.from("fin_split_shares").select(SPLIT_SHARE_COLUMNS).eq("split_id", splitId);
+  if (error) throw error;
+  return data.map(mapSplitShareRow);
+}
+
+/** Partes de várias divisões de uma vez (ex.: todas as de um grupo, pra `computeNetBalances`) — evita 1 consulta por divisão. */
+export async function listSplitSharesForSplits(supabase: Client, splitIds: string[]): Promise<SplitShareRow[]> {
+  if (splitIds.length === 0) return [];
+  const { data, error } = await supabase.from("fin_split_shares").select(SPLIT_SHARE_COLUMNS).in("split_id", splitIds);
+  if (error) throw error;
+  return data.map(mapSplitShareRow);
+}
+
+/**
+ * Saldo por contato (view `fin_contact_balances`, 4.2): positivo = o
+ * contato me deve, negativo = eu devo a ele. A view devolve até duas linhas
+ * por contato (uma de cada direção — "ele me deve" e "eu devo a ele", conforme
+ * quem pagou cada divisão), por isso soma aqui em vez de confiar numa linha só.
+ */
+export async function listContactBalances(supabase: Client): Promise<Map<string, number>> {
+  const { data, error } = await supabase.from("fin_contact_balances").select("contact_id, balance_cents");
+  if (error) throw error;
+
+  const balances = new Map<string, number>();
+  for (const row of data) {
+    if (!row.contact_id) continue;
+    balances.set(row.contact_id, (balances.get(row.contact_id) ?? 0) + (row.balance_cents ?? 0));
+  }
+  return balances;
+}
+
+export interface LinkableTransactionRow {
+  id: string;
+  description: string;
+  amountCents: number;
+  occurredOn: string;
+}
+
+/**
+ * Despesas recentes (últimos `sinceDate`, kind normal, valor negativo) ainda
+ * não vinculadas a nenhuma divisão — alimenta "vincular a um lançamento
+ * existente" (4.9). Não filtra por conta/espaço: a lista de divisões é
+ * pequena o bastante pra não precisar de busca paginada.
+ */
+export async function listUnlinkedExpenseTransactions(supabase: Client, sinceDate: string): Promise<LinkableTransactionRow[]> {
+  const { data: linkedRows, error: linkedError } = await supabase.from("fin_splits").select("transaction_id").not("transaction_id", "is", null);
+  if (linkedError) throw linkedError;
+  const linkedIds = new Set(linkedRows.map((row) => row.transaction_id as string));
+
+  const { data, error } = await supabase
+    .from("fin_transactions")
+    .select("id, description, amount_cents, occurred_on")
+    .eq("kind", "normal")
+    .lt("amount_cents", 0)
+    .gte("occurred_on", sinceDate)
+    .order("occurred_on", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+
+  return data.filter((row) => !linkedIds.has(row.id)).map((row) => ({ id: row.id, description: row.description, amountCents: row.amount_cents, occurredOn: row.occurred_on }));
 }
