@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, Plus } from "lucide-react";
+import { Copy, Plus, Repeat } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ContactRow } from "@/features/contacts/queries";
@@ -92,13 +93,21 @@ export function BillsWorkspace({ accounts, categories, spaces, contacts, initial
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Contas a pagar e receber</h1>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
-        >
-          <Plus className="h-4 w-4" /> Nova conta
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/financas/recorrencias"
+            className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
+          >
+            <Repeat className="h-4 w-4" /> Recorrências
+          </Link>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
+          >
+            <Plus className="h-4 w-4" /> Nova conta
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-1 rounded-lg bg-black/[.04] p-1 dark:bg-white/[.06]">

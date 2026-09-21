@@ -30,12 +30,14 @@ import {
   listExistingImportHashes,
   listOpenBillsForMatching,
   listRecentCategorizedTransactions,
+  listRecurring,
   listRules,
   listStatementTransactions,
   listTransactions,
   listTransactionsForRuleTest,
   sumStatementTransactionAmounts,
   type BillRow,
+  type RecurringRow,
   type TransactionRow,
 } from "./queries";
 import {
@@ -47,6 +49,7 @@ import {
   createBillSchema,
   createCategorySchema,
   createPixKeySchema,
+  createRecurringSchema,
   createTransactionSchema,
   markBillPaidSchema,
   payStatementSchema,
@@ -56,6 +59,7 @@ import {
   ruleInputSchema,
   transactionFiltersSchema,
   updateBillSchema,
+  updateRecurringSchema,
   updateTransactionCategorySchema,
   updateTransactionDescriptionSchema,
   type BillFilters,
@@ -64,6 +68,7 @@ import {
   type CreateBillInput,
   type CreateCategoryInput,
   type CreatePixKeyInput,
+  type CreateRecurringInput,
   type CreateTransactionInput,
   type DeleteTransactionScope,
   type MarkBillPaidInput,
@@ -74,6 +79,7 @@ import {
   type TransactionFilters,
   type TransactionRepeatOption,
   type UpdateBillInput,
+  type UpdateRecurringInput,
 } from "./schemas";
 
 type Client = SupabaseClient<Database>;
@@ -83,6 +89,7 @@ const LANCAMENTOS_PATH = "/financas/lancamentos";
 const IMPORTAR_PATH = "/financas/importar";
 const REGRAS_PATH = "/financas/regras";
 const CONTAS_PATH = "/financas/contas";
+const RECORRENCIAS_PATH = "/financas/recorrencias";
 
 /** "Aplicação: ... incrementa `times_applied`" (4.6) — chamado só quando a sugestão da regra realmente vira o dado salvo (não quando é só mostrada como sugestão e depois trocada). */
 async function incrementRuleTimesApplied(supabase: Client, ruleId: string): Promise<void> {
@@ -1515,4 +1522,131 @@ export async function extractBillDataFromAttachment(attachmentId: string): Promi
     if (err instanceof AiDisabledError || err instanceof AiBudgetExceededError) return fail(err.message);
     return fail("Não foi possível extrair os dados do boleto. Preencha manualmente.");
   }
+}
+
+// =========================================================
+// RECORRÊNCIAS (4.8)
+// =========================================================
+
+export async function searchRecurring(): Promise<RecurringRow[]> {
+  const { supabase } = await requireOwner();
+  return listRecurring(supabase);
+}
+
+/**
+ * Cria uma recorrência avulsa (4.8, `/financas/recorrencias`) — ao contrário
+ * do "repetir" da 4.4/4.8 (que nasce a partir de um lançamento/conta já
+ * criado, então começa na ocorrência *seguinte*), aqui não existe uma
+ * primeira conta ainda: `next_due_on` é a própria data escolhida. O job
+ * `generate_bills` (4.8) assume dali pra frente.
+ */
+export async function createRecurring(input: CreateRecurringInput): Promise<Result<{ id: string }>> {
+  const parsed = createRecurringSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  let accountId: string | null = null;
+  if (data.accountId) {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.accountId);
+    if (!account) return fail("Conta inválida.");
+    accountId = account.id;
+  }
+
+  const preset = recurrencePresetForRepeat(data.repeat, data.anchorDate);
+  if (!preset) return fail("Dados inválidos.", { repeat: ["Escolha uma frequência."] });
+
+  const timezone = await getUserTimezone(supabase, user.id);
+  // meio-dia evita que a conversão de fuso empurre a data pro dia anterior/seguinte perto da meia-noite.
+  const dtstart = new Date(`${data.anchorDate}T12:00:00`);
+  const rrule = buildRRuleString(preset, dtstart, timezone);
+  if (!rrule) return fail(GENERIC_ERROR);
+
+  const { data: row, error } = await supabase
+    .from("fin_recurring")
+    .insert({
+      owner_id: user.id,
+      space_id: data.spaceId || null,
+      description: data.description,
+      direction: data.direction,
+      amount_cents: amountCents,
+      amount_is_estimate: data.amountIsEstimate,
+      category_id: data.categoryId || null,
+      account_id: accountId,
+      contact_id: data.contactId || null,
+      rrule,
+      next_due_on: data.anchorDate,
+      ends_on: data.endsOn || null,
+      remind_days_before: data.remindDaysBefore,
+    })
+    .select("id")
+    .single();
+  if (error || !row) return fail(GENERIC_ERROR);
+
+  revalidatePath(RECORRENCIAS_PATH);
+  return ok({ id: row.id });
+}
+
+/** Edita os dados de uma recorrência (4.8) — não muda frequência/âncora (RRULE); pra outra cadência, desativa esta e cria outra. */
+export async function updateRecurring(id: string, input: UpdateRecurringInput): Promise<Result<null>> {
+  const parsed = updateRecurringSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  let accountId: string | null = null;
+  if (data.accountId) {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.accountId);
+    if (!account) return fail("Conta inválida.");
+    accountId = account.id;
+  }
+
+  const { error } = await supabase
+    .from("fin_recurring")
+    .update({
+      description: data.description,
+      amount_cents: amountCents,
+      amount_is_estimate: data.amountIsEstimate,
+      category_id: data.categoryId || null,
+      account_id: accountId,
+      contact_id: data.contactId || null,
+      space_id: data.spaceId || null,
+      ends_on: data.endsOn || null,
+      remind_days_before: data.remindDaysBefore,
+    })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(RECORRENCIAS_PATH);
+  return ok(null);
+}
+
+/** Ativar/desativar (4.8) — desativada para de gerar novas contas (`generate_bills` só olha `active=true`), mas não apaga as já geradas. */
+export async function setRecurringActive(id: string, active: boolean): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_recurring").update({ active }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+  revalidatePath(RECORRENCIAS_PATH);
+  return ok(null);
 }

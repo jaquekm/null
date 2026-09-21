@@ -483,3 +483,53 @@ export async function getBill(supabase: Client, id: string, today: string): Prom
   if (error) throw error;
   return data ? mapBillRow(data, today) : null;
 }
+
+// =========================================================
+// RECORRÊNCIAS (4.8)
+// =========================================================
+
+export interface RecurringRow {
+  id: string;
+  spaceId: string | null;
+  description: string;
+  direction: BillDirection;
+  amountCents: number;
+  amountIsEstimate: boolean;
+  categoryId: string | null;
+  accountId: string | null;
+  contactId: string | null;
+  rrule: string;
+  nextDueOn: string;
+  endsOn: string | null;
+  remindDaysBefore: number | null;
+  active: boolean;
+}
+
+const RECURRING_COLUMNS =
+  "id, space_id, description, direction, amount_cents, amount_is_estimate, category_id, account_id, contact_id, rrule, next_due_on, ends_on, remind_days_before, active";
+
+function mapRecurringRow(row: Record<string, unknown>): RecurringRow {
+  return {
+    id: row.id as string,
+    spaceId: row.space_id as string | null,
+    description: row.description as string,
+    direction: row.direction as BillDirection,
+    amountCents: row.amount_cents as number,
+    amountIsEstimate: row.amount_is_estimate as boolean,
+    categoryId: row.category_id as string | null,
+    accountId: row.account_id as string | null,
+    contactId: row.contact_id as string | null,
+    rrule: row.rrule as string,
+    nextDueOn: row.next_due_on as string,
+    endsOn: row.ends_on as string | null,
+    remindDaysBefore: row.remind_days_before as number | null,
+    active: row.active as boolean,
+  };
+}
+
+/** Todas as recorrências do dono (4.8) — ativas primeiro, por próximo vencimento. */
+export async function listRecurring(supabase: Client): Promise<RecurringRow[]> {
+  const { data, error } = await supabase.from("fin_recurring").select(RECURRING_COLUMNS).order("active", { ascending: false }).order("next_due_on", { ascending: true });
+  if (error) throw error;
+  return data.map(mapRecurringRow);
+}

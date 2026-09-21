@@ -413,3 +413,33 @@ export const billExtractionSchema = z.object({
 });
 
 export type BillExtraction = z.infer<typeof billExtractionSchema>;
+
+// =========================================================
+// RECORRÊNCIAS (4.8)
+// =========================================================
+
+/** Frequência de uma recorrência avulsa (`/financas/recorrencias`) — mesmo conjunto de `TRANSACTION_REPEAT_OPTIONS` sem "none" (uma recorrência sempre repete). */
+export const RECURRING_REPEAT_OPTIONS = ["weekly", "monthly", "yearly"] as const;
+export type RecurringRepeatOption = (typeof RECURRING_REPEAT_OPTIONS)[number];
+
+export const createRecurringSchema = z.object({
+  direction: z.enum(BILL_DIRECTIONS),
+  description: z.string().trim().min(1, "Digite uma descrição.").max(200),
+  amount: z.string().trim().min(1, "Digite o valor."),
+  amountIsEstimate: z.boolean().default(false),
+  repeat: z.enum(RECURRING_REPEAT_OPTIONS),
+  /** Data da primeira ocorrência futura — vira `next_due_on` direto (ao contrário do "repetir" da 4.4/4.8, aqui não existe uma primeira conta já criada pra pular). */
+  anchorDate: isoDateSchema,
+  contactId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  accountId: z.string().uuid().optional(),
+  spaceId: z.string().uuid().optional(),
+  endsOn: isoDateSchema.optional(),
+  remindDaysBefore: z.coerce.number().int().min(0).max(30).default(3),
+});
+
+export type CreateRecurringInput = z.infer<typeof createRecurringSchema>;
+
+/** Edição (4.8): não muda a frequência/âncora (RRULE) — pra outra cadência, desativa esta e cria outra. */
+export const updateRecurringSchema = createRecurringSchema.omit({ direction: true, repeat: true, anchorDate: true });
+export type UpdateRecurringInput = z.infer<typeof updateRecurringSchema>;
