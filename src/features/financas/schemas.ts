@@ -400,3 +400,16 @@ export const billFiltersSchema = z.object({
 });
 
 export type BillFilters = z.infer<typeof billFiltersSchema>;
+
+/** "Extrair dados de boleto com IA" (4.8) — formato que a IA devolve; o dono revisa antes de salvar, nunca preenche sozinho. */
+export const billExtractionSchema = z.object({
+  amountCents: z.number().int().positive().nullable(),
+  dueOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+  payeeName: z.string().trim().min(1).nullable(),
+  barcode: z.string().trim().min(1).nullable(),
+});
+
+export type BillExtraction = z.infer<typeof billExtractionSchema>;

@@ -3,9 +3,11 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getExtractedText } from "@/features/attachments/actions";
 import { buildRRuleString, nextOccurrence } from "@/features/reminders/lib/recurrence";
+import { AiBudgetExceededError, AiDisabledError, callClaudeJson } from "@/lib/ai/claude";
 import { requireOwner } from "@/lib/auth";
-import { parseBRL } from "@/lib/money";
+import { formatBRL, parseBRL } from "@/lib/money";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { computeMissingChildCategories, computeMissingTopCategories, DEFAULT_CATEGORIES } from "./lib/default-categories";
@@ -37,6 +39,7 @@ import {
   type TransactionRow,
 } from "./queries";
 import {
+  billExtractionSchema,
   billFiltersSchema,
   bulkCategorizeSchema,
   confirmImportSchema,
@@ -1463,4 +1466,53 @@ export async function markBillPaid(input: MarkBillPaidInput): Promise<Result<nul
   revalidatePath(CONTAS_PATH);
   revalidatePath(LANCAMENTOS_PATH);
   return ok(null);
+}
+
+const BILL_EXTRACTION_SYSTEM_PROMPT =
+  "Você extrai dados de boletos e contas em português do Brasil a partir do texto já transcrito de um PDF ou imagem. " +
+  'Responda em JSON com exatamente estas chaves: "amountCents" (valor total em centavos, inteiro — ex.: R$ 123,45 vira 12345), ' +
+  '"dueOn" (data de vencimento no formato AAAA-MM-DD), "payeeName" (nome do beneficiário/cedente) e "barcode" (linha digitável, ' +
+  "só os dígitos e espaços como aparecem no texto). Use `null` em qualquer campo que não aparecer claramente no texto — nunca invente ou estime valores.";
+
+export interface BillExtractionResult {
+  amount: string | null;
+  dueOn: string | null;
+  payeeName: string | null;
+  barcode: string | null;
+}
+
+/**
+ * "Extrair dados de boleto com IA" (4.8, opcional): lê o texto já extraído
+ * do anexo (job `extract_attachment`, 2.9 — agora também roda em anexo
+ * avulso, sem item) e pede pro Claude os campos estruturados do formulário
+ * "Nova conta". Só devolve pra revisão — nunca salva a conta sozinho.
+ */
+export async function extractBillDataFromAttachment(attachmentId: string): Promise<Result<BillExtractionResult>> {
+  const { user } = await requireOwner();
+
+  const detail = await getExtractedText(attachmentId);
+  if (!detail) return fail("Anexo não encontrado.");
+  if (detail.status !== "done" || !detail.text) {
+    return fail("Este anexo ainda não tem texto extraído. Aguarde a extração terminar.");
+  }
+
+  try {
+    const extracted = await callClaudeJson({
+      ownerId: user.id,
+      feature: "bill_extraction",
+      system: BILL_EXTRACTION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: detail.text }],
+      schema: billExtractionSchema,
+    });
+
+    return ok({
+      amount: extracted.amountCents != null ? formatBRL(extracted.amountCents) : null,
+      dueOn: extracted.dueOn,
+      payeeName: extracted.payeeName,
+      barcode: extracted.barcode,
+    });
+  } catch (err) {
+    if (err instanceof AiDisabledError || err instanceof AiBudgetExceededError) return fail(err.message);
+    return fail("Não foi possível extrair os dados do boleto. Preencha manualmente.");
+  }
 }
