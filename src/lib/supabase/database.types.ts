@@ -1,14 +1,3 @@
-/**
- * Gerado por `mcp__Supabase__generate_typescript_types` (equivalente a
- * `supabase gen types typescript --project-id spzuvkpovmawbsiznzei`) contra o
- * `hub-dev` já com as migrations 20260917130714_fundacao.sql,
- * 20260918145833_nucleo.sql, 20260918163044_nucleo_security_hardening.sql,
- * 20260919120000_busca_filtros.sql, 20260919130000_midia_jobs.sql,
- * 20260919172125_transcripts_summarize_flag.sql e
- * 20260920001500_pessoas_agenda_lembretes.sql aplicadas. Não editar à mão —
- * rode `pnpm db:types` (ou a mesma ferramenta MCP) de novo depois de
- * qualquer migration nova.
- */
 export type Json =
   | string
   | number
@@ -364,6 +353,919 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_accounts: {
+        Row: {
+          archived_at: string | null
+          closing_day: number | null
+          color: string | null
+          created_at: string
+          credit_limit_cents: number | null
+          currency: string
+          due_day: number | null
+          id: string
+          include_in_totals: boolean
+          institution: string | null
+          kind: string
+          name: string
+          opening_balance_cents: number
+          opening_date: string
+          owner_id: string
+          payment_account_id: string | null
+          position: number
+          space_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          closing_day?: number | null
+          color?: string | null
+          created_at?: string
+          credit_limit_cents?: number | null
+          currency?: string
+          due_day?: number | null
+          id?: string
+          include_in_totals?: boolean
+          institution?: string | null
+          kind: string
+          name: string
+          opening_balance_cents?: number
+          opening_date?: string
+          owner_id?: string
+          payment_account_id?: string | null
+          position?: number
+          space_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          closing_day?: number | null
+          color?: string | null
+          created_at?: string
+          credit_limit_cents?: number | null
+          currency?: string
+          due_day?: number | null
+          id?: string
+          include_in_totals?: boolean
+          institution?: string | null
+          kind?: string
+          name?: string
+          opening_balance_cents?: number
+          opening_date?: string
+          owner_id?: string
+          payment_account_id?: string | null
+          position?: number
+          space_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_accounts_payment_account_id_fkey"
+            columns: ["payment_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_accounts_payment_account_id_fkey"
+            columns: ["payment_account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_accounts_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_bills: {
+        Row: {
+          account_id: string | null
+          amount_cents: number
+          attachment_id: string | null
+          barcode: string | null
+          category_id: string | null
+          contact_id: string | null
+          created_at: string
+          description: string
+          direction: string
+          due_on: string
+          id: string
+          item_id: string | null
+          notes: string | null
+          owner_id: string
+          paid_at: string | null
+          paid_cents: number
+          pix_code: string | null
+          recurring_id: string | null
+          space_id: string | null
+          statement_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount_cents: number
+          attachment_id?: string | null
+          barcode?: string | null
+          category_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description: string
+          direction: string
+          due_on: string
+          id?: string
+          item_id?: string | null
+          notes?: string | null
+          owner_id?: string
+          paid_at?: string | null
+          paid_cents?: number
+          pix_code?: string | null
+          recurring_id?: string | null
+          space_id?: string | null
+          statement_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount_cents?: number
+          attachment_id?: string | null
+          barcode?: string | null
+          category_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string
+          direction?: string
+          due_on?: string
+          id?: string
+          item_id?: string | null
+          notes?: string | null
+          owner_id?: string
+          paid_at?: string | null
+          paid_cents?: number
+          pix_code?: string | null
+          recurring_id?: string | null
+          space_id?: string | null
+          statement_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_bills_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_bills_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "fin_recurring"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_bills_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_card_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_card_statements: {
+        Row: {
+          account_id: string
+          created_at: string
+          due_on: string
+          id: string
+          owner_id: string
+          paid_cents: number
+          period_end: string
+          period_start: string
+          reference_month: string
+          status: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          due_on: string
+          id?: string
+          owner_id?: string
+          paid_cents?: number
+          period_end: string
+          period_start: string
+          reference_month: string
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          due_on?: string
+          id?: string
+          owner_id?: string
+          paid_cents?: number
+          period_end?: string
+          period_start?: string
+          reference_month?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_card_statements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_card_statements_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_categories: {
+        Row: {
+          archived_at: string | null
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          kind: string
+          monthly_budget_cents: number | null
+          name: string
+          owner_id: string
+          parent_id: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          kind: string
+          monthly_budget_cents?: number | null
+          name: string
+          owner_id?: string
+          parent_id?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          kind?: string
+          monthly_budget_cents?: number | null
+          name?: string
+          owner_id?: string
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_imports: {
+        Row: {
+          account_id: string
+          attachment_id: string | null
+          created_at: string
+          csv_mapping: Json | null
+          format: string
+          id: string
+          owner_id: string
+          rows_duplicate: number
+          rows_error: number
+          rows_imported: number
+          rows_total: number
+          status: string
+        }
+        Insert: {
+          account_id: string
+          attachment_id?: string | null
+          created_at?: string
+          csv_mapping?: Json | null
+          format: string
+          id?: string
+          owner_id?: string
+          rows_duplicate?: number
+          rows_error?: number
+          rows_imported?: number
+          rows_total?: number
+          status?: string
+        }
+        Update: {
+          account_id?: string
+          attachment_id?: string | null
+          created_at?: string
+          csv_mapping?: Json | null
+          format?: string
+          id?: string
+          owner_id?: string
+          rows_duplicate?: number
+          rows_error?: number
+          rows_imported?: number
+          rows_total?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_imports_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_imports_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_imports_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_pix_keys: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          key_type: string
+          key_value: string
+          label: string
+          merchant_city: string
+          merchant_name: string
+          owner_id: string
+          space_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          key_type: string
+          key_value: string
+          label: string
+          merchant_city: string
+          merchant_name: string
+          owner_id?: string
+          space_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          key_type?: string
+          key_value?: string
+          label?: string
+          merchant_city?: string
+          merchant_name?: string
+          owner_id?: string
+          space_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_pix_keys_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_recurring: {
+        Row: {
+          account_id: string | null
+          active: boolean
+          amount_cents: number
+          amount_is_estimate: boolean
+          category_id: string | null
+          contact_id: string | null
+          created_at: string
+          description: string
+          direction: string
+          ends_on: string | null
+          id: string
+          next_due_on: string
+          owner_id: string
+          remind_days_before: number | null
+          rrule: string
+          space_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          active?: boolean
+          amount_cents: number
+          amount_is_estimate?: boolean
+          category_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description: string
+          direction: string
+          ends_on?: string | null
+          id?: string
+          next_due_on: string
+          owner_id?: string
+          remind_days_before?: number | null
+          rrule: string
+          space_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          active?: boolean
+          amount_cents?: number
+          amount_is_estimate?: boolean
+          category_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string
+          direction?: string
+          ends_on?: string | null
+          id?: string
+          next_due_on?: string
+          owner_id?: string
+          remind_days_before?: number | null
+          rrule?: string
+          space_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_recurring_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_recurring_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_recurring_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_recurring_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_recurring_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_rules: {
+        Row: {
+          account_id: string | null
+          amount_max_cents: number | null
+          amount_min_cents: number | null
+          created_at: string
+          id: string
+          match_field: string
+          match_type: string
+          owner_id: string
+          pattern: string
+          priority: number
+          set_category_id: string | null
+          set_contact_id: string | null
+          set_description: string | null
+          set_space_id: string | null
+          times_applied: number
+        }
+        Insert: {
+          account_id?: string | null
+          amount_max_cents?: number | null
+          amount_min_cents?: number | null
+          created_at?: string
+          id?: string
+          match_field?: string
+          match_type?: string
+          owner_id?: string
+          pattern: string
+          priority?: number
+          set_category_id?: string | null
+          set_contact_id?: string | null
+          set_description?: string | null
+          set_space_id?: string | null
+          times_applied?: number
+        }
+        Update: {
+          account_id?: string | null
+          amount_max_cents?: number | null
+          amount_min_cents?: number | null
+          created_at?: string
+          id?: string
+          match_field?: string
+          match_type?: string
+          owner_id?: string
+          pattern?: string
+          priority?: number
+          set_category_id?: string | null
+          set_contact_id?: string | null
+          set_description?: string | null
+          set_space_id?: string | null
+          times_applied?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_rules_set_category_id_fkey"
+            columns: ["set_category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_rules_set_contact_id_fkey"
+            columns: ["set_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_rules_set_space_id_fkey"
+            columns: ["set_space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_split_shares: {
+        Row: {
+          claimed_paid_at: string | null
+          contact_id: string | null
+          id: string
+          owner_id: string
+          settled_at: string | null
+          settled_cents: number
+          settlement_transaction_id: string | null
+          share_cents: number
+          split_id: string
+          weight: number | null
+        }
+        Insert: {
+          claimed_paid_at?: string | null
+          contact_id?: string | null
+          id?: string
+          owner_id?: string
+          settled_at?: string | null
+          settled_cents?: number
+          settlement_transaction_id?: string | null
+          share_cents: number
+          split_id: string
+          weight?: number | null
+        }
+        Update: {
+          claimed_paid_at?: string | null
+          contact_id?: string | null
+          id?: string
+          owner_id?: string
+          settled_at?: string | null
+          settled_cents?: number
+          settlement_transaction_id?: string | null
+          share_cents?: number
+          split_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_split_shares_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_split_shares_settlement_transaction_id_fkey"
+            columns: ["settlement_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "fin_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_split_shares_split_id_fkey"
+            columns: ["split_id"]
+            isOneToOne: false
+            referencedRelation: "fin_splits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_splits: {
+        Row: {
+          attachment_id: string | null
+          created_at: string
+          group_label: string | null
+          id: string
+          method: string
+          notes: string | null
+          occurred_on: string
+          owner_id: string
+          paid_by_contact_id: string | null
+          status: string
+          title: string
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attachment_id?: string | null
+          created_at?: string
+          group_label?: string | null
+          id?: string
+          method?: string
+          notes?: string | null
+          occurred_on?: string
+          owner_id?: string
+          paid_by_contact_id?: string | null
+          status?: string
+          title: string
+          total_cents: number
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attachment_id?: string | null
+          created_at?: string
+          group_label?: string | null
+          id?: string
+          method?: string
+          notes?: string | null
+          occurred_on?: string
+          owner_id?: string
+          paid_by_contact_id?: string | null
+          status?: string
+          title?: string
+          total_cents?: number
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_splits_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_splits_paid_by_contact_id_fkey"
+            columns: ["paid_by_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_splits_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "fin_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_transactions: {
+        Row: {
+          account_id: string
+          amount_cents: number
+          bill_id: string | null
+          category_id: string | null
+          contact_id: string | null
+          created_at: string
+          description: string
+          external_id: string | null
+          id: string
+          import_hash: string | null
+          import_id: string | null
+          installment_group_id: string | null
+          installment_number: number | null
+          installment_total: number | null
+          item_id: string | null
+          kind: string
+          notes: string | null
+          occurred_on: string
+          original_description: string | null
+          owner_id: string
+          space_id: string | null
+          statement_id: string | null
+          status: string
+          tags: string[]
+          transfer_group_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount_cents: number
+          bill_id?: string | null
+          category_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description: string
+          external_id?: string | null
+          id?: string
+          import_hash?: string | null
+          import_id?: string | null
+          installment_group_id?: string | null
+          installment_number?: number | null
+          installment_total?: number | null
+          item_id?: string | null
+          kind?: string
+          notes?: string | null
+          occurred_on: string
+          original_description?: string | null
+          owner_id?: string
+          space_id?: string | null
+          statement_id?: string | null
+          status?: string
+          tags?: string[]
+          transfer_group_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount_cents?: number
+          bill_id?: string | null
+          category_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string
+          external_id?: string | null
+          id?: string
+          import_hash?: string | null
+          import_id?: string | null
+          installment_group_id?: string | null
+          installment_number?: number | null
+          installment_total?: number | null
+          item_id?: string | null
+          kind?: string
+          notes?: string | null
+          occurred_on?: string
+          original_description?: string | null
+          owner_id?: string
+          space_id?: string | null
+          statement_id?: string | null
+          status?: string
+          tags?: string[]
+          transfer_group_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_account_balances"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "fin_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "fin_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "fin_card_statements"
             referencedColumns: ["id"]
           },
         ]
@@ -1473,7 +2375,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      fin_account_balances: {
+        Row: {
+          account_id: string | null
+          balance_cents: number | null
+          owner_id: string | null
+          pending_cents: number | null
+        }
+        Relationships: []
+      }
+      fin_contact_balances: {
+        Row: {
+          balance_cents: number | null
+          contact_id: string | null
+          owner_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       claim_jobs: {
