@@ -28,6 +28,9 @@ export function formatPropertyValue(value: unknown, field: FieldDefinition): str
     case "percent":
       return `${value}%`;
 
+    case "rollup":
+      return field.rollupOp === "percent" ? `${value}%` : String(value);
+
     case "date": {
       const [year, month, day] = String(value).split("-");
       return year && month && day ? `${day}/${month}/${year}` : String(value);

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
+import { computeRollupsForRows } from "@/features/types/lib/rollup-query";
 import { listTagsByItemIds, type TagOption } from "@/features/tags/queries";
 
 type Client = SupabaseClient<Database>;
@@ -34,6 +35,15 @@ export async function getItemDetail(supabase: Client, id: string): Promise<ItemD
   if (error) throw error;
   if (!data) return null;
 
+  const fields = (data.object_types?.fields as unknown as FieldDefinition[] | null) ?? [];
+  const properties = (data.properties as Record<string, unknown> | null) ?? {};
+
+  const rollupFields = fields.filter((field) => field.type === "rollup");
+  if (rollupFields.length > 0) {
+    const computed = await computeRollupsForRows(supabase, [{ id: data.id }], fields);
+    Object.assign(properties, computed.get(data.id) ?? {});
+  }
+
   return {
     id: data.id,
     title: data.title,
@@ -49,10 +59,10 @@ export async function getItemDetail(supabase: Client, id: string): Promise<ItemD
           id: data.object_types.id,
           name: data.object_types.name,
           slug: data.object_types.slug,
-          fields: (data.object_types.fields as unknown as FieldDefinition[] | null) ?? [],
+          fields,
         }
       : null,
-    properties: (data.properties as Record<string, unknown> | null) ?? {},
+    properties,
   };
 }
 

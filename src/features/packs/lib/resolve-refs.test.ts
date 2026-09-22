@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invertTypeRefs, resolveTypeRefs } from "./resolve-refs";
+import { invertTypeRefs, resolveSpaceRefs, resolveTypeRefs } from "./resolve-refs";
 
 describe("resolveTypeRefs", () => {
   it("troca typeRef por typeId em qualquer profundidade", () => {
@@ -24,6 +24,23 @@ describe("resolveTypeRefs", () => {
   it("valores sem typeRef passam intactos", () => {
     const value = { field: "stage", op: "eq", value: "won" };
     expect(resolveTypeRefs(value, { stage: "x" })).toEqual(value);
+  });
+});
+
+describe("resolveSpaceRefs", () => {
+  it("troca spaceRef por spaceId em qualquer profundidade", () => {
+    const value = { type: "move_to_space", spaceRef: "archive", nested: [{ spaceRef: "areas" }] };
+    const resolved = resolveSpaceRefs(value, { archive: "id-archive", areas: "id-areas" });
+    expect(resolved).toEqual({ type: "move_to_space", spaceId: "id-archive", nested: [{ spaceId: "id-areas" }] });
+  });
+
+  it("spaceRef sem correspondência vira spaceId null", () => {
+    expect(resolveSpaceRefs({ spaceRef: "fantasma" }, {})).toEqual({ spaceId: null });
+  });
+
+  it("valores sem spaceRef passam intactos", () => {
+    const value = { typeRef: "task" };
+    expect(resolveSpaceRefs(value, { archive: "id" })).toEqual(value);
   });
 });
 

@@ -1,0 +1,62 @@
+{
+  "key": "diario-habitos",
+  "version": "1.0.0",
+  "name": "Diário e hábitos",
+  "description": "Entradas de diário (humor, energia, gratidão) e hábitos com registro diário.",
+  "icon": "📓",
+  "requires": [],
+  "types": [
+    {
+      "ref": "journal_entry",
+      "name": "Entrada de diário",
+      "plural": "Entradas de diário",
+      "slug": "entrada-de-diario",
+      "icon": "📓",
+      "defaultView": "calendar",
+      "fields": [
+        { "key": "date", "label": "Data", "type": "date", "required": true, "showInCard": true },
+        { "key": "mood", "label": "Humor", "type": "rating", "min": 1, "max": 5, "showInCard": true },
+        { "key": "energy", "label": "Energia", "type": "rating", "min": 1, "max": 5, "showInCard": true },
+        { "key": "gratitude", "label": "Gratidão", "type": "long_text" }
+      ]
+    },
+    {
+      "ref": "habit",
+      "name": "Hábito",
+      "plural": "Hábitos",
+      "slug": "habito",
+      "icon": "🔥",
+      "defaultView": "list",
+      "fields": [
+        {
+          "key": "frequency",
+          "label": "Frequência",
+          "type": "text",
+          "description": "RRULE simples (ex.: \"FREQ=DAILY\" todo dia, \"FREQ=WEEKLY;BYDAY=MO,WE,FR\" três vezes por semana)."
+        },
+        { "key": "target_per_period", "label": "Meta por período", "type": "number", "min": 1, "showInCard": true }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "diario_calendario",
+      "typeRef": "journal_entry",
+      "name": "Diário",
+      "kind": "calendar",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [], "dateField": "date" }
+    },
+    {
+      "ref": "habitos_lista",
+      "typeRef": "habit",
+      "name": "Hábitos",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["target_per_period"] }
+    }
+  ],
+  "automations": [],
+  "reminderRules": [],
+  "sampleItems": []
+}

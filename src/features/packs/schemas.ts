@@ -20,8 +20,12 @@ export const packRefSchema = z
  * pra um uuid de verdade pelo instalador) em vez de exigir um uuid já.
  */
 export const packFieldDefinitionSchema = fieldDefinitionSchema
-  .omit({ relationTypeId: true })
-  .extend({ relationTypeId: z.string().trim().min(1).optional() });
+  .omit({ relationTypeId: true, rollupRelationTypeId: true })
+  .extend({
+    relationTypeId: z.string().trim().min(1).optional(),
+    /** Mesma ideia de `relationTypeId` acima, pro tipo escaneado por um campo `rollup` (5.8). */
+    rollupRelationTypeId: z.string().trim().min(1).optional(),
+  });
 export type PackFieldDefinition = z.infer<typeof packFieldDefinitionSchema>;
 
 const tiptapDocSchema = z.object({ type: z.string() }).passthrough();
@@ -37,8 +41,32 @@ export const packTypeSchema = z.object({
   fields: z.array(packFieldDefinitionSchema).default([]),
   template: tiptapDocSchema.nullable().optional(),
   titleTemplate: z.string().trim().max(200).nullable().optional(),
+  /**
+   * Em vez de criar um tipo novo, anexa os `fields` deste bloco a um tipo de
+   * sistema já existente com este slug (ex.: `"tarefa"`, `"documento"` — os
+   * tipos globais criados no onboarding, `features/onboarding/lib/system-types.ts`).
+   * "Estender o tipo básico" (5.8 Tarefa, 5.10 SOP/Documento): mesma regra de
+   * só somar campos novos (`syncTypeFields`, nunca sobrescrever), e nunca
+   * excluído/arquivado ao desinstalar o pack (`uninstall.ts`).
+   */
+  extendsSlug: z.string().trim().min(1).optional(),
 });
 export type PackType = z.infer<typeof packTypeSchema>;
+
+/**
+ * Espaço criado pelo pack (5.11: PARA — "cria espaços... Projetos, Áreas,
+ * Recursos, Arquivo"). Idempotente por `slug` (`ensureSpace`, `install.ts`)
+ * — igual `extendsSlug` de tipo, reaproveita um espaço já existente com o
+ * mesmo slug em vez de duplicar.
+ */
+export const packSpaceSchema = z.object({
+  ref: packRefSchema,
+  name: z.string().trim().min(1),
+  slug: z.string().trim().min(1).optional(),
+  icon: z.string().trim().max(8).optional(),
+  color: z.string().trim().max(30).optional(),
+});
+export type PackSpace = z.infer<typeof packSpaceSchema>;
 
 export const packViewSchema = z.object({
   ref: packRefSchema,
@@ -62,6 +90,15 @@ const jsonObjectSchema = z.record(z.string(), z.unknown());
 export const packAutomationSchema = z.object({
   ref: packRefSchema.optional(),
   typeRef: packRefSchema.optional(),
+  /**
+   * Alternativa a `typeRef` pra mirar num tipo de **outro** pack ou de
+   * sistema, pelo `slug` (5.11: "Projeto concluído → mover pra Arquivo" mira
+   * o tipo Projeto do pack Projetos, 5.8 — um pack não resolve `ref` de
+   * outro). Resolvido em `install.ts` por busca direta (`findTypeBySlug`);
+   * se o tipo ainda não existir (pack dependente não instalado), a
+   * automação **não é criada** nesta instalação — não fica órfã/sem escopo.
+   */
+  typeSlug: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1),
   description: z.string().trim().optional(),
   enabled: z.boolean().default(true),
@@ -89,6 +126,8 @@ export const packSampleItemSchema = z.object({
   typeRef: packRefSchema,
   title: z.string().trim().min(1),
   properties: z.record(z.string(), z.unknown()).default({}),
+  /** Conteúdo Tiptap do exemplo (5.9: templates de lista com itens pré-preenchidos, ex. "Compras do mês"). */
+  content: tiptapDocSchema.nullable().optional(),
 });
 export type PackSampleItem = z.infer<typeof packSampleItemSchema>;
 
@@ -104,6 +143,7 @@ export const packSchema = z
     icon: z.string().trim().max(8).optional(),
     requires: z.array(z.string().trim().min(1)).default([]),
     types: z.array(packTypeSchema).min(1),
+    spaces: z.array(packSpaceSchema).default([]),
     views: z.array(packViewSchema).default([]),
     automations: z.array(packAutomationSchema).default([]),
     reminderRules: z.array(packReminderRuleSchema).default([]),
@@ -124,6 +164,14 @@ export const packSchema = z
       }
     };
 
+    const spaceRefs = new Set<string>();
+    pack.spaces.forEach((space, index) => {
+      if (spaceRefs.has(space.ref)) {
+        ctx.addIssue({ code: "custom", message: `Ref de espaço duplicada: "${space.ref}".`, path: ["spaces", index, "ref"] });
+      }
+      spaceRefs.add(space.ref);
+    });
+
     const viewRefs = new Set<string>();
     pack.views.forEach((view, index) => {
       if (viewRefs.has(view.ref)) {
@@ -140,6 +188,13 @@ export const packSchema = z
             code: "custom",
             message: `Campo de relação aponta pra um tipo "${field.relationTypeId}" que não existe neste pack.`,
             path: ["types", typeIndex, "fields", fieldIndex, "relationTypeId"],
+          });
+        }
+        if (field.type === "rollup" && field.rollupRelationTypeId && !typeRefs.has(field.rollupRelationTypeId)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Campo rollup aponta pra um tipo "${field.rollupRelationTypeId}" que não existe neste pack.`,
+            path: ["types", typeIndex, "fields", fieldIndex, "rollupRelationTypeId"],
           });
         }
       });

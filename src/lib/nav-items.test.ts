@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MOBILE_PRIMARY_ITEMS, NAV_ITEMS } from "./nav-items";
 
 describe("nav-items", () => {
-  it("tem 9 itens na sidebar, todos com href e label únicos", () => {
-    expect(NAV_ITEMS).toHaveLength(9);
+  it("tem 11 itens na sidebar, todos com href e label únicos", () => {
+    expect(NAV_ITEMS).toHaveLength(11);
     expect(new Set(NAV_ITEMS.map((item) => item.href)).size).toBe(
       NAV_ITEMS.length,
     );

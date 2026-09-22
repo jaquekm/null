@@ -1,0 +1,186 @@
+{
+  "key": "projetos",
+  "version": "1.0.0",
+  "name": "Projetos e planejamentos",
+  "description": "Projetos, tarefas ligadas a eles, marcos e metas do ano, com progresso calculado e cronograma.",
+  "icon": "🚀",
+  "requires": [],
+  "types": [
+    {
+      "ref": "project",
+      "name": "Projeto",
+      "plural": "Projetos",
+      "slug": "projeto",
+      "icon": "🚀",
+      "defaultView": "table",
+      "fields": [
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "ideia", "label": "Ideia" },
+            { "id": "planejado", "label": "Planejado" },
+            { "id": "em_andamento", "label": "Em andamento" },
+            { "id": "pausado", "label": "Pausado" },
+            { "id": "concluido", "label": "Concluído" },
+            { "id": "cancelado", "label": "Cancelado" }
+          ]
+        },
+        {
+          "key": "area",
+          "label": "Área",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "trabalho", "label": "Trabalho" },
+            { "id": "pessoal", "label": "Pessoal" },
+            { "id": "financeiro", "label": "Financeiro" },
+            { "id": "saude", "label": "Saúde" },
+            { "id": "casa", "label": "Casa" }
+          ]
+        },
+        { "key": "start", "label": "Início", "type": "date" },
+        { "key": "end", "label": "Fim previsto", "type": "date", "showInCard": true },
+        {
+          "key": "priority",
+          "label": "Prioridade",
+          "type": "select",
+          "options": [
+            { "id": "baixa", "label": "Baixa" },
+            { "id": "media", "label": "Média" },
+            { "id": "alta", "label": "Alta" }
+          ]
+        },
+        { "key": "goal", "label": "Objetivo", "type": "long_text" },
+        { "key": "budget", "label": "Orçamento", "type": "money" },
+        { "key": "client", "label": "Cliente", "type": "contact", "multiple": false },
+        {
+          "key": "progress",
+          "label": "Progresso",
+          "type": "rollup",
+          "showInCard": true,
+          "rollupRelationTypeId": "task",
+          "rollupRelationField": "project",
+          "rollupOp": "percent",
+          "rollupCondition": { "field": "status", "op": "eq", "value": "done" }
+        }
+      ]
+    },
+    {
+      "ref": "task",
+      "name": "Tarefa",
+      "extendsSlug": "tarefa",
+      "fields": [
+        { "key": "project", "label": "Projeto", "type": "relation", "relationTypeId": "project", "multiple": false },
+        { "key": "estimate", "label": "Estimativa", "type": "duration", "min": 0 },
+        { "key": "depends_on", "label": "Depende de", "type": "relation", "relationTypeId": "task", "multiple": true },
+        { "key": "start", "label": "Início", "type": "date" },
+        { "key": "assignee", "label": "Responsável", "type": "contact", "multiple": false, "description": "Preencha pra tarefas delegadas." }
+      ]
+    },
+    {
+      "ref": "milestone",
+      "name": "Marco",
+      "plural": "Marcos",
+      "slug": "marco",
+      "icon": "🏁",
+      "fields": [
+        { "key": "project", "label": "Projeto", "type": "relation", "relationTypeId": "project", "multiple": false },
+        { "key": "date", "label": "Data", "type": "date", "showInCard": true },
+        { "key": "done", "label": "Concluído", "type": "checkbox", "showInCard": true }
+      ]
+    },
+    {
+      "ref": "goal",
+      "name": "Meta",
+      "plural": "Metas",
+      "slug": "meta",
+      "icon": "🎯",
+      "defaultView": "gallery",
+      "fields": [
+        {
+          "key": "period",
+          "label": "Período",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "trimestre", "label": "Trimestre" },
+            { "id": "ano", "label": "Ano" }
+          ]
+        },
+        { "key": "year", "label": "Ano", "type": "number", "showInCard": true },
+        { "key": "key_results", "label": "Resultados-chave", "type": "long_text" },
+        { "key": "progress", "label": "Progresso", "type": "percent", "min": 0, "max": 100, "showInCard": true },
+        {
+          "key": "area",
+          "label": "Área",
+          "type": "select",
+          "options": [
+            { "id": "trabalho", "label": "Trabalho" },
+            { "id": "pessoal", "label": "Pessoal" },
+            { "id": "financeiro", "label": "Financeiro" },
+            { "id": "saude", "label": "Saúde" },
+            { "id": "casa", "label": "Casa" }
+          ]
+        }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "portfolio",
+      "typeRef": "project",
+      "name": "Portfólio",
+      "kind": "table",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "end", "dir": "asc" }], "visibleFields": ["status", "area", "progress", "end"] }
+    },
+    {
+      "ref": "quadro_tarefas",
+      "typeRef": "task",
+      "name": "Quadro",
+      "kind": "kanban",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [], "groupBy": "status" }
+    },
+    {
+      "ref": "cronograma",
+      "typeRef": "task",
+      "name": "Cronograma",
+      "kind": "timeline",
+      "config": { "filters": [], "sort": [], "groupBy": "project", "startField": "start", "endField": "prazo", "dependsOnField": "depends_on" }
+    },
+    {
+      "ref": "metas_do_ano",
+      "typeRef": "goal",
+      "name": "Metas do ano",
+      "kind": "gallery",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "year", "dir": "desc" }], "visibleFields": ["period", "year", "progress"] }
+    }
+  ],
+  "automations": [
+    {
+      "ref": "projetos_tarefa_concluida",
+      "typeRef": "task",
+      "name": "Tarefa concluída",
+      "description": "Ao concluir uma tarefa ligada a um projeto, lembra de checar se o projeto já pode ser encerrado (o motor ainda não soma tarefas irmãs sozinho — o progresso calculado do Projeto mostra isso).",
+      "trigger": { "type": "property_changed", "field": "status", "to": "done" },
+      "conditions": [{ "field": "project", "op": "not_empty" }],
+      "actions": [{ "type": "notify_me", "title": "Tarefa concluída", "body": "Tarefa concluída: {{title}}. Confira o progresso do projeto." }]
+    },
+    {
+      "ref": "projetos_marco_atrasado",
+      "typeRef": "milestone",
+      "name": "Marco atrasado",
+      "description": "Notifica no dia do marco se ele ainda não foi marcado como concluído.",
+      "trigger": { "type": "date_reached", "field": "date", "offsetMinutes": 0 },
+      "conditions": [{ "field": "done", "op": "neq", "value": true }],
+      "actions": [{ "type": "notify_me", "title": "Marco atrasado", "body": "O marco \"{{title}}\" chegou na data e ainda não foi concluído." }]
+    }
+  ],
+  "reminderRules": [],
+  "sampleItems": []
+}

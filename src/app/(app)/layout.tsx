@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
 import { CaptureDialogProvider } from "@/features/capture/components/capture-dialog-provider";
 import { CommandPaletteProvider } from "@/features/command-palette/components/command-palette-provider";
+import { DailyNoteShortcut } from "@/features/daily-note/components/daily-note-shortcut";
 import { countInboxItems, listObjectTypesForPicker } from "@/features/items/queries";
 import { countFailedJobs } from "@/features/jobs/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
@@ -40,6 +41,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <CaptureDialogProvider spaces={spaces} types={types}>
       <CommandPaletteProvider spaces={spaces} types={types}>
+        <DailyNoteShortcut />
         <div className="flex min-h-dvh">
           <Sidebar spaces={spaces} inboxCount={inboxCount} failedJobsCount={failedJobsCount} />
           <div className="flex min-w-0 flex-1 flex-col">

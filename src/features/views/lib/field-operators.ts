@@ -28,6 +28,9 @@ export function operatorsForFieldType(type: FieldType): FilterOperator[] {
     case "contact":
     case "file":
       return ["any_of", "empty", "not_empty"];
+    case "rollup":
+      // Computado em runtime, não é uma coluna de banco — não dá pra filtrar/ordenar no servidor (5.8).
+      return [];
     default: {
       const exhaustive: never = type;
       throw new Error(`Tipo de campo desconhecido: ${String(exhaustive)}`);

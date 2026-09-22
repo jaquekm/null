@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCondition, evaluateConditions, type ConditionItem } from "./evaluate-conditions";
+import { evaluateCondition, evaluateConditions, matchesOperator, type ConditionItem } from "./evaluate-conditions";
 
 function item(overrides: Partial<ConditionItem> = {}): ConditionItem {
   return { title: "Oportunidade X", status: "active", properties: { stage: "won", value: 100 }, ...overrides };
@@ -34,6 +34,13 @@ describe("evaluateCondition", () => {
   it("between", () => {
     expect(evaluateCondition(item(), { field: "value", op: "between", value: [50, 150] })).toBe(true);
     expect(evaluateCondition(item(), { field: "value", op: "between", value: [150, 200] })).toBe(false);
+  });
+});
+
+describe("matchesOperator", () => {
+  it("compara um valor já resolvido, sem depender de um ConditionItem inteiro (reaproveitado por computeRollup)", () => {
+    expect(matchesOperator("done", { op: "eq", value: "done" })).toBe(true);
+    expect(matchesOperator(10, { op: "gt", value: 5 })).toBe(true);
   });
 });
 

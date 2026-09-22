@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateItemProperty } from "@/features/items/actions";
+import { formatPropertyValue } from "@/features/views/lib/format-property-value";
 import type { Result } from "@/lib/result";
 import type { FieldDefinition } from "@/features/types/schemas";
 
@@ -73,6 +74,10 @@ export function FieldInput({
 
 function FieldValueInput({ field, value, pending }: { field: FieldDefinition; value: unknown; pending: boolean }) {
   const [multiSelected, setMultiSelected] = useState<string[]>(Array.isArray(value) ? (value as string[]) : []);
+
+  if (field.type === "rollup") {
+    return <p className="text-sm text-zinc-600 dark:text-zinc-300">{formatPropertyValue(value, field)}</p>;
+  }
 
   if (NOT_YET_EDITABLE.includes(field.type)) {
     return <p className="text-sm text-zinc-400 italic dark:text-zinc-500">Disponível em breve.</p>;

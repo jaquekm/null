@@ -71,3 +71,33 @@ export async function listSpaceObjectTypes(supabase: Client, spaceId: string): P
   if (error) throw error;
   return data.map(({ id, name, slug }) => ({ id, name, slug }));
 }
+
+export interface DocumentToReview {
+  id: string;
+  title: string;
+  revisarEm: string;
+}
+
+/**
+ * Painel "Documentos a revisar" (5.10, pack Mudanças/decisões — mas o campo
+ * `revisar_em` já é do tipo de sistema Documento desde o onboarding, então
+ * este painel funciona mesmo sem o pack instalado): itens do tipo Documento
+ * neste espaço cuja `revisar_em` já chegou.
+ */
+export async function listDocumentsToReview(supabase: Client, ownerId: string, spaceId: string, todayDateStr: string): Promise<DocumentToReview[]> {
+  const { data: documentType } = await supabase.from("object_types").select("id").eq("owner_id", ownerId).eq("slug", "documento").maybeSingle();
+  if (!documentType) return [];
+
+  const { data } = await supabase
+    .from("items")
+    .select("id, title, properties")
+    .eq("owner_id", ownerId)
+    .eq("space_id", spaceId)
+    .eq("type_id", documentType.id)
+    .is("deleted_at", null);
+
+  return (data ?? [])
+    .map((item) => ({ id: item.id, title: item.title, revisarEm: (item.properties as Record<string, unknown> | null)?.revisar_em as string | undefined }))
+    .filter((item): item is DocumentToReview => typeof item.revisarEm === "string" && item.revisarEm <= todayDateStr)
+    .sort((a, b) => a.revisarEm.localeCompare(b.revisarEm));
+}

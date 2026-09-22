@@ -176,6 +176,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         pinned={item.pinned}
         spaceId={item.space?.id ?? null}
         typeId={item.type?.id ?? null}
+        typeSlug={item.type?.slug ?? null}
         spaces={spaces}
         types={types}
       />

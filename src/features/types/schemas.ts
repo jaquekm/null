@@ -19,9 +19,27 @@ export const fieldTypes = [
   "contact",
   "file",
   "duration",
+  "rollup",
 ] as const;
 
 export type FieldType = (typeof fieldTypes)[number];
+
+/** Agregações suportadas por um campo `rollup` (5.8: "campos calculados... rollup: contar/somar/porcentagem"). */
+export const rollupOps = ["count", "sum", "percent"] as const;
+export type RollupOp = (typeof rollupOps)[number];
+
+/**
+ * Mesma forma de `ViewFilter` (`features/views/schemas.ts`), duplicada aqui
+ * de propósito: `features/views` já importa deste arquivo, então importar
+ * `ViewFilter` de volta criaria um ciclo. `op` fica livre (`string`) — quem
+ * avalia de verdade (`evaluateCondition`, `features/automations/lib`) valida
+ * o operador.
+ */
+const rollupConditionSchema = z.object({
+  field: z.string().min(1),
+  op: z.string().min(1),
+  value: z.unknown().optional(),
+});
 
 export const selectOptionSchema = z.object({
   id: z.string(),
@@ -45,6 +63,17 @@ export const fieldDefinitionSchema = z.object({
   max: z.number().optional(),
   hidden: z.boolean().optional(),
   showInCard: z.boolean().optional(),
+  /**
+   * Config de um campo `rollup` (5.8) — nunca armazenado em
+   * `items.properties`, sempre computado em runtime a partir dos itens de
+   * `rollupRelationTypeId` cujo campo `rollupRelationField` contém o id
+   * deste item (`features/types/lib/rollup-query.ts`).
+   */
+  rollupRelationTypeId: z.string().uuid().optional(),
+  rollupRelationField: z.string().min(1).optional(),
+  rollupOp: z.enum(rollupOps).optional(),
+  rollupTargetField: z.string().min(1).optional(),
+  rollupCondition: rollupConditionSchema.optional(),
 });
 
 export type FieldDefinition = z.infer<typeof fieldDefinitionSchema>;
@@ -104,6 +133,10 @@ function fieldValueSchema(field: FieldDefinition): z.ZodTypeAny {
     case "contact":
     case "file":
       return relationArraySchema(field);
+    case "rollup":
+      // Nunca chega a ser chamado: `buildPropertiesSchema` pula campos
+      // `rollup` antes de invocar `fieldValueSchema` (não são armazenados).
+      return z.never();
     default: {
       const exhaustive: never = field.type;
       throw new Error(`Tipo de campo desconhecido: ${String(exhaustive)}`);
@@ -115,10 +148,13 @@ function fieldValueSchema(field: FieldDefinition): z.ZodTypeAny {
  * Monta dinamicamente o schema Zod de `items.properties` para um tipo de
  * objeto. Chaves fora de `fields` são preservadas (`.passthrough()`) mas não
  * validadas — evita perder dados salvos quando um campo é removido do tipo.
+ * Campos `rollup` (5.8) nunca entram no shape: são computados em runtime,
+ * nunca gravados em `items.properties`.
  */
 export function buildPropertiesSchema(fields: FieldDefinition[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const field of fields) {
+    if (field.type === "rollup") continue;
     const valueSchema = fieldValueSchema(field);
     shape[field.key] = field.required ? valueSchema : valueSchema.optional();
   }

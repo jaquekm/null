@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { NewCanvasButton } from "@/features/canvas/components/new-canvas-button";
+import { DocumentsToReviewPanel } from "@/features/spaces/components/documents-to-review-panel";
 import { NewItemButton } from "@/features/spaces/components/new-item-button";
 import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-form";
-import { getSpaceBySlug, listOtherActiveSpaces, listSpaceObjectTypes } from "@/features/spaces/queries";
+import { getSpaceBySlug, listDocumentsToReview, listOtherActiveSpaces, listSpaceObjectTypes } from "@/features/spaces/queries";
 import { ViewSwitcher } from "@/features/views/components/view-switcher";
 import { listViews } from "@/features/views/queries";
 import { requireOwner } from "@/lib/auth";
@@ -13,14 +14,16 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   const searchParams = await props.searchParams;
   const typeId = typeof searchParams.tipo === "string" ? searchParams.tipo : undefined;
 
-  const { supabase } = await requireOwner();
+  const { supabase, user } = await requireOwner();
   const space = await getSpaceBySlug(supabase, slug);
   if (!space) notFound();
 
-  const [types, otherSpaces, views] = await Promise.all([
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const [types, otherSpaces, views, documentsToReview] = await Promise.all([
     listSpaceObjectTypes(supabase, space.id),
     listOtherActiveSpaces(supabase, space.id),
     listViews(supabase, space.id, typeId ?? null),
+    listDocumentsToReview(supabase, user.id, space.id, todayDateStr),
   ]);
 
   const spaceSlug = space.slug;
@@ -61,6 +64,8 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
           <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} />
         </div>
       </header>
+
+      <DocumentsToReviewPanel documents={documentsToReview} />
 
       {types.length > 0 && (
         <nav className="flex flex-wrap gap-2 text-sm">

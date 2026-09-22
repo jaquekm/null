@@ -165,9 +165,18 @@ export class FakeSupabase {
   private tables = new Map<string, Row[]>();
   private counters = new Map<string, number>();
   private uniqueFields: Record<string, string[]>;
+  private idGenerator: (table: string, n: number) => string;
 
-  constructor(uniqueFields: Record<string, string[]> = {}) {
+  /**
+   * `idGenerator` é opcional — o padrão (`"tabela-N"`) serve pra quase todo
+   * teste. Só passe um customizado (ex.: uuid v4-like) quando o código sob
+   * teste valida o formato do id de verdade (`z.string().uuid()`, ex.:
+   * `rollupRelationTypeId`/`create_item.typeId` de automações) — nesse caso
+   * `"tabela-N"` faz a validação falhar mesmo com a lógica correta.
+   */
+  constructor(uniqueFields: Record<string, string[]> = {}, idGenerator: (table: string, n: number) => string = (table, n) => `${table}-${n}`) {
     this.uniqueFields = uniqueFields;
+    this.idGenerator = idGenerator;
   }
 
   seed(table: string, rows: Row[]) {
@@ -184,8 +193,14 @@ export class FakeSupabase {
     const nextId = () => {
       const n = (this.counters.get(table) ?? 0) + 1;
       this.counters.set(table, n);
-      return `${table}-${n}`;
+      return this.idGenerator(table, n);
     };
     return new FakeQuery(rows, (next) => this.tables.set(table, next), nextId, this.uniqueFields[table] ?? []);
   }
+}
+
+/** Uuid v4-like determinístico a partir de um contador — pra `idGenerator` quando o código sob teste exige `.uuid()` de verdade. */
+export function fakeUuid(n: number): string {
+  const hex = n.toString(16).padStart(8, "0");
+  return `${hex}-0000-4000-8000-000000000000`;
 }

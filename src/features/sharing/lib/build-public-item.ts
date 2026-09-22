@@ -1,8 +1,13 @@
 import type { FieldDefinition } from "@/features/types/schemas";
 import { formatPropertyValue } from "@/features/views/lib/format-property-value";
 
-/** Campos que referenciam outro recurso interno — o visitante anônimo não tem como ver o que está do outro lado. */
-const EXCLUDED_FIELD_TYPES = new Set<FieldDefinition["type"]>(["relation", "contact", "file"]);
+/**
+ * Campos que referenciam outro recurso interno (`relation`/`contact`/`file`
+ * — o visitante anônimo não tem como ver o que está do outro lado) e
+ * `rollup` (5.8): computado a partir de outros itens do dono, que a página
+ * pública não tem por que expor — deixado de fora nesta fase.
+ */
+const EXCLUDED_FIELD_TYPES = new Set<FieldDefinition["type"]>(["relation", "contact", "file", "rollup"]);
 
 export interface PublicPropertyView {
   key: string;

@@ -37,4 +37,24 @@ describe("resolveTemplateValue", () => {
   it("string sem template nem item: passa intacta", () => {
     expect(resolveTemplateValue("texto fixo", { today: TODAY })).toBe("texto fixo");
   });
+
+  it("{{today+<campo>d}} soma o número de dias do campo do item (5.10: revisão de SOP)", () => {
+    const result = resolveTemplateValue("{{today+review_every_daysd}}", {
+      today: TODAY,
+      item: { title: "SOP", properties: { review_every_days: 90 } },
+    });
+    expect(result).toBe("2026-12-21");
+  });
+
+  it("{{today+<campo>d}} sem item: fica como está", () => {
+    expect(resolveTemplateValue("{{today+review_every_daysd}}", { today: TODAY })).toBe("{{today+review_every_daysd}}");
+  });
+
+  it("{{today+<campo>d}} com campo ausente ou não numérico: fica como está", () => {
+    const result = resolveTemplateValue("{{today+review_every_daysd}}", {
+      today: TODAY,
+      item: { title: "SOP", properties: {} },
+    });
+    expect(result).toBe("{{today+review_every_daysd}}");
+  });
 });

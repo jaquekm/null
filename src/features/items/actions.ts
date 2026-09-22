@@ -16,6 +16,7 @@ import { diffLinks } from "./lib/diff-links";
 import { extractMentionIds } from "./lib/extract-mention-ids";
 import { extractText } from "./lib/extract-text";
 import { remapProperties } from "./lib/remap-properties";
+import { resetChecklist } from "./lib/reset-checklist";
 import { syncContactMentions } from "./lib/sync-contact-mentions";
 import { getItemVersion, type ItemVersionDetail } from "./queries";
 
@@ -297,6 +298,41 @@ export async function duplicateItem(itemId: string): Promise<Result<{ id: string
     .single();
 
   if (error || !data) return fail("Não foi possível duplicar o item.");
+
+  revalidatePath(`/itens/${itemId}`);
+  return ok({ id: data.id });
+}
+
+/** "Duplicar como nova" (5.9, pack Listas): mesmos itens, todos desmarcados — pra listas recorrentes (compras, checklists de processo). */
+export async function duplicateItemAsNewList(itemId: string): Promise<Result<{ id: string } | null>> {
+  const { supabase, user } = await requireOwner();
+
+  const { data: original, error: readError } = await supabase
+    .from("items")
+    .select("space_id, type_id, title, content, properties, icon")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (readError || !original) return fail("Item não encontrado.");
+
+  const content = resetChecklist(original.content as unknown as JSONContent | null);
+
+  const { data, error } = await supabase
+    .from("items")
+    .insert({
+      owner_id: user.id,
+      space_id: original.space_id,
+      type_id: original.type_id,
+      title: `${original.title} (nova)`,
+      content: content as unknown as Json,
+      content_text: extractText(content),
+      properties: original.properties,
+      icon: original.icon,
+      status: "active",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) return fail("Não foi possível duplicar a lista.");
 
   revalidatePath(`/itens/${itemId}`);
   return ok({ id: data.id });
