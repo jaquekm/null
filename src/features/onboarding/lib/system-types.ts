@@ -109,4 +109,11 @@ export const SYSTEM_TYPE_SEEDS: SystemTypeSeed[] = [
       { key: "participantes", label: "Participantes", type: "contact" },
     ),
   },
+  {
+    name: "Canvas",
+    pluralName: "Canvas",
+    slug: "canvas",
+    icon: "🗺️",
+    fields: [],
+  },
 ];

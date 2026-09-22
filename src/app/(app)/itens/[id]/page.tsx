@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { AttachmentList } from "@/features/attachments/components/attachment-list";
 import { listItemAttachments } from "@/features/attachments/queries";
+import { CanvasRefsSection } from "@/features/canvas/components/canvas-refs-section";
+import { CanvasWorkspace } from "@/features/canvas/components/canvas-workspace";
+import { ensureCanvas, listCanvasEdges, listCanvasesContainingItem, listCanvasNodes } from "@/features/canvas/queries";
 import { listContacts } from "@/features/contacts/queries";
 import { ItemFinancePanel } from "@/features/financas/components/item-finance-panel";
 import { listAccounts, listBillsForItem, listCategories, listTransactionsForItem } from "@/features/financas/queries";
@@ -40,6 +43,20 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
+  if (item.type?.slug === "canvas") {
+    const canvas = await ensureCanvas(supabase, user.id, item.id);
+    const [canvasNodes, canvasEdges] = await Promise.all([listCanvasNodes(supabase, canvas.id), listCanvasEdges(supabase, canvas.id)]);
+    return (
+      <CanvasWorkspace
+        itemTitle={item.title || "Sem título"}
+        canvasId={canvas.id}
+        initialViewport={canvas.viewport}
+        initialNodes={canvasNodes}
+        initialEdges={canvasEdges}
+      />
+    );
+  }
+
   const timezone = await getUserTimezone(supabase, user.id);
   const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
 
@@ -60,6 +77,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     financeContacts,
     itemTransactions,
     itemBills,
+    canvasRefs,
   ] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
@@ -77,6 +95,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listContacts(supabase, {}),
     listTransactionsForItem(supabase, item.id),
     listBillsForItem(supabase, item.id, today),
+    listCanvasesContainingItem(supabase, item.id),
   ]);
 
   return (
@@ -175,6 +194,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
       <BacklinksPanel backlinks={backlinks} />
+      <CanvasRefsSection refs={canvasRefs} />
       <VersionsPanel
         itemId={item.id}
         versions={versions}

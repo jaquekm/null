@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { NewCanvasButton } from "@/features/canvas/components/new-canvas-button";
 import { NewItemButton } from "@/features/spaces/components/new-item-button";
 import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-form";
 import { getSpaceBySlug, listOtherActiveSpaces, listSpaceObjectTypes } from "@/features/spaces/queries";
@@ -55,7 +56,10 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
             <p className="mt-1 text-sm text-black/60 dark:text-white/60">{space.description}</p>
           )}
         </div>
-        <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} />
+        <div className="flex flex-wrap gap-2">
+          <NewCanvasButton spaceId={space.id} />
+          <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} />
+        </div>
       </header>
 
       {types.length > 0 && (
