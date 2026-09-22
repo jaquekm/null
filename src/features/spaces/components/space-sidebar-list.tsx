@@ -30,6 +30,18 @@ export function SpaceSidebarList({
   collapsed: boolean;
 }) {
   const [items, setItems] = useState(spaces);
+  // Ajusta o estado durante a renderização (não em useEffect) quando `spaces`
+  // muda por fora (espaço criado/excluído/arquivado em outro lugar, que já
+  // dispara `revalidatePath("/", "layout")`) — mesmo padrão de
+  // `NewSpaceButton`: https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  // Sem isto, a lista fica presa no valor do primeiro `mount` pra sempre —
+  // um espaço excluído continua aparecendo aqui (link morto, 404 ao clicar)
+  // e um espaço recém-criado não aparece até recarregar a página.
+  const [prevSpaces, setPrevSpaces] = useState(spaces);
+  if (spaces !== prevSpaces) {
+    setPrevSpaces(spaces);
+    setItems(spaces);
+  }
   const [, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 

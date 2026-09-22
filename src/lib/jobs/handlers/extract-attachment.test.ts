@@ -241,6 +241,30 @@ describe("extractAttachment", () => {
     expect(updateCalls.at(-1)).toMatchObject({ extraction_status: "processing" });
   });
 
+  it("anexo avulso (sem item, 4.8 — boleto): extrai normalmente e não chama refresh_item_extra_text", async () => {
+    const blob = new Blob(["345.67"], { type: "text/plain" });
+    const { client, updateCalls, rpcCalls } = fakeSupabase({ attachment: { ...baseAttachment, item_id: null }, blob });
+
+    const outcome = await extractAttachment(fakeJob(), { supabase: client });
+
+    expect(outcome).toEqual({ status: "done" });
+    expect(updateCalls.at(-1)).toMatchObject({ extracted_text: "345.67", extraction_status: "done" });
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it("imagem de anexo avulso (sem item): chama a IA com itemId indefinido, sem quebrar", async () => {
+    callClaudeMock.mockResolvedValue({ text: "texto da imagem", usage: { input_tokens: 1, output_tokens: 1 } });
+    const blob = new Blob([new Uint8Array([1, 2, 3])]);
+    const { client, rpcCalls } = fakeSupabase({ attachment: { ...baseAttachment, item_id: null, mime_type: "image/jpeg" }, blob });
+
+    const outcome = await extractAttachment(fakeJob(), { supabase: client });
+
+    expect(outcome).toEqual({ status: "done" });
+    const call = callClaudeMock.mock.calls[0]![0] as { itemId: string | undefined };
+    expect(call.itemId).toBeUndefined();
+    expect(rpcCalls).toEqual([]);
+  });
+
   it("payload inválido: failed", async () => {
     const { client } = fakeSupabase({ attachment: baseAttachment });
     const outcome = await extractAttachment(fakeJob({ payload: {} }), { supabase: client });

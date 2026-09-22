@@ -32,6 +32,7 @@ const VARIABLES_HINT: Record<ReminderRuleKind, string> = {
   event_before: "{{data}}, {{hora}}, {{link}}, {{titulo}}" + " (e {{nome}} se for pros participantes)",
   birthday: "{{contato}} (nome do aniversariante), {{nome}}, {{data}}",
   item_date_field: "{{data}}, {{link}}, {{titulo}}",
+  bill_due: "{{titulo}} (descrição da conta), {{data}} (vencimento), {{valor}}" + " (e {{nome}} se for pros contatos)",
 };
 
 /** Formulário de criar/editar regra automática (3.10) — os campos de `config` mudam conforme `kind`. */
@@ -78,6 +79,7 @@ export function ReminderRuleForm({ types, rule, preset, onSaved, onCancel }: Rem
     if (kind === "item_date_field") {
       return { typeId: typeId || undefined, fieldKey: fieldKey || undefined, fieldType: selectedField?.type, daysBefore: Number(daysBefore) || 1 };
     }
+    if (kind === "bill_due") return { daysBefore: Number(daysBefore) || 3 };
     return {};
   }
 
@@ -131,6 +133,26 @@ export function ReminderRuleForm({ types, rule, preset, onSaved, onCancel }: Rem
               <option value="contacts">Participantes da reunião</option>
               <option value="me">Eu</option>
             </select>
+          </label>
+        )}
+
+        {kind === "bill_due" && (
+          <label className={labelClassName}>
+            Para quem
+            <select value={recipientType} onChange={(e) => setRecipientType(e.target.value as "me" | "contacts")} className={inputClassName} disabled={pending}>
+              <option value="me">Eu (contas a pagar)</option>
+              <option value="contacts">Contatos (contas a receber, com opt-in)</option>
+            </select>
+          </label>
+        )}
+
+        {kind === "bill_due" && (
+          <label className={labelClassName}>
+            Dias antes
+            <input type="number" min={1} value={daysBefore} onChange={(e) => setDaysBefore(e.target.value)} className={`${inputClassName} w-24`} disabled={pending} />
+            <span className="font-normal text-zinc-400">
+              {recipientType === "me" ? "E no dia do vencimento." : "E no dia seguinte ao vencimento (cobrança)."}
+            </span>
           </label>
         )}
 

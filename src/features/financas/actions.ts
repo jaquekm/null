@@ -3,9 +3,11 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getExtractedText } from "@/features/attachments/actions";
 import { buildRRuleString, nextOccurrence } from "@/features/reminders/lib/recurrence";
+import { AiBudgetExceededError, AiDisabledError, callClaudeJson } from "@/lib/ai/claude";
 import { requireOwner } from "@/lib/auth";
-import { parseBRL } from "@/lib/money";
+import { formatBRL, parseBRL } from "@/lib/money";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { computeMissingChildCategories, computeMissingTopCategories, DEFAULT_CATEGORIES } from "./lib/default-categories";
@@ -14,51 +16,88 @@ import { buildInstallments } from "./lib/installments";
 import { computeOccurrenceIndexes, importHash } from "./lib/import-hash";
 import { matchBills } from "./lib/match-bills";
 import { matchRule, ruleMatchesTransaction, type CategorizationRule } from "./lib/match-rule";
+import { computeNetBalances } from "./lib/net-balances";
+import { computeSettlementTransfers, type SettlementTransfer } from "./lib/settlement-transfers";
+import { computeSplitShares, type SplitShareResult } from "./lib/split-shares";
 import { statementFor } from "./lib/statements";
 import { suggestCategoryId } from "./lib/suggest-category";
 import { computeTransactionTotals, type TransactionTotals } from "./lib/transaction-totals";
 import {
+  getBill,
   getCardStatement,
   getLastCsvMapping,
+  getSplit,
   getUserTimezone,
   listAccounts,
+  listBills,
   listCardStatementsByReferenceMonths,
+  listContactBalances,
   listExistingImportHashes,
   listOpenBillsForMatching,
   listRecentCategorizedTransactions,
+  listRecurring,
   listRules,
+  listSplitGroupLabels,
+  listSplitShares,
+  listSplits,
+  listSplitSharesForSplits,
   listStatementTransactions,
   listTransactions,
   listTransactionsForRuleTest,
+  listUnlinkedExpenseTransactions,
   sumStatementTransactionAmounts,
+  type BillRow,
+  type LinkableTransactionRow,
+  type RecurringRow,
+  type SplitFilters,
+  type SplitRow,
+  type SplitShareRow,
   type TransactionRow,
 } from "./queries";
 import {
+  billExtractionSchema,
+  billFiltersSchema,
   bulkCategorizeSchema,
   confirmImportSchema,
   createAccountSchema,
+  createBillSchema,
   createCategorySchema,
   createPixKeySchema,
+  createRecurringSchema,
+  createSplitSchema,
   createTransactionSchema,
+  markBillPaidSchema,
   payStatementSchema,
   previewImportSchema,
   quickExpenseSchema,
+  registerSplitPaymentSchema,
   renameCategorySchema,
   ruleInputSchema,
   transactionFiltersSchema,
+  updateBillSchema,
+  updateRecurringSchema,
   updateTransactionCategorySchema,
   updateTransactionDescriptionSchema,
+  type BillFilters,
   type ConfirmImportInput,
   type CreateAccountInput,
+  type CreateBillInput,
   type CreateCategoryInput,
   type CreatePixKeyInput,
+  type CreateRecurringInput,
+  type CreateSplitInput,
   type CreateTransactionInput,
   type DeleteTransactionScope,
+  type MarkBillPaidInput,
   type PayStatementInput,
   type PreviewImportInput,
   type QuickExpenseInput,
+  type RegisterSplitPaymentInput,
   type RuleInput,
   type TransactionFilters,
+  type TransactionRepeatOption,
+  type UpdateBillInput,
+  type UpdateRecurringInput,
 } from "./schemas";
 
 type Client = SupabaseClient<Database>;
@@ -67,6 +106,9 @@ const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
 const LANCAMENTOS_PATH = "/financas/lancamentos";
 const IMPORTAR_PATH = "/financas/importar";
 const REGRAS_PATH = "/financas/regras";
+const CONTAS_PATH = "/financas/contas";
+const RECORRENCIAS_PATH = "/financas/recorrencias";
+const DIVIDIR_PATH = "/financas/dividir";
 
 /** "Aplicação: ... incrementa `times_applied`" (4.6) — chamado só quando a sugestão da regra realmente vira o dado salvo (não quando é só mostrada como sugestão e depois trocada). */
 async function incrementRuleTimesApplied(supabase: Client, ruleId: string): Promise<void> {
@@ -1189,4 +1231,706 @@ export async function payCardStatement(input: PayStatementInput): Promise<Result
 export async function getStatementTransactions(statementId: string): Promise<TransactionRow[]> {
   const { supabase } = await requireOwner();
   return listStatementTransactions(supabase, statementId);
+}
+
+// =========================================================
+// CONTAS A PAGAR/RECEBER (4.8)
+// =========================================================
+
+async function todayForOwner(supabase: Client, ownerId: string): Promise<string> {
+  const timezone = await getUserTimezone(supabase, ownerId);
+  return formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+}
+
+/** Lista por aba (4.8) — leitura, não `Result` (mesmo padrão de `searchTransactions`). Filtro inválido devolve vazio em vez de lançar. */
+export async function searchBills(filters: BillFilters): Promise<BillRow[]> {
+  const parsed = billFiltersSchema.safeParse(filters);
+  const { supabase, user } = await requireOwner();
+  if (!parsed.success) return [];
+
+  const today = await todayForOwner(supabase, user.id);
+  return listBills(supabase, parsed.data, today);
+}
+
+/**
+ * "Repetir" da conta (4.8) — mesmo padrão de `createRecurringFromTransaction`
+ * (4.4): a conta recém-criada já é a primeira ocorrência, então `fin_recurring`
+ * nasce com `next_due_on` já na ocorrência seguinte; o job `generate_bills`
+ * (4.8) assume dali pra frente.
+ */
+async function createRecurringFromBill(
+  supabase: Client,
+  input: {
+    ownerId: string;
+    direction: "payable" | "receivable";
+    repeat: TransactionRepeatOption;
+    dueOn: string;
+    description: string;
+    amountCents: number;
+    amountIsEstimate: boolean;
+    categoryId: string | null;
+    accountId: string | null;
+    contactId: string | null;
+    spaceId: string | null;
+  },
+): Promise<void> {
+  const preset = recurrencePresetForRepeat(input.repeat, input.dueOn);
+  if (!preset) return;
+
+  const timezone = await getUserTimezone(supabase, input.ownerId);
+  // meio-dia evita que a conversão de fuso empurre a data pro dia anterior/seguinte perto da meia-noite.
+  const dtstart = new Date(`${input.dueOn}T12:00:00`);
+  const rrule = buildRRuleString(preset, dtstart, timezone);
+  if (!rrule) return;
+
+  const next = nextOccurrence(rrule, timezone, dtstart);
+  if (!next) return;
+
+  await supabase.from("fin_recurring").insert({
+    owner_id: input.ownerId,
+    space_id: input.spaceId,
+    description: input.description,
+    direction: input.direction,
+    amount_cents: input.amountCents,
+    amount_is_estimate: input.amountIsEstimate,
+    category_id: input.categoryId,
+    account_id: input.accountId,
+    contact_id: input.contactId,
+    rrule,
+    next_due_on: formatInTimeZone(next, timezone, "yyyy-MM-dd"),
+  });
+}
+
+/** Cria uma conta a pagar/receber avulsa (4.8). "Repetir" também cadastra a recorrência (`fin_recurring`) a partir dela. */
+export async function createBill(input: CreateBillInput): Promise<Result<{ id: string }>> {
+  const parsed = createBillSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  let accountId: string | null = null;
+  if (data.accountId) {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.accountId);
+    if (!account) return fail("Conta inválida.");
+    accountId = account.id;
+  }
+
+  const { data: row, error } = await supabase
+    .from("fin_bills")
+    .insert({
+      owner_id: user.id,
+      space_id: data.spaceId || null,
+      direction: data.direction,
+      description: data.description,
+      contact_id: data.contactId || null,
+      category_id: data.categoryId || null,
+      account_id: accountId,
+      amount_cents: amountCents,
+      due_on: data.dueOn,
+      attachment_id: data.attachmentId || null,
+      barcode: data.barcode || null,
+      pix_code: data.pixCode || null,
+      notes: data.notes || null,
+    })
+    .select("id")
+    .single();
+  if (error || !row) return fail(GENERIC_ERROR);
+
+  if (data.repeat !== "none") {
+    await createRecurringFromBill(supabase, {
+      ownerId: user.id,
+      direction: data.direction,
+      repeat: data.repeat,
+      dueOn: data.dueOn,
+      description: data.description,
+      amountCents,
+      amountIsEstimate: data.amountIsEstimate,
+      categoryId: data.categoryId || null,
+      accountId,
+      contactId: data.contactId || null,
+      spaceId: data.spaceId || null,
+    });
+  }
+
+  revalidatePath(CONTAS_PATH);
+  return ok({ id: row.id });
+}
+
+/**
+ * Edita uma conta (4.8). Reavalia `status`/`paid_at` contra o novo valor —
+ * evita ficar "paga" com `paid_cents < amount_cents` depois de um aumento de
+ * valor (ou o contrário, com uma redução). Preserva o `paid_at` original
+ * quando o status continua "paga" antes e depois — não é uma "repactuação",
+ * é só correção de dado.
+ */
+export async function updateBill(id: string, input: UpdateBillInput): Promise<Result<null>> {
+  const parsed = updateBillSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  let accountId: string | null = null;
+  if (data.accountId) {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.accountId);
+    if (!account) return fail("Conta inválida.");
+    accountId = account.id;
+  }
+
+  const { data: current, error: readError } = await supabase.from("fin_bills").select("paid_cents, status, paid_at").eq("id", id).eq("owner_id", user.id).maybeSingle();
+  if (readError || !current) return fail("Conta não encontrada.");
+
+  const status = current.status === "canceled" ? "canceled" : current.paid_cents <= 0 ? "open" : current.paid_cents >= amountCents ? "paid" : "partial";
+  const paidAt = status === "paid" ? (current.paid_at ?? new Date().toISOString()) : null;
+
+  const { error } = await supabase
+    .from("fin_bills")
+    .update({
+      direction: data.direction,
+      description: data.description,
+      contact_id: data.contactId || null,
+      category_id: data.categoryId || null,
+      account_id: accountId,
+      space_id: data.spaceId || null,
+      amount_cents: amountCents,
+      due_on: data.dueOn,
+      attachment_id: data.attachmentId || null,
+      barcode: data.barcode || null,
+      pix_code: data.pixCode || null,
+      notes: data.notes || null,
+      status,
+      paid_at: paidAt,
+    })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(CONTAS_PATH);
+  return ok(null);
+}
+
+/** "Cancelar" é a exclusão lógica de uma conta (4.8) — `fin_bills` não tem `deleted_at`, `status='canceled'` já cobre o mesmo papel. */
+export async function cancelBill(id: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_bills").update({ status: "canceled" }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+  revalidatePath(CONTAS_PATH);
+  return ok(null);
+}
+
+/**
+ * "Marcar como paga/recebida" (4.8): cria o lançamento vinculado (`bill_id`,
+ * mesmo `kind: "normal"` que qualquer lançamento comum — reaproveita
+ * `adjustBillPayment`, já usado pela conciliação da importação (4.5) e pelo
+ * pagamento de fatura (4.7)) e atualiza `paid_cents`/`status`/`paid_at` a
+ * partir dele. Permite pagamento parcial (valor menor que o total) e permite
+ * registrar em cima de uma conta já paga (ex.: corrigir um pagamento a menor
+ * lançado antes) — só bloqueia conta cancelada, que não devia mais receber
+ * pagamento.
+ */
+export async function markBillPaid(input: MarkBillPaidInput): Promise<Result<null>> {
+  const parsed = markBillPaidSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  const today = await todayForOwner(supabase, user.id);
+  const bill = await getBill(supabase, data.billId, today);
+  if (!bill) return fail("Conta não encontrada.");
+  if (bill.status === "canceled") return fail("Esta conta está cancelada.");
+
+  const accounts = await listAccounts(supabase);
+  const account = accounts.find((a) => a.id === data.accountId);
+  if (!account) return fail("Conta inválida.");
+
+  const signedAmount = bill.direction === "payable" ? -amountCents : amountCents;
+
+  const { error: insertError } = await supabase.from("fin_transactions").insert({
+    owner_id: user.id,
+    account_id: account.id,
+    space_id: bill.spaceId || account.spaceId,
+    category_id: bill.categoryId,
+    contact_id: bill.contactId,
+    description: bill.description,
+    amount_cents: signedAmount,
+    occurred_on: data.paidOn,
+    kind: "normal",
+    bill_id: bill.id,
+  });
+  if (insertError) return fail(GENERIC_ERROR);
+
+  await adjustBillPayment(supabase, bill.id, amountCents);
+
+  revalidatePath(CONTAS_PATH);
+  revalidatePath(LANCAMENTOS_PATH);
+  return ok(null);
+}
+
+const BILL_EXTRACTION_SYSTEM_PROMPT =
+  "Você extrai dados de boletos e contas em português do Brasil a partir do texto já transcrito de um PDF ou imagem. " +
+  'Responda em JSON com exatamente estas chaves: "amountCents" (valor total em centavos, inteiro — ex.: R$ 123,45 vira 12345), ' +
+  '"dueOn" (data de vencimento no formato AAAA-MM-DD), "payeeName" (nome do beneficiário/cedente) e "barcode" (linha digitável, ' +
+  "só os dígitos e espaços como aparecem no texto). Use `null` em qualquer campo que não aparecer claramente no texto — nunca invente ou estime valores.";
+
+export interface BillExtractionResult {
+  amount: string | null;
+  dueOn: string | null;
+  payeeName: string | null;
+  barcode: string | null;
+}
+
+/**
+ * "Extrair dados de boleto com IA" (4.8, opcional): lê o texto já extraído
+ * do anexo (job `extract_attachment`, 2.9 — agora também roda em anexo
+ * avulso, sem item) e pede pro Claude os campos estruturados do formulário
+ * "Nova conta". Só devolve pra revisão — nunca salva a conta sozinho.
+ */
+export async function extractBillDataFromAttachment(attachmentId: string): Promise<Result<BillExtractionResult>> {
+  const { user } = await requireOwner();
+
+  const detail = await getExtractedText(attachmentId);
+  if (!detail) return fail("Anexo não encontrado.");
+  if (detail.status !== "done" || !detail.text) {
+    return fail("Este anexo ainda não tem texto extraído. Aguarde a extração terminar.");
+  }
+
+  try {
+    const extracted = await callClaudeJson({
+      ownerId: user.id,
+      feature: "bill_extraction",
+      system: BILL_EXTRACTION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: detail.text }],
+      schema: billExtractionSchema,
+    });
+
+    return ok({
+      amount: extracted.amountCents != null ? formatBRL(extracted.amountCents) : null,
+      dueOn: extracted.dueOn,
+      payeeName: extracted.payeeName,
+      barcode: extracted.barcode,
+    });
+  } catch (err) {
+    if (err instanceof AiDisabledError || err instanceof AiBudgetExceededError) return fail(err.message);
+    return fail("Não foi possível extrair os dados do boleto. Preencha manualmente.");
+  }
+}
+
+// =========================================================
+// RECORRÊNCIAS (4.8)
+// =========================================================
+
+export async function searchRecurring(): Promise<RecurringRow[]> {
+  const { supabase } = await requireOwner();
+  return listRecurring(supabase);
+}
+
+/**
+ * Cria uma recorrência avulsa (4.8, `/financas/recorrencias`) — ao contrário
+ * do "repetir" da 4.4/4.8 (que nasce a partir de um lançamento/conta já
+ * criado, então começa na ocorrência *seguinte*), aqui não existe uma
+ * primeira conta ainda: `next_due_on` é a própria data escolhida. O job
+ * `generate_bills` (4.8) assume dali pra frente.
+ */
+export async function createRecurring(input: CreateRecurringInput): Promise<Result<{ id: string }>> {
+  const parsed = createRecurringSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  let accountId: string | null = null;
+  if (data.accountId) {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.accountId);
+    if (!account) return fail("Conta inválida.");
+    accountId = account.id;
+  }
+
+  const preset = recurrencePresetForRepeat(data.repeat, data.anchorDate);
+  if (!preset) return fail("Dados inválidos.", { repeat: ["Escolha uma frequência."] });
+
+  const timezone = await getUserTimezone(supabase, user.id);
+  // meio-dia evita que a conversão de fuso empurre a data pro dia anterior/seguinte perto da meia-noite.
+  const dtstart = new Date(`${data.anchorDate}T12:00:00`);
+  const rrule = buildRRuleString(preset, dtstart, timezone);
+  if (!rrule) return fail(GENERIC_ERROR);
+
+  const { data: row, error } = await supabase
+    .from("fin_recurring")
+    .insert({
+      owner_id: user.id,
+      space_id: data.spaceId || null,
+      description: data.description,
+      direction: data.direction,
+      amount_cents: amountCents,
+      amount_is_estimate: data.amountIsEstimate,
+      category_id: data.categoryId || null,
+      account_id: accountId,
+      contact_id: data.contactId || null,
+      rrule,
+      next_due_on: data.anchorDate,
+      ends_on: data.endsOn || null,
+      remind_days_before: data.remindDaysBefore,
+    })
+    .select("id")
+    .single();
+  if (error || !row) return fail(GENERIC_ERROR);
+
+  revalidatePath(RECORRENCIAS_PATH);
+  return ok({ id: row.id });
+}
+
+/** Edita os dados de uma recorrência (4.8) — não muda frequência/âncora (RRULE); pra outra cadência, desativa esta e cria outra. */
+export async function updateRecurring(id: string, input: UpdateRecurringInput): Promise<Result<null>> {
+  const parsed = updateRecurringSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  let accountId: string | null = null;
+  if (data.accountId) {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.accountId);
+    if (!account) return fail("Conta inválida.");
+    accountId = account.id;
+  }
+
+  const { error } = await supabase
+    .from("fin_recurring")
+    .update({
+      description: data.description,
+      amount_cents: amountCents,
+      amount_is_estimate: data.amountIsEstimate,
+      category_id: data.categoryId || null,
+      account_id: accountId,
+      contact_id: data.contactId || null,
+      space_id: data.spaceId || null,
+      ends_on: data.endsOn || null,
+      remind_days_before: data.remindDaysBefore,
+    })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(RECORRENCIAS_PATH);
+  return ok(null);
+}
+
+/** Ativar/desativar (4.8) — desativada para de gerar novas contas (`generate_bills` só olha `active=true`), mas não apaga as já geradas. */
+export async function setRecurringActive(id: string, active: boolean): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_recurring").update({ active }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+  revalidatePath(RECORRENCIAS_PATH);
+  return ok(null);
+}
+
+// =========================================================
+// DIVISÃO DE CONTAS (4.9)
+// =========================================================
+
+export async function searchSplits(filters: SplitFilters = {}): Promise<SplitRow[]> {
+  const { supabase } = await requireOwner();
+  return listSplits(supabase, filters);
+}
+
+export interface SplitDetail {
+  split: SplitRow;
+  shares: SplitShareRow[];
+}
+
+export async function getSplitDetail(id: string): Promise<SplitDetail | null> {
+  const { supabase } = await requireOwner();
+  const split = await getSplit(supabase, id);
+  if (!split) return null;
+  const shares = await listSplitShares(supabase, id);
+  return { split, shares };
+}
+
+export interface ContactBalanceRow {
+  contactId: string;
+  balanceCents: number;
+}
+
+/** Saldo por contato (4.9), já achatado pro cliente (a query devolve um `Map`, que não cruza o limite de server action). */
+export async function searchContactBalances(): Promise<ContactBalanceRow[]> {
+  const { supabase } = await requireOwner();
+  const balances = await listContactBalances(supabase);
+  return [...balances.entries()].map(([contactId, balanceCents]) => ({ contactId, balanceCents }));
+}
+
+export async function searchSplitGroupLabels(): Promise<string[]> {
+  const { supabase } = await requireOwner();
+  return listSplitGroupLabels(supabase);
+}
+
+/** "Vincular a um lançamento existente" (4.9) — despesas dos últimos 90 dias ainda sem divisão. */
+export async function searchLinkableTransactions(): Promise<LinkableTransactionRow[]> {
+  const { supabase } = await requireOwner();
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  return listUnlinkedExpenseTransactions(supabase, since.toISOString().slice(0, 10));
+}
+
+/**
+ * Cria uma divisão (4.9): calcula a parte de cada participante
+ * (`computeSplitShares`) e, se `originMode` for `create`, cria a transação
+ * da minha despesa total (o valor que efetivamente saiu da minha conta —
+ * "lançamento contábil correto" do enunciado: a saída é do total, as partes
+ * dos outros viram valores a receber via `fin_split_shares`, não desconto na
+ * transação); se for `link`, só aponta pra uma já existente. Os dois só
+ * fazem sentido quando eu paguei — validado no schema.
+ *
+ * A parte de quem pagou (`payerIdentity`) já nasce quitada (`settled_cents
+ * = share_cents`): é a fatia que ela já cobriu ao pagar o total, não uma
+ * dívida com ninguém. Se isso cobrir todas as partes (ex.: só a própria
+ * pessoa que pagou está na lista), a divisão já nasce `settled`.
+ */
+export async function createSplit(input: CreateSplitInput): Promise<Result<{ id: string }>> {
+  const parsed = createSplitSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let totalCents: number;
+  try {
+    totalCents = Math.abs(parseBRL(data.totalAmount));
+  } catch {
+    return fail("Dados inválidos.", { totalAmount: ["Valor inválido."] });
+  }
+  if (totalCents === 0) return fail("Dados inválidos.", { totalAmount: ["O valor não pode ser zero."] });
+
+  let shares: SplitShareResult[];
+  try {
+    shares = computeSplitShares(
+      data.method,
+      totalCents,
+      data.participants.map((p) => ({ contactId: p.contactId, value: p.value, weight: p.weight })),
+    );
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Não foi possível calcular as partes.");
+  }
+
+  const { supabase, user } = await requireOwner();
+
+  let transactionId: string | null = null;
+  if (data.originMode === "link") {
+    transactionId = data.linkTransactionId ?? null;
+  } else if (data.originMode === "create") {
+    const accounts = await listAccounts(supabase);
+    const account = accounts.find((a) => a.id === data.createAccountId);
+    if (!account) return fail("Conta inválida.");
+
+    const { data: txRow, error: txError } = await supabase
+      .from("fin_transactions")
+      .insert({
+        owner_id: user.id,
+        account_id: account.id,
+        space_id: account.spaceId,
+        category_id: data.createCategoryId || null,
+        description: data.title,
+        amount_cents: -totalCents,
+        occurred_on: data.occurredOn,
+        kind: "normal",
+      })
+      .select("id")
+      .single();
+    if (txError || !txRow) return fail(GENERIC_ERROR);
+    transactionId = txRow.id;
+  }
+
+  const payerIdentity = data.paidByContactId ?? null;
+  const nowIso = new Date().toISOString();
+  const allSettledAtCreation = shares.every((s) => s.contactId === payerIdentity);
+
+  const { data: splitRow, error: splitError } = await supabase
+    .from("fin_splits")
+    .insert({
+      owner_id: user.id,
+      title: data.title,
+      total_cents: totalCents,
+      occurred_on: data.occurredOn,
+      paid_by_contact_id: data.paidByContactId || null,
+      method: data.method,
+      transaction_id: transactionId,
+      group_label: data.groupLabel || null,
+      attachment_id: data.attachmentId || null,
+      status: allSettledAtCreation ? "settled" : "open",
+      notes: data.notes || null,
+    })
+    .select("id")
+    .single();
+  if (splitError || !splitRow) return fail(GENERIC_ERROR);
+
+  const { error: sharesError } = await supabase.from("fin_split_shares").insert(
+    shares.map((s) => ({
+      owner_id: user.id,
+      split_id: splitRow.id,
+      contact_id: s.contactId,
+      weight: s.weight,
+      share_cents: s.shareCents,
+      settled_cents: s.contactId === payerIdentity ? s.shareCents : 0,
+      settled_at: s.contactId === payerIdentity ? nowIso : null,
+    })),
+  );
+  if (sharesError) return fail(GENERIC_ERROR);
+
+  revalidatePath(DIVIDIR_PATH);
+  if (data.originMode === "create") revalidatePath(LANCAMENTOS_PATH);
+  return ok({ id: splitRow.id });
+}
+
+/** "Cancelar" é a exclusão lógica de uma divisão (4.9) — `fin_splits` não tem `deleted_at`, `status='canceled'` cobre o mesmo papel (mesmo padrão de `cancelBill`, 4.8). */
+export async function cancelSplit(id: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_splits").update({ status: "canceled" }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+  revalidatePath(DIVIDIR_PATH);
+  return ok(null);
+}
+
+/**
+ * "Registrar pagamento de uma pessoa" (4.9): cria a transação e atualiza
+ * `settled_cents`/`settled_at` da parte quitada. Direção decidida por quem é
+ * a parte: a minha própria (`contact_id` nulo) é uma dívida que **eu**
+ * tenho com quem pagou — registrar é uma despesa minha; a de um contato é
+ * uma dívida dele **comigo** — registrar é uma receita minha. Quando todas
+ * as partes da divisão estiverem quitadas, a divisão vira `settled`.
+ */
+export async function registerSplitPayment(input: RegisterSplitPaymentInput): Promise<Result<null>> {
+  const parsed = registerSplitPaymentSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const data = parsed.data;
+
+  let amountCents: number;
+  try {
+    amountCents = Math.abs(parseBRL(data.amount));
+  } catch {
+    return fail("Dados inválidos.", { amount: ["Valor inválido."] });
+  }
+  if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
+
+  const { supabase, user } = await requireOwner();
+
+  const { data: share, error: shareError } = await supabase
+    .from("fin_split_shares")
+    .select("id, split_id, contact_id, share_cents, settled_cents")
+    .eq("id", data.shareId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  if (shareError || !share) return fail("Parte não encontrada.");
+
+  const { data: split, error: splitReadError } = await supabase.from("fin_splits").select("id, title, status").eq("id", share.split_id).maybeSingle();
+  if (splitReadError || !split) return fail("Divisão não encontrada.");
+  if (split.status === "canceled") return fail("Esta divisão foi cancelada.");
+
+  const accounts = await listAccounts(supabase);
+  const account = accounts.find((a) => a.id === data.accountId);
+  if (!account) return fail("Conta inválida.");
+
+  const signedAmount = share.contact_id === null ? -amountCents : amountCents;
+
+  const { data: txRow, error: txError } = await supabase
+    .from("fin_transactions")
+    .insert({
+      owner_id: user.id,
+      account_id: account.id,
+      space_id: account.spaceId,
+      description: split.title,
+      amount_cents: signedAmount,
+      occurred_on: data.occurredOn,
+      kind: "normal",
+    })
+    .select("id")
+    .single();
+  if (txError || !txRow) return fail(GENERIC_ERROR);
+
+  const newSettledCents = share.settled_cents + amountCents;
+  const { error: updateShareError } = await supabase
+    .from("fin_split_shares")
+    .update({
+      settled_cents: newSettledCents,
+      settled_at: newSettledCents >= share.share_cents ? new Date().toISOString() : null,
+      settlement_transaction_id: txRow.id,
+    })
+    .eq("id", share.id);
+  if (updateShareError) return fail(GENERIC_ERROR);
+
+  const { data: allShares } = await supabase.from("fin_split_shares").select("share_cents, settled_cents").eq("split_id", split.id);
+  if (allShares && allShares.every((s) => s.settled_cents >= s.share_cents)) {
+    await supabase.from("fin_splits").update({ status: "settled" }).eq("id", split.id);
+  }
+
+  revalidatePath(DIVIDIR_PATH);
+  revalidatePath(LANCAMENTOS_PATH);
+  return ok(null);
+}
+
+export interface GroupSettlementResult {
+  balances: { personId: string; balanceCents: number }[];
+  transfers: SettlementTransfer[];
+}
+
+/** "Visão de acerto" de um grupo (4.9): saldo líquido de cada pessoa (`ME` = eu) e as transferências mínimas pra zerar tudo. */
+export async function getGroupSettlement(groupLabel: string): Promise<GroupSettlementResult> {
+  const { supabase } = await requireOwner();
+
+  const splits = await listSplits(supabase, { groupLabel });
+  const active = splits.filter((s) => s.status !== "canceled");
+  const shares = await listSplitSharesForSplits(
+    supabase,
+    active.map((s) => s.id),
+  );
+
+  const balances = computeNetBalances(
+    active.map((s) => ({ id: s.id, paidByContactId: s.paidByContactId })),
+    shares.map((s) => ({ splitId: s.splitId, contactId: s.contactId, shareCents: s.shareCents, settledCents: s.settledCents })),
+  );
+  const balanceList = [...balances.entries()].map(([personId, balanceCents]) => ({ personId, balanceCents }));
+
+  return { balances: balanceList, transfers: computeSettlementTransfers(balanceList) };
 }

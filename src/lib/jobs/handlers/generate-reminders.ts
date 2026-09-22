@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  buildBillDueReminders,
+  type BillDueRuleConfig,
+  type BillForDueRule,
+  type ContactForBillDueRule,
+} from "@/features/reminders/lib/build-bill-due-reminders";
+import {
   buildBirthdayReminders,
   type BirthdayRuleConfig,
   type ContactForBirthdayRule,
@@ -85,7 +91,26 @@ async function buildDesiredForRule(supabase: Client, ownerId: string, rule: Rule
     );
   }
 
-  return []; // 'bill_due'/'split_open' são fase 4; kind desconhecido também não gera nada
+  if (rule.kind === "bill_due") {
+    const [{ data: bills }, { data: recurring }, { data: contacts }] = await Promise.all([
+      supabase.from("fin_bills").select("id, description, direction, amount_cents, due_on, status, contact_id, recurring_id").eq("owner_id", ownerId).in("status", ["open", "partial"]),
+      supabase.from("fin_recurring").select("id, remind_days_before").eq("owner_id", ownerId),
+      supabase.from("contacts").select("id, whatsapp_opt_in, email_opt_in").eq("owner_id", ownerId).is("archived_at", null),
+    ]);
+    const remindDaysBeforeByRecurringId = new Map(
+      (recurring ?? []).filter((r) => r.remind_days_before != null).map((r) => [r.id, r.remind_days_before as number]),
+    );
+    return buildBillDueReminders(
+      (bills ?? []) as BillForDueRule[],
+      (contacts ?? []) as ContactForBillDueRule[],
+      remindDaysBeforeByRecurringId,
+      { id: rule.id, recipientType: rule.recipient_type, channel: rule.channel, messageTemplate: rule.message_template, config: config as BillDueRuleConfig },
+      timezone,
+      now,
+    );
+  }
+
+  return []; // 'split_open' é 4.9; kind desconhecido também não gera nada
 }
 
 /**

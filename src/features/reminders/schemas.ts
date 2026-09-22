@@ -58,8 +58,8 @@ export type ReminderInput = z.infer<typeof reminderInputSchema>;
 export const REMINDER_STATUSES = ["scheduled", "paused", "completed", "canceled"] as const;
 export type ReminderStatus = (typeof REMINDER_STATUSES)[number];
 
-/** `bill_due`/`split_open` (enunciado) são fase 4 — não expostos na UI de regras (3.10) ainda. */
-export const REMINDER_RULE_KINDS = ["event_before", "birthday", "item_date_field"] as const;
+/** `split_open` (enunciado) é 4.9, ainda não implementado — `bill_due` chegou na 4.8. */
+export const REMINDER_RULE_KINDS = ["event_before", "birthday", "item_date_field", "bill_due"] as const;
 export type ReminderRuleKind = (typeof REMINDER_RULE_KINDS)[number];
 
 /** `config` é jsonb livre por natureza (cada `kind` usa campos diferentes) — o formulário monta a forma certa por `kind`; só os campos em comum a todo `kind` (nome, mensagem) são validados de forma estrita aqui. */
@@ -89,5 +89,9 @@ export const itemDateFieldRuleConfigSchema = z.object({
   typeId: z.string().uuid().optional(),
   fieldKey: z.string().optional(),
   fieldType: z.enum(["date", "datetime"]).optional(),
+  daysBefore: z.coerce.number().int().positive().optional(),
+});
+
+export const billDueRuleConfigSchema = z.object({
   daysBefore: z.coerce.number().int().positive().optional(),
 });
