@@ -1,0 +1,192 @@
+{
+  "key": "estudos",
+  "version": "1.0.0",
+  "name": "Estudos",
+  "description": "Planos de estudo, cursos, livros, fontes e flashcards com repetição espaçada (FSRS).",
+  "icon": "🧭",
+  "requires": [],
+  "types": [
+    {
+      "ref": "plan",
+      "name": "Plano de estudo",
+      "plural": "Planos de estudo",
+      "slug": "plano-de-estudo",
+      "icon": "🧭",
+      "defaultView": "list",
+      "fields": [
+        { "key": "goal", "label": "Objetivo", "type": "long_text" },
+        { "key": "deadline", "label": "Prazo", "type": "date", "showInCard": true },
+        { "key": "weekly_hours_target", "label": "Meta de horas semanais", "type": "duration", "min": 0 },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "planejando", "label": "Planejando" },
+            { "id": "em_andamento", "label": "Em andamento" },
+            { "id": "pausado", "label": "Pausado" },
+            { "id": "concluido", "label": "Concluído" }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "course",
+      "name": "Curso",
+      "plural": "Cursos",
+      "slug": "curso",
+      "icon": "🎓",
+      "defaultView": "kanban",
+      "fields": [
+        { "key": "plan", "label": "Plano", "type": "relation", "relationTypeId": "plan", "multiple": false },
+        { "key": "platform", "label": "Plataforma", "type": "text" },
+        { "key": "url", "label": "URL", "type": "url" },
+        { "key": "progress", "label": "Progresso", "type": "percent", "min": 0, "max": 100, "showInCard": true },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "quero_fazer", "label": "Quero fazer" },
+            { "id": "fazendo", "label": "Fazendo" },
+            { "id": "concluido", "label": "Concluído" },
+            { "id": "abandonado", "label": "Abandonado" }
+          ]
+        },
+        { "key": "started_on", "label": "Iniciado em", "type": "date" },
+        { "key": "finished_on", "label": "Concluído em", "type": "date" },
+        { "key": "certificate", "label": "Certificado", "type": "file", "multiple": false }
+      ]
+    },
+    {
+      "ref": "book",
+      "name": "Livro",
+      "plural": "Livros",
+      "slug": "livro",
+      "icon": "📚",
+      "defaultView": "gallery",
+      "fields": [
+        { "key": "author", "label": "Autor", "type": "text", "showInCard": true },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "quero_ler", "label": "Quero ler" },
+            { "id": "lendo", "label": "Lendo" },
+            { "id": "lido", "label": "Lido" },
+            { "id": "abandonado", "label": "Abandonado" }
+          ]
+        },
+        { "key": "pages", "label": "Páginas", "type": "number", "min": 0 },
+        { "key": "current_page", "label": "Página atual", "type": "number", "min": 0 },
+        { "key": "rating", "label": "Avaliação", "type": "rating", "min": 1, "max": 5 },
+        { "key": "finished_on", "label": "Terminado em", "type": "date" }
+      ]
+    },
+    {
+      "ref": "source",
+      "name": "Fonte",
+      "plural": "Fontes",
+      "slug": "fonte",
+      "icon": "🔗",
+      "fields": [
+        { "key": "url", "label": "URL", "type": "url" },
+        {
+          "key": "source_type",
+          "label": "Tipo",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "artigo", "label": "Artigo" },
+            { "id": "video", "label": "Vídeo" },
+            { "id": "podcast", "label": "Podcast" },
+            { "id": "paper", "label": "Paper" },
+            { "id": "documentacao", "label": "Documentação" }
+          ]
+        },
+        { "key": "author", "label": "Autor", "type": "text" }
+      ]
+    },
+    {
+      "ref": "note",
+      "name": "Nota de estudo",
+      "plural": "Notas de estudo",
+      "slug": "nota-de-estudo",
+      "icon": "📝",
+      "fields": [
+        {
+          "key": "about",
+          "label": "Sobre (Curso, Livro ou Fonte)",
+          "type": "relation",
+          "multiple": true,
+          "description": "Relação genérica — pode apontar pra itens de Curso, Livro ou Fonte (o tipo de campo hoje só declara um `relationTypeId`, então este fica sem um tipo único fixado de propósito)."
+        },
+        { "key": "concepts", "label": "Conceitos", "type": "multi_select", "options": [] }
+      ]
+    },
+    {
+      "ref": "flashcard",
+      "name": "Flashcard",
+      "plural": "Flashcards",
+      "slug": "flashcard",
+      "icon": "🃏",
+      "fields": [
+        { "key": "front", "label": "Frente", "type": "long_text", "required": true },
+        { "key": "back", "label": "Verso", "type": "long_text", "required": true },
+        {
+          "key": "deck",
+          "label": "Baralho (Plano, Curso ou Livro)",
+          "type": "relation",
+          "multiple": false,
+          "description": "Preenchido pelo criador dedicado de flashcards (\"+ Novo flashcard\", importação do Anki ou geração com IA) — mesmo motivo do campo `about` de Nota de estudo: pode ser Plano, Curso ou Livro."
+        }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "estante",
+      "typeRef": "book",
+      "name": "Estante",
+      "kind": "gallery",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "status", "dir": "asc" }], "visibleFields": ["status", "author", "rating"] }
+    },
+    {
+      "ref": "cursos_kanban",
+      "typeRef": "course",
+      "name": "Cursos",
+      "kind": "kanban",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [], "groupBy": "status" }
+    },
+    {
+      "ref": "plano_lista",
+      "typeRef": "plan",
+      "name": "Plano",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "deadline", "dir": "asc" }], "visibleFields": ["status", "deadline", "weekly_hours_target"] }
+    }
+  ],
+  "automations": [
+    {
+      "ref": "estudos_curso_concluido",
+      "typeRef": "course",
+      "name": "Curso concluído",
+      "description": "Ao progresso chegar em 100%, marca o curso como Concluído e preenche a data de conclusão com hoje.",
+      "trigger": { "type": "property_changed", "field": "progress", "to": 100 },
+      "conditions": [],
+      "actions": [
+        { "type": "set_property", "field": "status", "value": "concluido" },
+        { "type": "set_property", "field": "finished_on", "value": "{{today}}" }
+      ]
+    }
+  ],
+  "reminderRules": [],
+  "sampleItems": []
+}

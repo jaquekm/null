@@ -15,6 +15,7 @@ import { ItemActionsBar } from "@/features/items/components/item-actions-bar";
 import { ItemEditor } from "@/features/items/components/item-editor";
 import { RecordMeetingButton } from "@/features/media/components/record-meeting-button";
 import { SubitemsSection } from "@/features/items/components/subitems-section";
+import { StudyTimer } from "@/features/study/components/study-timer";
 import { VersionsPanel } from "@/features/items/components/versions-panel";
 import {
   getItemDetail,
@@ -120,6 +121,8 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       <ItemEditor key={item.updatedAt} item={item} />
 
       {item.type?.slug === "reuniao" && <RecordMeetingButton itemId={item.id} />}
+
+      {item.type?.slug && ["plano-de-estudo", "curso", "livro"].includes(item.type.slug) && <StudyTimer itemId={item.id} />}
 
       {item.type?.slug === "proposta" && (
         <a
