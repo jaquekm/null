@@ -21,6 +21,13 @@ import {
   type ItemDateFieldRuleConfig,
   type ItemForDateFieldRule,
 } from "@/features/reminders/lib/build-item-date-field-reminders";
+import {
+  buildSplitOpenReminders,
+  type ContactForSplitOpenRule,
+  type ShareForOpenRule,
+  type SplitForOpenRule,
+  type SplitOpenRuleConfig,
+} from "@/features/reminders/lib/build-split-open-reminders";
 import { reconcileGeneratedReminders, type DesiredReminder } from "@/features/reminders/lib/reconcile-generated-reminders";
 import { getUserTimezone } from "@/features/reminders/queries";
 import { serverEnv } from "@/lib/env";
@@ -110,7 +117,27 @@ async function buildDesiredForRule(supabase: Client, ownerId: string, rule: Rule
     );
   }
 
-  return []; // 'split_open' é 4.9; kind desconhecido também não gera nada
+  if (rule.kind === "split_open") {
+    const { data: splits } = await supabase.from("fin_splits").select("id, title, created_at, status").eq("owner_id", ownerId).eq("status", "open");
+    const splitIds = (splits ?? []).map((s) => s.id);
+
+    const [{ data: shares }, { data: contacts }] = await Promise.all([
+      splitIds.length > 0
+        ? supabase.from("fin_split_shares").select("id, split_id, contact_id, share_cents, settled_cents").in("split_id", splitIds)
+        : Promise.resolve({ data: [] }),
+      supabase.from("contacts").select("id, whatsapp_opt_in, email_opt_in").eq("owner_id", ownerId).is("archived_at", null),
+    ]);
+
+    return buildSplitOpenReminders(
+      (splits ?? []) as SplitForOpenRule[],
+      (shares ?? []) as ShareForOpenRule[],
+      (contacts ?? []) as ContactForSplitOpenRule[],
+      { id: rule.id, recipientType: rule.recipient_type, channel: rule.channel, messageTemplate: rule.message_template, config: config as SplitOpenRuleConfig },
+      now,
+    );
+  }
+
+  return []; // kind desconhecido não gera nada
 }
 
 /**

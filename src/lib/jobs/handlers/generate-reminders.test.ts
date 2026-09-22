@@ -13,6 +13,9 @@ vi.mock("@/features/reminders/lib/build-item-date-field-reminders", () => ({ bui
 const buildBillDueRemindersMock = vi.fn().mockReturnValue([]);
 vi.mock("@/features/reminders/lib/build-bill-due-reminders", () => ({ buildBillDueReminders: buildBillDueRemindersMock }));
 
+const buildSplitOpenRemindersMock = vi.fn().mockReturnValue([]);
+vi.mock("@/features/reminders/lib/build-split-open-reminders", () => ({ buildSplitOpenReminders: buildSplitOpenRemindersMock }));
+
 const reconcileGeneratedRemindersMock = vi.fn().mockReturnValue({ toInsert: [], toUpdate: [], toCancel: [] });
 vi.mock("@/features/reminders/lib/reconcile-generated-reminders", () => ({ reconcileGeneratedReminders: reconcileGeneratedRemindersMock }));
 
@@ -78,7 +81,7 @@ function fakeSupabase(state: FakeState) {
       if (table === "reminder_rules") {
         return { select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: state.rules ?? [], error: state.rulesError ?? null }) }) }) };
       }
-      if (table === "events" || table === "contacts" || table === "items" || table === "fin_bills" || table === "fin_recurring") {
+      if (table === "events" || table === "contacts" || table === "items" || table === "fin_bills" || table === "fin_recurring" || table === "fin_splits" || table === "fin_split_shares") {
         return { select: () => autoQuery({ data: [] }) };
       }
       if (table === "reminders") {
@@ -114,6 +117,7 @@ describe("generateReminders", () => {
     buildBirthdayRemindersMock.mockReset().mockReturnValue([]);
     buildItemDateFieldRemindersMock.mockReset().mockReturnValue([]);
     buildBillDueRemindersMock.mockReset().mockReturnValue([]);
+    buildSplitOpenRemindersMock.mockReset().mockReturnValue([]);
     reconcileGeneratedRemindersMock.mockReset().mockReturnValue({ toInsert: [], toUpdate: [], toCancel: [] });
     getUserTimezoneMock.mockClear();
   });
@@ -180,9 +184,20 @@ describe("generateReminders", () => {
     expect(timezone).toBe("America/Sao_Paulo");
   });
 
-  it("kind desconhecido ('split_open', 4.9): não chama nenhum builder, não quebra", async () => {
+  it("regra 'split_open': chama buildSplitOpenReminders com os campos certos", async () => {
     const { client } = fakeSupabase({
-      rules: [{ id: "rule-6", kind: "split_open", config: {}, channel: "auto", recipient_type: "me", message_template: "x" }],
+      rules: [{ id: "rule-6", kind: "split_open", config: { everyDays: 5 }, channel: "auto", recipient_type: "contacts", message_template: "x" }],
+    });
+    await generateReminders(fakeJob(), { supabase: client });
+
+    expect(buildSplitOpenRemindersMock).toHaveBeenCalledTimes(1);
+    const [, , , rule] = buildSplitOpenRemindersMock.mock.calls[0]!;
+    expect(rule).toMatchObject({ id: "rule-6", recipientType: "contacts", channel: "auto", messageTemplate: "x", config: { everyDays: 5 } });
+  });
+
+  it("kind desconhecido ('nao_existe'): não chama nenhum builder, não quebra", async () => {
+    const { client } = fakeSupabase({
+      rules: [{ id: "rule-7", kind: "nao_existe", config: {}, channel: "auto", recipient_type: "me", message_template: "x" }],
     });
     const outcome = await generateReminders(fakeJob(), { supabase: client });
     expect(outcome).toMatchObject({ status: "done" });
@@ -190,6 +205,7 @@ describe("generateReminders", () => {
     expect(buildBirthdayRemindersMock).not.toHaveBeenCalled();
     expect(buildItemDateFieldRemindersMock).not.toHaveBeenCalled();
     expect(buildBillDueRemindersMock).not.toHaveBeenCalled();
+    expect(buildSplitOpenRemindersMock).not.toHaveBeenCalled();
   });
 
   it("executa o resultado do reconcile: insere, atualiza e cancela", async () => {

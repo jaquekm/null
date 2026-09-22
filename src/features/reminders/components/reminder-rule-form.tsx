@@ -33,6 +33,7 @@ const VARIABLES_HINT: Record<ReminderRuleKind, string> = {
   birthday: "{{contato}} (nome do aniversariante), {{nome}}, {{data}}",
   item_date_field: "{{data}}, {{link}}, {{titulo}}",
   bill_due: "{{titulo}} (descrição da conta), {{data}} (vencimento), {{valor}}" + " (e {{nome}} se for pros contatos)",
+  split_open: "{{titulo}} (nome da divisão), {{valor}} (restante em aberto), {{dias}} (dias em aberto)" + " (e {{nome}} se for pros contatos)",
 };
 
 /** Formulário de criar/editar regra automática (3.10) — os campos de `config` mudam conforme `kind`. */
@@ -59,7 +60,8 @@ export function ReminderRuleForm({ types, rule, preset, onSaved, onCancel }: Rem
   // item_date_field
   const [typeId, setTypeId] = useState((initialConfig.typeId as string | undefined) ?? "");
   const [fieldKey, setFieldKey] = useState((initialConfig.fieldKey as string | undefined) ?? "");
-  const [daysBefore, setDaysBefore] = useState(String((initialConfig.daysBefore as number | undefined) ?? 1));
+  // item_date_field/bill_due usam `daysBefore`; split_open usa `everyDays` — mesmo campo de número, chave de config diferente por kind (ver buildConfig).
+  const [daysBefore, setDaysBefore] = useState(String((initialConfig.daysBefore as number | undefined) ?? (initialConfig.everyDays as number | undefined) ?? 1));
 
   const selectedType = types.find((t) => t.id === typeId);
   const dateFields = (selectedType?.fields ?? []).filter((f) => f.type === "date" || f.type === "datetime");
@@ -80,6 +82,7 @@ export function ReminderRuleForm({ types, rule, preset, onSaved, onCancel }: Rem
       return { typeId: typeId || undefined, fieldKey: fieldKey || undefined, fieldType: selectedField?.type, daysBefore: Number(daysBefore) || 1 };
     }
     if (kind === "bill_due") return { daysBefore: Number(daysBefore) || 3 };
+    if (kind === "split_open") return { everyDays: Number(daysBefore) || 7 };
     return {};
   }
 
@@ -153,6 +156,24 @@ export function ReminderRuleForm({ types, rule, preset, onSaved, onCancel }: Rem
             <span className="font-normal text-zinc-400">
               {recipientType === "me" ? "E no dia do vencimento." : "E no dia seguinte ao vencimento (cobrança)."}
             </span>
+          </label>
+        )}
+
+        {kind === "split_open" && (
+          <label className={labelClassName}>
+            Para quem
+            <select value={recipientType} onChange={(e) => setRecipientType(e.target.value as "me" | "contacts")} className={inputClassName} disabled={pending}>
+              <option value="contacts">Contatos com parte em aberto (com opt-in)</option>
+              <option value="me">Eu (minha própria parte em aberto)</option>
+            </select>
+          </label>
+        )}
+
+        {kind === "split_open" && (
+          <label className={labelClassName}>
+            A cada quantos dias
+            <input type="number" min={1} value={daysBefore} onChange={(e) => setDaysBefore(e.target.value)} className={`${inputClassName} w-24`} disabled={pending} />
+            <span className="font-normal text-zinc-400">Primeiro lembrete só depois desse tanto de dias em aberto; repete no máximo nesse intervalo.</span>
           </label>
         )}
 
