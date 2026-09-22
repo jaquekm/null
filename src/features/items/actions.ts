@@ -9,6 +9,7 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
 import { removeItemAttachmentsFromStorage } from "@/features/attachments/actions";
+import { emitItemEvent } from "@/features/automations/lib/emit-item-event";
 import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
 import { positionBetween } from "@/features/spaces/lib/position";
 import { diffLinks } from "./lib/diff-links";
@@ -111,7 +112,7 @@ export async function updateItemProperty(
 
   const { data: item, error: readError } = await supabase
     .from("items")
-    .select("properties, object_types(fields)")
+    .select("status, properties, object_types(fields)")
     .eq("id", itemId)
     .maybeSingle();
   if (readError || !item) return fail("Item não encontrado.");
@@ -137,6 +138,13 @@ export async function updateItemProperty(
     .single();
 
   if (error || !data) return fail(GENERIC_ERROR);
+
+  await emitItemEvent({
+    ownerId: user.id,
+    itemId,
+    before: { status: item.status, properties: currentProperties },
+    after: { status: item.status, properties: nextProperties },
+  });
 
   // Sem `revalidatePath` de propósito — mesmo motivo de `updateItemTitle`: autosave por campo,
   // o `PropertiesPanel` já se atualiza sozinho via `onSaved`/`updatedAt`.
@@ -312,8 +320,20 @@ export async function setItemStatus(itemId: string, status: string): Promise<Res
 
   const { supabase, user } = await requireOwner();
 
+  const { data: current } = await supabase.from("items").select("status, properties").eq("id", itemId).maybeSingle();
+
   const { error } = await supabase.from("items").update({ status: parsed.data }).eq("id", itemId).eq("owner_id", user.id);
   if (error) return fail("Não foi possível atualizar o status.");
+
+  if (current) {
+    const properties = (current.properties as Record<string, unknown> | null) ?? {};
+    await emitItemEvent({
+      ownerId: user.id,
+      itemId,
+      before: { status: current.status, properties },
+      after: { status: parsed.data, properties },
+    });
+  }
 
   revalidatePath(`/itens/${itemId}`);
   revalidatePath("/inbox");
@@ -386,6 +406,8 @@ export async function createSubitem(_prevState: Result<null>, formData: FormData
     .single();
 
   if (error || !data) return fail("Não foi possível criar o subitem.");
+
+  await emitItemEvent({ ownerId: user.id, itemId: data.id, before: null, after: { status: "active", properties: {} } });
 
   revalidatePath(`/itens/${parsed.data.parentId}`);
   redirect(`/itens/${data.id}`);

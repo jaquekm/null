@@ -32,6 +32,9 @@ const serverSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
 
+  // Fase 5 — opcional até uma automação usar a ação `call_webhook` (5.3); reaproveita N8N_WEBHOOK_SECRET pra assinar
+  AUTOMATION_WEBHOOK_URL: z.string().optional(),
+
   // Fase 6 — opcionais até relatórios/busca semântica
   EMBEDDINGS_PROVIDER: z.string().optional(),
   EMBEDDINGS_API_KEY: z.string().optional(),

@@ -1,9 +1,11 @@
 /**
  * Cliente Supabase falso, em memória, só com o subconjunto de operações que
- * `features/packs` usa (`select`/`eq`/`is`/`in`/`order`/`limit`/`insert`/
+ * este projeto usa (`select`/`eq`/`is`/`in`/`order`/`limit`/`insert`/
  * `update`/`delete`/`maybeSingle`/`single`, mais `count` no `select`).
- * Existe só pros testes de `install.ts`/`uninstall.ts`/`export.ts` — não é
- * um emulador genérico do Postgrest.
+ * Nasceu pros testes de `features/packs` (5.2: `install.ts`/`uninstall.ts`/
+ * `export.ts`) e é reaproveitado por qualquer feature que precise simular
+ * várias tabelas encadeadas num teste de unidade — não é um emulador
+ * genérico do Postgrest.
  */
 
 type Row = Record<string, unknown>;
@@ -14,6 +16,7 @@ class FakeQuery implements PromiseLike<PgResult> {
   private filters: ((row: Row) => boolean)[] = [];
   private selectCount = false;
   private pendingInsert: Row[] | null = null;
+  private pendingUpsert: { rows: Row[]; conflictFields: string[] } | null = null;
   private pendingUpdate: Row | null = null;
   private pendingDelete = false;
   private orderField: string | null = null;
@@ -54,6 +57,13 @@ class FakeQuery implements PromiseLike<PgResult> {
   }
   insert(row: Row | Row[]) {
     this.pendingInsert = Array.isArray(row) ? row : [row];
+    return this;
+  }
+  upsert(row: Row | Row[], opts?: { onConflict?: string }) {
+    this.pendingUpsert = {
+      rows: Array.isArray(row) ? row : [row],
+      conflictFields: opts?.onConflict ? opts.onConflict.split(",").map((f) => f.trim()) : ["id"],
+    };
     return this;
   }
   update(patch: Row) {
@@ -98,6 +108,22 @@ class FakeQuery implements PromiseLike<PgResult> {
         inserted.push(row);
       }
       return { data: inserted.length === 1 ? inserted[0] : inserted, error: null };
+    }
+    if (this.pendingUpsert) {
+      const { rows: candidates, conflictFields } = this.pendingUpsert;
+      const result: Row[] = [];
+      for (const candidate of candidates) {
+        const existing = this.rows.find((row) => conflictFields.every((field) => row[field] === candidate[field]));
+        if (existing) {
+          Object.assign(existing, candidate);
+          result.push(existing);
+        } else {
+          const row = { id: this.generateId(), ...candidate };
+          this.rows.push(row);
+          result.push(row);
+        }
+      }
+      return { data: result.length === 1 ? result[0] : result, error: null };
     }
     if (this.pendingUpdate) {
       const matched = this.matched();
