@@ -26,6 +26,7 @@ import { computeTransactionTotals, type TransactionTotals } from "./lib/transact
 import {
   getBill,
   getCardStatement,
+  getDashboardData,
   getLastCsvMapping,
   getSplit,
   getUserTimezone,
@@ -49,6 +50,7 @@ import {
   listUnlinkedExpenseTransactions,
   sumStatementTransactionAmounts,
   type BillRow,
+  type DashboardData,
   type LinkableTransactionRow,
   type RecurringRow,
   type SplitFilters,
@@ -1993,4 +1995,14 @@ export async function getGroupSettlement(groupLabel: string): Promise<GroupSettl
   const balanceList = [...balances.entries()].map(([personId, balanceCents]) => ({ personId, balanceCents }));
 
   return { balances: balanceList, transfers: computeSettlementTransfers(balanceList) };
+}
+
+// =========================================================
+// PAINEL FINANCEIRO (4.12)
+// =========================================================
+
+/** `/financas` (4.12) — igual a `page.tsx`, só que chamado pelo filtro de mês/espaço trocando no cliente; a montagem de verdade mora em `queries.ts#getDashboardData` (recebe `supabase` direto, sem outro `requireOwner()` — `page.tsx` já chamou o dele). */
+export async function searchDashboardData(input: { month: string; spaceId?: string }): Promise<DashboardData> {
+  const { supabase, user } = await requireOwner();
+  return getDashboardData(supabase, user.id, input);
 }

@@ -1,11 +1,20 @@
 import "server-only";
+import { addDays, format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sumCents } from "@/lib/money";
 import type { Database } from "@/lib/supabase/database.types";
+import { computeCashProjection, type CashEvent, type ProjectedDay } from "./lib/cash-projection";
+import { buildCashflowSeries, type MonthCashflow } from "./lib/cashflow-series";
+import { compareCategorySpend, type CategorySpendComparison } from "./lib/category-spend-comparison";
+import { sumExpensesByCategory } from "./lib/budget-progress";
 import type { BillForMatching } from "./lib/match-bills";
 import type { CategorizationRule, TransactionForRuleMatch } from "./lib/match-rule";
+import { monthPeriod, shiftMonth } from "./lib/period-range";
 import type { CsvImportMapping } from "./lib/parse-statement-csv";
 import type { SplitMethod } from "./lib/split-shares";
 import type { RecentTransactionForSuggestion } from "./lib/suggest-category";
+import { computeTransactionTotals, topExpenses, type TransactionForTopExpenses } from "./lib/transaction-totals";
 import type { AccountKind, BillDirection, BillFilters, BillStatus, ImportFormat, PixKeyType, SplitStatus, TransactionFilters, TransactionStatus } from "./schemas";
 
 type Client = SupabaseClient<Database>;
@@ -30,10 +39,11 @@ export interface AccountRow {
   closingDay: number | null;
   dueDay: number | null;
   paymentAccountId: string | null;
+  includeInTotals: boolean;
 }
 
 const ACCOUNT_COLUMNS =
-  "id, name, kind, institution, space_id, opening_balance_cents, opening_date, credit_limit_cents, closing_day, due_day, payment_account_id";
+  "id, name, kind, institution, space_id, opening_balance_cents, opening_date, credit_limit_cents, closing_day, due_day, payment_account_id, include_in_totals";
 
 function mapAccountRow(row: Record<string, unknown>): AccountRow {
   return {
@@ -48,6 +58,7 @@ function mapAccountRow(row: Record<string, unknown>): AccountRow {
     closingDay: row.closing_day as number | null,
     dueDay: row.due_day as number | null,
     paymentAccountId: row.payment_account_id as string | null,
+    includeInTotals: row.include_in_totals as boolean,
   };
 }
 
@@ -56,6 +67,14 @@ export async function listAccounts(supabase: Client): Promise<AccountRow[]> {
   const { data, error } = await supabase.from("fin_accounts").select(ACCOUNT_COLUMNS).is("archived_at", null).order("position", { ascending: true });
   if (error) throw error;
   return data.map(mapAccountRow);
+}
+
+/** Saldo de várias contas de uma vez (`fin_account_balances`, 4.2) — painel financeiro (4.12), evita 1 consulta por conta. */
+export async function listAccountBalances(supabase: Client, accountIds: string[]): Promise<Map<string, number>> {
+  if (accountIds.length === 0) return new Map();
+  const { data, error } = await supabase.from("fin_account_balances").select("account_id, balance_cents").in("account_id", accountIds);
+  if (error) throw error;
+  return new Map(data.filter((row) => row.account_id != null).map((row) => [row.account_id as string, row.balance_cents ?? 0]));
 }
 
 export interface CategoryRow {
@@ -720,4 +739,141 @@ export async function listUnlinkedExpenseTransactions(supabase: Client, sinceDat
   if (error) throw error;
 
   return data.filter((row) => !linkedIds.has(row.id)).map((row) => ({ id: row.id, description: row.description, amountCents: row.amount_cents, occurredOn: row.occurred_on }));
+}
+
+// =========================================================
+// PAINEL FINANCEIRO (4.12)
+// =========================================================
+
+export interface DashboardCards {
+  totalBalanceCents: number;
+  incomeCents: number;
+  expenseCents: number;
+  resultCents: number;
+  openCardDebtCents: number;
+  receivableOpenCents: number;
+  splitBalanceCents: number;
+}
+
+export type UpcomingOrigin = "avulsa" | "fatura" | "recorrencia";
+
+export interface UpcomingItem {
+  id: string;
+  description: string;
+  dueOn: string;
+  amountCents: number;
+  direction: BillDirection;
+  origin: UpcomingOrigin;
+}
+
+export interface DashboardData {
+  cards: DashboardCards;
+  cashflow: MonthCashflow[];
+  categoryBreakdown: CategorySpendComparison[];
+  projection: ProjectedDay[];
+  upcoming: UpcomingItem[];
+  topExpenses: TransactionForTopExpenses[];
+  uncategorized: TransactionRow[];
+}
+
+function billOrigin(bill: BillRow): UpcomingOrigin {
+  if (bill.statementId) return "fatura";
+  if (bill.recurringId) return "recorrencia";
+  return "avulsa";
+}
+
+/**
+ * `/financas` (4.12) — cards, fluxo de caixa (12 meses), categorias × mês
+ * anterior, projeção de 30 dias, maiores gastos, sem categoria. Uma única
+ * consulta de lançamentos (a janela de 12 meses já contém o mês atual e o
+ * anterior) alimenta cards+fluxo+categorias+maiores gastos+sem categoria,
+ * em vez de uma consulta por card — o enunciado pede "não trazer todas as
+ * transações ao cliente"; aqui elas nunca saem do servidor, só os números
+ * agregados (mesmo padrão já usado em `/financas/lancamentos` e
+ * `/financas/orcamento`, sem função SQL dedicada — ver decisão no
+ * PROGRESSO.md). Recebe `supabase`/`ownerId` direto (como toda função deste
+ * arquivo) em vez de chamar `requireOwner()` de novo — quem chama (a action
+ * `searchDashboardData` ou o `page.tsx`) já tem os dois.
+ */
+export async function getDashboardData(supabase: Client, ownerId: string, input: { month: string; spaceId?: string }): Promise<DashboardData> {
+  const timezone = await getUserTimezone(supabase, ownerId);
+  const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+
+  const period = monthPeriod(input.month);
+  const previousPeriod = monthPeriod(shiftMonth(input.month, -1));
+  const cashflowMonths = Array.from({ length: 12 }, (_, i) => shiftMonth(input.month, i - 11));
+  const cashflowStart = monthPeriod(cashflowMonths[0]!).start;
+  const days = Array.from({ length: 30 }, (_, i) => format(addDays(new Date(`${today}T12:00:00`), i), "yyyy-MM-dd"));
+  const horizon = days[days.length - 1]!;
+
+  const [accounts, categories, allTransactions, payableBills, receivableBills, contactBalances] = await Promise.all([
+    listAccounts(supabase),
+    listCategories(supabase),
+    listTransactions(supabase, { periodStart: cashflowStart, periodEnd: period.end, spaceId: input.spaceId }),
+    listBills(supabase, { tab: "payable", spaceId: input.spaceId }, today),
+    listBills(supabase, { tab: "receivable", spaceId: input.spaceId }, today),
+    listContactBalances(supabase),
+  ]);
+
+  const scopedAccounts = accounts.filter((a) => !input.spaceId || a.spaceId === input.spaceId);
+  const balances = await listAccountBalances(
+    supabase,
+    scopedAccounts.map((a) => a.id),
+  );
+
+  const totalBalanceCents = sumCents(scopedAccounts.filter((a) => a.includeInTotals).map((a) => balances.get(a.id) ?? 0));
+  // Débito atual nos cartões (saldo negativo = devendo); cartão com saldo positivo/zero não soma nada aqui.
+  const openCardDebtCents = -sumCents(scopedAccounts.filter((a) => a.kind === "credit_card").map((a) => Math.min(balances.get(a.id) ?? 0, 0)));
+  const receivableOpenCents = sumCents(receivableBills.map((b) => b.amountCents - b.paidCents));
+  // `fin_splits` não tem `space_id` — saldo de divisões não é filtrável por espaço, sempre o total (mesma limitação do schema, não dá pra filtrar o que não existe).
+  const splitBalanceCents = sumCents([...contactBalances.values()]);
+
+  const currentMonthAll = allTransactions.filter((t) => t.occurredOn >= period.start && t.occurredOn <= period.end);
+  const previousMonthAll = allTransactions.filter((t) => t.occurredOn >= previousPeriod.start && t.occurredOn <= previousPeriod.end);
+  const monthTotals = computeTransactionTotals(currentMonthAll);
+
+  const cashflow = buildCashflowSeries(allTransactions, cashflowMonths);
+
+  const expenseCategories = categories.filter((c) => c.kind === "expense");
+  const currentSpend = sumExpensesByCategory(currentMonthAll.filter((t) => t.kind === "normal"));
+  const previousSpend = sumExpensesByCategory(previousMonthAll.filter((t) => t.kind === "normal"));
+  const categoryBreakdown = compareCategorySpend(expenseCategories, currentSpend, previousSpend);
+
+  const topExpensesList = topExpenses(currentMonthAll, 5);
+  const uncategorized = currentMonthAll.filter((t) => t.kind === "normal" && t.categoryId === null);
+
+  // "Faturas" e "recorrências" já viram `fin_bills` pelos jobs `close_card_statements`/`generate_bills` (4.7/4.8) —
+  // não precisa de consulta própria a `fin_card_statements`/`fin_recurring` aqui, só distinguir a origem pelo `billOrigin`.
+  const upcomingBills = [...payableBills, ...receivableBills].filter((b) => b.dueOn >= today && b.dueOn <= horizon).sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  const upcoming: UpcomingItem[] = upcomingBills.map((b) => ({
+    id: b.id,
+    description: b.description,
+    dueOn: b.dueOn,
+    amountCents: b.amountCents - b.paidCents,
+    direction: b.direction,
+    origin: billOrigin(b),
+  }));
+  const events: CashEvent[] = upcomingBills.map((b) => ({
+    date: b.dueOn,
+    amountCents: b.direction === "receivable" ? b.amountCents - b.paidCents : -(b.amountCents - b.paidCents),
+  }));
+  const projection = computeCashProjection(totalBalanceCents, events, days);
+
+  return {
+    cards: {
+      totalBalanceCents,
+      incomeCents: monthTotals.incomeCents,
+      expenseCents: monthTotals.expenseCents,
+      resultCents: monthTotals.resultCents,
+      openCardDebtCents,
+      receivableOpenCents,
+      splitBalanceCents,
+    },
+    cashflow,
+    categoryBreakdown,
+    projection,
+    upcoming,
+    topExpenses: topExpensesList,
+    uncategorized,
+  };
 }

@@ -6,11 +6,23 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Painel financeiro (4.12, recharts) — mesmas cores de entrada/saída já usadas em texto (emerald/red) desde a 4.4,
+     validadas separação/contraste com scripts/validate_palette.js da skill dataviz (claro e escuro). */
+  --chart-income: #059669;
+  --chart-expense: #dc2626;
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-muted: #71717a;
 }
 
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+  /* Vermelho um tom mais claro que o do texto (red-500 em vez de red-400) — é o par que passou no validador
+     pro fundo escuro (red-400 falhava a faixa de luminosidade); verde continua o mesmo dos dois modos. */
+  --chart-income: #059669;
+  --chart-expense: #ef4444;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-muted: #a1a1aa;
 }
 
 @theme inline {
