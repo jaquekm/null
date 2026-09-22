@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fieldDefinitionSchema, type FieldDefinition } from "@/features/types/schemas";
 import { fieldKeyFromLabel } from "@/features/types/lib/field-key";
+import { extractText } from "@/features/items/lib/extract-text";
 import { fail, ok, type Result } from "@/lib/result";
 import { slugify } from "@/lib/slugify";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -256,6 +257,7 @@ async function createSampleItems(
   for (const sample of samples) {
     const typeId = typeIdByRef[sample.typeRef];
     if (!typeId) continue;
+    const content = sample.content ?? null;
     const { error } = await supabase.from("items").insert({
       owner_id: userId,
       space_id: spaceId,
@@ -263,6 +265,8 @@ async function createSampleItems(
       title: sample.title,
       status: "active",
       properties: sample.properties as unknown as Json,
+      content: content as unknown as Json | null,
+      content_text: content ? extractText(content as unknown as Parameters<typeof extractText>[0]) : "",
     });
     if (!error) created += 1;
   }

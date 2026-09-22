@@ -17,12 +17,15 @@ export function ItemContentEditor({
   initialContent,
   updatedAt,
   onSaved,
+  onContentSaved,
 }: {
   itemId: string;
   spaceId: string | null;
   initialContent: JSONContent | null;
   updatedAt: string;
   onSaved: (updatedAt: string) => void;
+  /** Opcional — usado por quem precisa do `content` salvo, não só o `updatedAt` (ex.: alternar pro "modo lista", 5.9). */
+  onContentSaved?: (content: JSONContent) => void;
 }) {
   const [status, setStatus] = useState<SaveStatus>("saved");
   const updatedAtRef = useRef(updatedAt);
@@ -59,10 +62,11 @@ export function ItemContentEditor({
       if (result.data) {
         updatedAtRef.current = result.data.updatedAt;
         onSaved(result.data.updatedAt);
+        onContentSaved?.(content);
       }
       setStatus("saved");
     },
-    [itemId, onSaved],
+    [itemId, onSaved, onContentSaved],
   );
 
   useEffect(() => {

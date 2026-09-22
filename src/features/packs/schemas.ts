@@ -102,6 +102,8 @@ export const packSampleItemSchema = z.object({
   typeRef: packRefSchema,
   title: z.string().trim().min(1),
   properties: z.record(z.string(), z.unknown()).default({}),
+  /** Conteúdo Tiptap do exemplo (5.9: templates de lista com itens pré-preenchidos, ex. "Compras do mês"). */
+  content: tiptapDocSchema.nullable().optional(),
 });
 export type PackSampleItem = z.infer<typeof packSampleItemSchema>;
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { Archive, ArchiveRestore, Copy, Link as LinkIcon, Pin, PinOff, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Link as LinkIcon, ListChecks, Pin, PinOff, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import type { TypeOptionWithFields } from "../queries";
-import { changeItemType, duplicateItem, moveItem, setItemStatus, softDeleteItem, togglePin } from "../actions";
+import { changeItemType, duplicateItem, duplicateItemAsNewList, moveItem, setItemStatus, softDeleteItem, togglePin } from "../actions";
 
 const selectClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -19,6 +19,7 @@ export function ItemActionsBar({
   pinned,
   spaceId,
   typeId,
+  typeSlug,
   spaces,
   types,
 }: {
@@ -27,6 +28,8 @@ export function ItemActionsBar({
   pinned: boolean;
   spaceId: string | null;
   typeId: string | null;
+  /** Só pra condicionar "Duplicar como nova" (5.9, pack Listas) ao tipo Lista — mesmo critério de outras ações condicionais por `slug`. */
+  typeSlug?: string | null;
   spaces: SidebarSpace[];
   types: TypeOptionWithFields[];
 }) {
@@ -46,6 +49,18 @@ export function ItemActionsBar({
     setError(null);
     startTransition(async () => {
       const result = await duplicateItem(itemId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (result.data) router.push(`/itens/${result.data.id}`);
+    });
+  }
+
+  function handleDuplicateAsNewList() {
+    setError(null);
+    startTransition(async () => {
+      const result = await duplicateItemAsNewList(itemId);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -121,6 +136,13 @@ export function ItemActionsBar({
           <Copy className="h-4 w-4" />
           Duplicar
         </button>
+
+        {typeSlug === "lista" && (
+          <button type="button" disabled={pending} onClick={handleDuplicateAsNewList} className={buttonClassName}>
+            <ListChecks className="h-4 w-4" />
+            Duplicar como nova
+          </button>
+        )}
 
         <button
           type="button"

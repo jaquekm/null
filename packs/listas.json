@@ -1,0 +1,186 @@
+{
+  "key": "listas",
+  "version": "1.0.0",
+  "name": "Listas",
+  "description": "Checklists reutilizáveis — compras, viagem, mudança de casa, checklist de processo — com modo lista otimizado pro celular.",
+  "icon": "✅",
+  "requires": [],
+  "types": [
+    {
+      "ref": "list",
+      "name": "Lista",
+      "plural": "Listas",
+      "slug": "lista",
+      "icon": "✅",
+      "defaultView": "list",
+      "fields": [
+        {
+          "key": "list_kind",
+          "label": "Tipo de lista",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "compras", "label": "Compras" },
+            { "id": "viagem", "label": "Viagem" },
+            { "id": "mudanca_de_casa", "label": "Mudança de casa" },
+            { "id": "checklist_de_processo", "label": "Checklist de processo" },
+            { "id": "outros", "label": "Outros" }
+          ]
+        },
+        { "key": "recurring", "label": "Recorrente", "type": "checkbox", "showInCard": true },
+        { "key": "shared_with", "label": "Compartilhada com", "type": "contact", "multiple": false }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "listas_lista",
+      "typeRef": "list",
+      "name": "Listas",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["list_kind", "recurring"] }
+    }
+  ],
+  "automations": [],
+  "reminderRules": [],
+  "sampleItems": [
+    {
+      "typeRef": "list",
+      "title": "Compras do mês",
+      "properties": { "list_kind": "compras", "recurring": true },
+      "content": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Arroz e feijão" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Leite e ovos" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Frutas e verduras" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Produtos de limpeza" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Papel higiênico" }] }] }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "typeRef": "list",
+      "title": "Mala de viagem",
+      "properties": { "list_kind": "viagem", "recurring": false },
+      "content": {
+        "type": "doc",
+        "content": [
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Documentos" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Documento de identidade" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Passagens e reservas" }] }] }
+            ]
+          },
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Roupas" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Roupas pro número de dias" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Casaco/agasalho" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Calçados" }] }] }
+            ]
+          },
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Eletrônicos e higiene" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Carregadores" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Necessaire" }] }] }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "typeRef": "list",
+      "title": "Mudança de casa",
+      "properties": { "list_kind": "mudanca_de_casa", "recurring": false },
+      "content": {
+        "type": "doc",
+        "content": [
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Antes da mudança" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Contratar transporte" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Avisar mudança de endereço (banco, trabalho)" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Comprar caixas e etiquetas" }] }] }
+            ]
+          },
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Cozinha" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Embalar louça e panelas" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Eletrodomésticos" }] }] }
+            ]
+          },
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Quarto" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Roupas e armários" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Desmontar cama/móveis" }] }] }
+            ]
+          },
+          { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Depois da mudança" }] },
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Ligar água, luz, internet" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Trocar fechaduras" }] }] }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "typeRef": "list",
+      "title": "Checklist de deploy",
+      "properties": { "list_kind": "checklist_de_processo", "recurring": true },
+      "content": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Rodar testes e lint" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Revisar migrations pendentes" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Conferir variáveis de ambiente" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Fazer backup antes do deploy" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Publicar e monitorar erros" }] }] }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "typeRef": "list",
+      "title": "Onboarding de cliente",
+      "properties": { "list_kind": "checklist_de_processo", "recurring": false },
+      "content": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Enviar contrato e boas-vindas" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Criar acesso/cadastro" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Reunião de kickoff" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Configurar cobrança" }] }] }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -242,4 +242,30 @@ describe("installPack", () => {
     const progressField = (projectType.fields as { key: string; rollupRelationTypeId?: string }[]).find((f) => f.key === "progress")!;
     expect(progressField.rollupRelationTypeId).toBe(taskId);
   });
+
+  it("exemplo com content (5.9: template de lista) grava content e content_text", async () => {
+    const fake = newFake();
+    const pack = buildPack({
+      types: [{ ref: "list", name: "Lista", fields: [] }],
+      views: [],
+      automations: [],
+      sampleItems: [
+        {
+          typeRef: "list",
+          title: "Compras do mês",
+          properties: {},
+          content: { type: "doc", content: [{ type: "taskList", content: [{ type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Leite" }] }] }] }] },
+        },
+      ],
+    });
+
+    const result = await installPack(client(fake), USER_ID, pack, { spaceId: null, withSamples: true });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sampleItemsCreated).toBe(1);
+
+    const item = fake.rowsOf("items")[0]!;
+    expect(item.content).toBeTruthy();
+    expect(item.content_text).toContain("Leite");
+  });
 });
