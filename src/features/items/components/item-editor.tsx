@@ -2,6 +2,8 @@
 
 import type { JSONContent } from "@tiptap/core";
 import { useState } from "react";
+import { HabitTracker } from "@/features/habits/components/habit-tracker";
+import type { HabitLog } from "@/features/habits/lib/habit-log";
 import { ItemContentEditor } from "./editor/item-content-editor";
 import { ListModeView } from "./list-mode-view";
 import type { ItemDetail } from "../queries";
@@ -14,6 +16,7 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
   const [listMode, setListMode] = useState(item.type?.slug === "lista");
 
   const isLista = item.type?.slug === "lista";
+  const isHabito = item.type?.slug === "habito";
 
   function handleSaved(nextUpdatedAt: string) {
     setUpdatedAt(nextUpdatedAt);
@@ -29,6 +32,14 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
           properties={item.properties}
           updatedAt={updatedAt}
           onSaved={handleSaved}
+        />
+      )}
+
+      {isHabito && (
+        <HabitTracker
+          itemId={item.id}
+          initialLog={(item.properties.log as HabitLog | undefined) ?? {}}
+          targetPerPeriod={typeof item.properties.target_per_period === "number" ? item.properties.target_per_period : null}
         />
       )}
 
