@@ -12,7 +12,15 @@ export default async function TiposPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Tipos de objeto</h1>
-        <NewTypeButton spaces={spaces} />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/configuracoes/tipos/exportar"
+            className="rounded-lg border border-black/[.12] px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-200 dark:hover:bg-white/[.06]"
+          >
+            Exportar como pack
+          </Link>
+          <NewTypeButton spaces={spaces} />
+        </div>
       </div>
 
       <ul className="flex flex-col gap-1">
