@@ -111,6 +111,7 @@ export async function completeOnboarding(
       { kind: "purge_trash", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
       { kind: "dispatch_reminders", owner_id: user.id, interval_seconds: 60, enabled: true },
       { kind: "generate_reminders", owner_id: user.id, interval_seconds: 15 * 60, enabled: true },
+      { kind: "evaluate_time_automations", owner_id: user.id, interval_seconds: 5 * 60, enabled: true },
     ],
     { onConflict: "kind" },
   );

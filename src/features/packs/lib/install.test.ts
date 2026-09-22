@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import type { Database } from "@/lib/supabase/database.types";
 import { packSchema, type Pack } from "../schemas";
-import { FakeSupabase } from "./fake-supabase";
+import { FakeSupabase } from "@/lib/testing/fake-supabase";
 import { installPack, type InstallPackOptions } from "./install";
 
 const USER_ID = "user-1";

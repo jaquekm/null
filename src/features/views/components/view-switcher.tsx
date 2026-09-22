@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, List as ListIcon, Plus, Table as TableIcon, type LucideIcon } from "lucide-react";
+import { CalendarDays, GanttChart, Images, LayoutGrid, List as ListIcon, Plus, Table as TableIcon, type LucideIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createView, deleteView, duplicateView, renameView, setDefaultView } from "../actions";
@@ -8,8 +8,22 @@ import type { ViewRow } from "../queries";
 import { viewKinds, type ViewKind } from "../schemas";
 import { ItemsView } from "./items-view";
 
-const KIND_ICON: Record<ViewKind, LucideIcon> = { list: ListIcon, table: TableIcon, kanban: LayoutGrid };
-const KIND_LABEL: Record<ViewKind, string> = { list: "Lista", table: "Tabela", kanban: "Kanban" };
+const KIND_ICON: Record<ViewKind, LucideIcon> = {
+  list: ListIcon,
+  table: TableIcon,
+  kanban: LayoutGrid,
+  calendar: CalendarDays,
+  timeline: GanttChart,
+  gallery: Images,
+};
+const KIND_LABEL: Record<ViewKind, string> = {
+  list: "Lista",
+  table: "Tabela",
+  kanban: "Kanban",
+  calendar: "Calendário",
+  timeline: "Linha do tempo",
+  gallery: "Galeria",
+};
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";

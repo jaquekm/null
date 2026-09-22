@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { emitTagAddedEvent } from "@/features/automations/lib/emit-item-event";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { TagOption } from "./queries";
@@ -32,6 +33,8 @@ export async function addTagToItem(itemId: string, rawName: string): Promise<Res
     .upsert({ item_id: itemId, tag_id: tag.id, owner_id: user.id }, { onConflict: "item_id,tag_id" });
   if (linkError) return fail("Não foi possível adicionar a tag ao item.");
 
+  await emitTagAddedEvent({ ownerId: user.id, itemId, tag: name });
+
   revalidatePath(`/itens/${itemId}`);
   return ok(tag);
 }
@@ -57,6 +60,10 @@ export async function addTagToItems(itemIds: string[], rawName: string): Promise
     { onConflict: "item_id,tag_id" },
   );
   if (linkError) return fail("Não foi possível adicionar a tag aos itens.");
+
+  for (const itemId of itemIds) {
+    await emitTagAddedEvent({ ownerId: user.id, itemId, tag: name });
+  }
 
   revalidatePath("/inbox");
   return ok(tag);

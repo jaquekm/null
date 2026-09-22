@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { emitItemEvent } from "@/features/automations/lib/emit-item-event";
 import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { textToDoc } from "./text-to-doc";
@@ -44,6 +45,12 @@ export async function createCaptureItem(
   if (error || !data) return null;
 
   await attachHashtagsFromText(supabase, input.ownerId, data.id, `${input.title} ${input.body}`);
+  await emitItemEvent({
+    ownerId: input.ownerId,
+    itemId: data.id,
+    before: null,
+    after: { status: input.spaceId ? "active" : "inbox", properties: {} },
+  });
 
   return { id: data.id };
 }

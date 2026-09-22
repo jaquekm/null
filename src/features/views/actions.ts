@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { emitItemEvent } from "@/features/automations/lib/emit-item-event";
 import type { FieldDefinition } from "@/features/types/schemas";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
@@ -184,10 +185,13 @@ export async function createItemInColumn(input: {
     .single();
   if (error || !data) return fail("Não foi possível criar o item.");
 
+  const createdProperties = (data.properties as Record<string, unknown> | null) ?? {};
+  await emitItemEvent({ ownerId: user.id, itemId: data.id, before: null, after: { status: "active", properties: createdProperties } });
+
   return ok({
     id: data.id,
     title: data.title,
-    properties: (data.properties as Record<string, unknown> | null) ?? {},
+    properties: createdProperties,
     updatedAt: data.updated_at,
     createdAt: data.created_at,
     position: data.position,
