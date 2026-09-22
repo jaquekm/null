@@ -24,3 +24,18 @@ export function computeTransactionTotals(rows: TransactionForTotals[]): Transact
   const expenseCents = sumCents(counted.filter((row) => row.amountCents < 0).map((row) => row.amountCents));
   return { incomeCents, expenseCents, resultCents: incomeCents + expenseCents };
 }
+
+export interface TransactionForTopExpenses extends TransactionForTotals {
+  id: string;
+  description: string;
+  occurredOn: string;
+  categoryId: string | null;
+}
+
+/** "Maiores gastos do mês" (4.12) — só despesas de verdade (mesmo critério de `computeTransactionTotals`), mais negativa primeiro. */
+export function topExpenses<T extends TransactionForTopExpenses>(rows: T[], limit: number): T[] {
+  return rows
+    .filter((row) => (row.kind === "normal" || row.kind === "adjustment") && row.amountCents < 0)
+    .sort((a, b) => a.amountCents - b.amountCents)
+    .slice(0, limit);
+}

@@ -118,6 +118,147 @@ export type Database = {
           },
         ]
       }
+      automation_event_log: {
+        Row: {
+          automation_id: string
+          chain_id: string
+          created_at: string
+          id: number
+          item_id: string
+          owner_id: string
+        }
+        Insert: {
+          automation_id: string
+          chain_id: string
+          created_at?: string
+          id?: never
+          item_id: string
+          owner_id: string
+        }
+        Update: {
+          automation_id?: string
+          chain_id?: string
+          created_at?: string
+          id?: never
+          item_id?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
+      automation_runs: {
+        Row: {
+          automation_id: string
+          created_at: string
+          detail: Json | null
+          id: string
+          item_id: string | null
+          owner_id: string
+          status: string
+        }
+        Insert: {
+          automation_id: string
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          item_id?: string | null
+          owner_id: string
+          status: string
+        }
+        Update: {
+          automation_id?: string
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          item_id?: string | null
+          owner_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_runs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          name: string
+          owner_id: string
+          pack_key: string | null
+          run_count: number
+          space_id: string | null
+          trigger: Json
+          type_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          actions: Json
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name: string
+          owner_id?: string
+          pack_key?: string | null
+          run_count?: number
+          space_id?: string | null
+          trigger: Json
+          type_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          owner_id?: string
+          pack_key?: string | null
+          run_count?: number
+          space_id?: string | null
+          trigger?: Json
+          type_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automations_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "object_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendars: {
         Row: {
           color: string | null
@@ -177,6 +318,198 @@ export type Database = {
             columns: ["space_id"]
             isOneToOne: false
             referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canvas_edges: {
+        Row: {
+          canvas_id: string
+          created_at: string
+          creates_link: boolean
+          id: string
+          label: string | null
+          owner_id: string
+          source_node_id: string
+          style: Json
+          target_node_id: string
+        }
+        Insert: {
+          canvas_id: string
+          created_at?: string
+          creates_link?: boolean
+          id?: string
+          label?: string | null
+          owner_id?: string
+          source_node_id: string
+          style?: Json
+          target_node_id: string
+        }
+        Update: {
+          canvas_id?: string
+          created_at?: string
+          creates_link?: boolean
+          id?: string
+          label?: string | null
+          owner_id?: string
+          source_node_id?: string
+          style?: Json
+          target_node_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_edges_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canvas_nodes: {
+        Row: {
+          attachment_id: string | null
+          canvas_id: string
+          contact_id: string | null
+          created_at: string
+          data: Json
+          height: number | null
+          id: string
+          item_id: string | null
+          kind: string
+          owner_id: string
+          parent_node_id: string | null
+          style: Json
+          updated_at: string
+          width: number | null
+          x: number
+          y: number
+          z_index: number
+        }
+        Insert: {
+          attachment_id?: string | null
+          canvas_id: string
+          contact_id?: string | null
+          created_at?: string
+          data?: Json
+          height?: number | null
+          id?: string
+          item_id?: string | null
+          kind: string
+          owner_id?: string
+          parent_node_id?: string | null
+          style?: Json
+          updated_at?: string
+          width?: number | null
+          x: number
+          y: number
+          z_index?: number
+        }
+        Update: {
+          attachment_id?: string | null
+          canvas_id?: string
+          contact_id?: string | null
+          created_at?: string
+          data?: Json
+          height?: number | null
+          id?: string
+          item_id?: string | null
+          kind?: string
+          owner_id?: string
+          parent_node_id?: string | null
+          style?: Json
+          updated_at?: string
+          width?: number | null
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_nodes_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_nodes_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_nodes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_nodes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_nodes_parent_node_id_fkey"
+            columns: ["parent_node_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canvases: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          owner_id: string
+          settings: Json
+          updated_at: string
+          viewport: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          owner_id?: string
+          settings?: Json
+          updated_at?: string
+          viewport?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          owner_id?: string
+          settings?: Json
+          updated_at?: string
+          viewport?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
             referencedColumns: ["id"]
           },
         ]
@@ -1766,6 +2099,44 @@ export type Database = {
           },
         ]
       }
+      packs_installed: {
+        Row: {
+          id: string
+          installed_at: string
+          mapping: Json
+          owner_id: string
+          pack_key: string
+          space_id: string | null
+          version: string
+        }
+        Insert: {
+          id?: string
+          installed_at?: string
+          mapping?: Json
+          owner_id?: string
+          pack_key: string
+          space_id?: string | null
+          version: string
+        }
+        Update: {
+          id?: string
+          installed_at?: string
+          mapping?: Json
+          owner_id?: string
+          pack_key?: string
+          space_id?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packs_installed_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -1984,6 +2355,125 @@ export type Database = {
           },
         ]
       }
+      review_cards: {
+        Row: {
+          created_at: string
+          deck_item_id: string | null
+          difficulty: number
+          due_at: string
+          elapsed_days: number
+          id: string
+          item_id: string
+          lapses: number
+          last_review_at: string | null
+          owner_id: string
+          reps: number
+          scheduled_days: number
+          stability: number
+          state: string
+          suspended: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deck_item_id?: string | null
+          difficulty?: number
+          due_at?: string
+          elapsed_days?: number
+          id?: string
+          item_id: string
+          lapses?: number
+          last_review_at?: string | null
+          owner_id?: string
+          reps?: number
+          scheduled_days?: number
+          stability?: number
+          state?: string
+          suspended?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deck_item_id?: string | null
+          difficulty?: number
+          due_at?: string
+          elapsed_days?: number
+          id?: string
+          item_id?: string
+          lapses?: number
+          last_review_at?: string | null
+          owner_id?: string
+          reps?: number
+          scheduled_days?: number
+          stability?: number
+          state?: string
+          suspended?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_cards_deck_item_id_fkey"
+            columns: ["deck_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_cards_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_logs: {
+        Row: {
+          card_id: string
+          difficulty_after: number | null
+          due_before: string | null
+          duration_ms: number | null
+          id: string
+          owner_id: string
+          rating: number
+          reviewed_at: string
+          stability_after: number | null
+          state_before: string
+        }
+        Insert: {
+          card_id: string
+          difficulty_after?: number | null
+          due_before?: string | null
+          duration_ms?: number | null
+          id?: string
+          owner_id: string
+          rating: number
+          reviewed_at?: string
+          stability_after?: number | null
+          state_before: string
+        }
+        Update: {
+          card_id?: string
+          difficulty_after?: number | null
+          due_before?: string | null
+          duration_ms?: number | null
+          id?: string
+          owner_id?: string
+          rating?: number
+          reviewed_at?: string
+          stability_after?: number | null
+          state_before?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_logs_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "review_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       share_comments: {
         Row: {
           author_name: string
@@ -2169,6 +2659,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      study_sessions: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          ended_at: string | null
+          id: string
+          item_id: string | null
+          kind: string
+          notes: string | null
+          owner_id: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          item_id?: string | null
+          kind?: string
+          notes?: string | null
+          owner_id?: string
+          started_at: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          item_id?: string | null
+          kind?: string
+          notes?: string | null
+          owner_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {

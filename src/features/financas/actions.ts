@@ -26,6 +26,7 @@ import { computeTransactionTotals, type TransactionTotals } from "./lib/transact
 import {
   getBill,
   getCardStatement,
+  getDashboardData,
   getLastCsvMapping,
   getSplit,
   getUserTimezone,
@@ -49,6 +50,7 @@ import {
   listUnlinkedExpenseTransactions,
   sumStatementTransactionAmounts,
   type BillRow,
+  type DashboardData,
   type LinkableTransactionRow,
   type RecurringRow,
   type SplitFilters,
@@ -513,6 +515,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       installment_total: p.installmentTotal,
       tags: data.tags,
       notes: data.notes || null,
+      item_id: data.itemId ?? null,
     }));
 
     const { data: inserted, error } = await supabase.from("fin_transactions").insert(rows).select("id");
@@ -538,6 +541,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       statement_id: statementIdByDate.get(data.occurredOn) ?? null,
       tags: data.tags,
       notes: data.notes || null,
+      item_id: data.itemId ?? null,
     })
     .select("id")
     .single();
@@ -1401,6 +1405,7 @@ export async function createBill(input: CreateBillInput): Promise<Result<{ id: s
       barcode: data.barcode || null,
       pix_code: data.pixCode || null,
       notes: data.notes || null,
+      item_id: data.itemId || null,
     })
     .select("id")
     .single();
@@ -1993,4 +1998,57 @@ export async function getGroupSettlement(groupLabel: string): Promise<GroupSettl
   const balanceList = [...balances.entries()].map(([personId, balanceCents]) => ({ personId, balanceCents }));
 
   return { balances: balanceList, transfers: computeSettlementTransfers(balanceList) };
+}
+
+// =========================================================
+// PAINEL FINANCEIRO (4.12)
+// =========================================================
+
+/** `/financas` (4.12) — igual a `page.tsx`, só que chamado pelo filtro de mês/espaço trocando no cliente; a montagem de verdade mora em `queries.ts#getDashboardData` (recebe `supabase` direto, sem outro `requireOwner()` — `page.tsx` já chamou o dele). */
+export async function searchDashboardData(input: { month: string; spaceId?: string }): Promise<DashboardData> {
+  const { supabase, user } = await requireOwner();
+  return getDashboardData(supabase, user.id, input);
+}
+
+// =========================================================
+// INTEGRAÇÃO COM A BUSCA (4.13)
+// =========================================================
+
+export interface PaletteFinanceResult {
+  id: string;
+  description: string;
+  amountCents: number;
+  date: string;
+  kind: "transaction" | "bill";
+}
+
+/** Paleta de comandos, prefixo `$` (4.13, ex.: `$ mercado`) — busca por descrição em lançamentos e contas. */
+export async function searchFinanceForPalette(q: string): Promise<PaletteFinanceResult[]> {
+  // mesmo cuidado de `listTransactions`/`listContacts`: `,()%` têm significado especial no `.ilike()` do PostgREST.
+  const term = q.trim().replace(/[,()%]/g, "");
+  if (!term) return [];
+
+  const { supabase } = await requireOwner();
+
+  const [transactionsResult, billsResult] = await Promise.all([
+    supabase.from("fin_transactions").select("id, description, amount_cents, occurred_on").ilike("description", `%${term}%`).order("occurred_on", { ascending: false }).limit(8),
+    supabase.from("fin_bills").select("id, description, amount_cents, due_on").ilike("description", `%${term}%`).order("due_on", { ascending: false }).limit(8),
+  ]);
+
+  const transactions: PaletteFinanceResult[] = (transactionsResult.data ?? []).map((row) => ({
+    id: row.id,
+    description: row.description,
+    amountCents: row.amount_cents,
+    date: row.occurred_on,
+    kind: "transaction",
+  }));
+  const bills: PaletteFinanceResult[] = (billsResult.data ?? []).map((row) => ({
+    id: row.id,
+    description: row.description,
+    amountCents: row.amount_cents,
+    date: row.due_on,
+    kind: "bill",
+  }));
+
+  return [...transactions, ...bills];
 }

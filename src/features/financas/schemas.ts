@@ -144,6 +144,8 @@ export const createTransactionSchema = z
     notes: z.string().trim().max(2000).optional(),
     installments: z.coerce.number().int().min(1).max(60).default(1),
     repeat: z.enum(TRANSACTION_REPEAT_OPTIONS).default("none"),
+    /** "Registrar despesa/receita" a partir de um item (4.13) — vincula `fin_transactions.item_id`. */
+    itemId: z.string().uuid().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === "transfer") {
@@ -383,6 +385,8 @@ export const createBillSchema = z.object({
   pixCode: z.string().trim().max(2000).optional(),
   notes: z.string().trim().max(2000).optional(),
   repeat: z.enum(TRANSACTION_REPEAT_OPTIONS).default("none"),
+  /** "Criar conta a receber" a partir de um item (4.13) — vincula `fin_bills.item_id`. */
+  itemId: z.string().uuid().optional(),
 });
 
 export type CreateBillInput = z.infer<typeof createBillSchema>;

@@ -1,13 +1,15 @@
 "use client";
 
-import { Clock, FileText, Inbox as InboxIcon, Moon, Plus, Sun } from "lucide-react";
+import { Clock, DollarSign, FileText, Inbox as InboxIcon, Moon, Plus, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { useCaptureDialog } from "@/features/capture/components/capture-dialog-provider";
+import { searchFinanceForPalette, type PaletteFinanceResult } from "@/features/financas/actions";
 import type { BrowseItemRow } from "@/features/items/queries";
 import { searchItems, type SearchResultRow } from "@/features/search/actions";
 import type { SidebarSpace } from "@/features/spaces/queries";
+import { formatBRL } from "@/lib/money";
 import {
   CommandDialog,
   CommandEmpty,
@@ -39,6 +41,7 @@ export function CommandPalette({
   const { theme, setTheme } = useTheme();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResultRow[] | null>(null);
+  const [financeResults, setFinanceResults] = useState<PaletteFinanceResult[] | null>(null);
   const [recent, setRecent] = useState<BrowseItemRow[]>([]);
   const [, startTransition] = useTransition();
   const [wasOpen, setWasOpen] = useState(open);
@@ -54,17 +57,29 @@ export function CommandPalette({
   }, [open]);
 
   const hasQuery = query.trim() !== "";
+  // "$ mercado" busca lançamentos/contas em vez de itens (4.13).
+  const isFinanceQuery = query.trimStart().startsWith("$");
+  const financeTerm = query.trimStart().slice(1);
 
   useEffect(() => {
     if (!hasQuery) return;
     const timer = setTimeout(() => {
       startTransition(async () => {
+        if (isFinanceQuery) {
+          if (!financeTerm.trim()) {
+            setFinanceResults([]);
+            return;
+          }
+          const data = await searchFinanceForPalette(financeTerm);
+          setFinanceResults(data);
+          return;
+        }
         const data = await searchItems(query);
         setResults(data);
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [hasQuery, query]);
+  }, [hasQuery, query, isFinanceQuery, financeTerm]);
 
   function runAndClose(action: () => void) {
     onOpenChange(false);
@@ -83,7 +98,25 @@ export function CommandPalette({
       <CommandList>
         <CommandEmpty>Nada encontrado.</CommandEmpty>
 
-        {hasQuery && results && results.length > 0 && (
+        {hasQuery && isFinanceQuery && financeResults && (
+          <CommandGroup heading="Finanças" forceMount>
+            {financeResults.length === 0 && <CommandItem value="financas-vazio" disabled forceMount>Nada encontrado.</CommandItem>}
+            {financeResults.map((item) => (
+              <CommandItem
+                key={`${item.kind}-${item.id}`}
+                value={`financas-${item.kind}-${item.id}`}
+                forceMount
+                onSelect={() => runAndClose(() => router.push(item.kind === "bill" ? "/financas/contas" : "/financas/lancamentos"))}
+              >
+                <DollarSign className="h-4 w-4 shrink-0 text-zinc-400" />
+                <span className="truncate">{item.description}</span>
+                <span className="ml-auto shrink-0 text-xs text-zinc-400">{formatBRL(item.amountCents)}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {hasQuery && !isFinanceQuery && results && results.length > 0 && (
           <CommandGroup heading="Itens" forceMount>
             {results.map((item) => (
               <CommandItem

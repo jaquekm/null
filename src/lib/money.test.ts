@@ -137,6 +137,15 @@ describe("splitEqual", () => {
     expect(() => splitEqual(100, -1)).toThrow();
     expect(() => splitEqual(100, 1.5)).toThrow();
   });
+
+  it("muitos participantes com total ímpar: soma sempre bate exato, resto espalhado 1 a 1", () => {
+    const result = splitEqual(100001, 37);
+    expect(result).toHaveLength(37);
+    expect(sumCents(result)).toBe(100001);
+    // 100001 / 37 = 2702,72... → base 2702, resto 27 (100001 - 2702*37 = 27): os 27 primeiros ganham +1.
+    expect(result.slice(0, 27)).toEqual(new Array(27).fill(2703));
+    expect(result.slice(27)).toEqual(new Array(10).fill(2702));
+  });
 });
 
 describe("splitByWeights", () => {
@@ -169,6 +178,14 @@ describe("splitByWeights", () => {
   it("soma sempre bate com o total, mesmo com resto grande", () => {
     const result = splitByWeights(1000, [1, 1, 1, 1, 1, 1, 1]);
     expect(sumCents(result)).toBe(1000);
+  });
+
+  it("muitos participantes (23) com pesos diferentes e total ímpar: soma sempre bate exato", () => {
+    const weights = Array.from({ length: 23 }, (_, i) => i + 1); // 1..23
+    const result = splitByWeights(100003, weights);
+    expect(result).toHaveLength(23);
+    expect(sumCents(result)).toBe(100003);
+    expect(result).toEqual([362, 725, 1087, 1449, 1812, 2174, 2536, 2899, 3261, 3623, 3986, 4348, 4710, 5073, 5435, 5797, 6160, 6522, 6884, 7247, 7609, 7971, 8333]);
   });
 
   it("weights vazio: lança", () => {

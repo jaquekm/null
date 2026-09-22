@@ -63,6 +63,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-email": "^6.9.5",
+    "recharts": "^3.10.1",
     "resend": "^6.28.1",
     "rrule": "^2.8.1",
     "server-only": "^0.0.1",

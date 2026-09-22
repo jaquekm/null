@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { ContactFinanceSection } from "@/features/financas/components/contact-finance-section";
+import type { ContactFinanceSummary } from "@/features/financas/queries";
 import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { archiveContact } from "../actions";
@@ -22,11 +24,13 @@ export function ContactDetail({
   contact,
   activity,
   timezone,
+  finance,
 }: {
   spaces: SidebarSpace[];
   contact: ContactDetailRow;
   activity: ContactActivity;
   timezone: string;
+  finance: ContactFinanceSummary;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -94,6 +98,10 @@ export function ContactDetail({
       )}
 
       <ConsentSection contact={contact} />
+
+      <Section title="Finanças">
+        <ContactFinanceSection finance={finance} />
+      </Section>
 
       <Section title="Itens ligados">
         {activity.linkedItems.length === 0 ? (
