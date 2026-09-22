@@ -65,6 +65,24 @@ const PRESETS: (RulePreset & { label: string; description: string })[] = [
     messageTemplate: "Oi {{nome}}! Passando pra lembrar: {{titulo}}, {{valor}}, vence {{data}}. {{link}}",
     config: { daysBefore: 3 },
   },
+  {
+    kind: "split_open",
+    recipientType: "contacts",
+    label: "Divisão de conta em aberto (para contatos)",
+    description: "Contatos com opt-in e parte em aberto — a cada X dias (padrão 7).",
+    name: "Divisão de conta em aberto",
+    messageTemplate: "Oi {{nome}}! {{titulo}} está em aberto há {{dias}} dias: {{valor}}. {{link}}",
+    config: { everyDays: 7 },
+  },
+  {
+    kind: "split_open",
+    recipientType: "me",
+    label: "Divisão de conta em aberto (para mim)",
+    description: "Minha própria parte em aberto — a cada X dias (padrão 7).",
+    name: "Minha parte em aberto",
+    messageTemplate: "Lembrete: {{titulo}} está em aberto há {{dias}} dias — sua parte é {{valor}}.",
+    config: { everyDays: 7 },
+  },
 ];
 
 const KIND_LABELS: Record<string, string> = {
@@ -72,6 +90,7 @@ const KIND_LABELS: Record<string, string> = {
   birthday: "Aniversário",
   item_date_field: "Campo de data",
   bill_due: "Conta a vencer",
+  split_open: "Divisão em aberto",
 };
 
 export function ReminderRulesWorkspace({ types, initialRules }: { types: TypeOptionWithFields[]; initialRules: ReminderRuleRow[] }) {
