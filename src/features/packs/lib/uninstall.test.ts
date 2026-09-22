@@ -24,6 +24,7 @@ describe("uninstallPack (5.2, passo 7)", () => {
     fake.seed("reminder_rules", [{ id: "rule-1", owner_id: USER_ID }]);
     seedInstalledPack(fake, {
       types: { opportunity: "type-1" },
+      spaces: {},
       views: { pipeline: "view-1" },
       automations: { mover_ganho: "auto-1" },
       reminderRules: { follow_up: "rule-1" },
@@ -53,7 +54,7 @@ describe("uninstallPack (5.2, passo 7)", () => {
     const fake = new FakeSupabase();
     fake.seed("object_types", [{ id: "type-1", owner_id: USER_ID, name: "Oportunidade", archived_at: null, pack_key: "crm" }]);
     fake.seed("items", [{ id: "item-1", type_id: "type-1", deleted_at: null }]);
-    seedInstalledPack(fake, { types: { opportunity: "type-1" }, views: {}, automations: {}, reminderRules: {} });
+    seedInstalledPack(fake, { types: { opportunity: "type-1" }, spaces: {}, views: {}, automations: {}, reminderRules: {} });
 
     const preview = await getPackUninstallPreview(client(fake), USER_ID, "installed-1");
     expect(preview!.typesWithItems).toEqual([{ id: "type-1", name: "Oportunidade", itemCount: 1 }]);
@@ -64,7 +65,7 @@ describe("uninstallPack (5.2, passo 7)", () => {
     expect(fake.rowsOf("object_types")).toHaveLength(1);
     expect(fake.rowsOf("object_types")[0]!.archived_at).toBeNull();
 
-    seedInstalledPack(fake, { types: { opportunity: "type-1" }, views: {}, automations: {}, reminderRules: {} });
+    seedInstalledPack(fake, { types: { opportunity: "type-1" }, spaces: {}, views: {}, automations: {}, reminderRules: {} });
     const archived = await uninstallPack(client(fake), USER_ID, "installed-1", true);
     expect(archived.ok).toBe(true);
     if (archived.ok) expect(archived.data).toEqual({ typesDeleted: 0, typesArchived: 1, typesKept: 0 });
@@ -78,7 +79,7 @@ describe("uninstallPack (5.2, passo 7)", () => {
       // "tarefa" já existia do onboarding (pack_key null) — este pack só somou campos nela, nunca é dona.
       { id: "type-2", owner_id: USER_ID, name: "Tarefa", pack_key: null },
     ]);
-    seedInstalledPack(fake, { types: { opportunity: "type-1", task: "type-2" }, views: {}, automations: {}, reminderRules: {} });
+    seedInstalledPack(fake, { types: { opportunity: "type-1", task: "type-2" }, spaces: {}, views: {}, automations: {}, reminderRules: {} });
 
     const preview = await getPackUninstallPreview(client(fake), USER_ID, "installed-1");
     expect(preview!.typesWithoutItems).toEqual([{ id: "type-1", name: "Oportunidade" }]);

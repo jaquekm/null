@@ -53,6 +53,21 @@ export const packTypeSchema = z.object({
 });
 export type PackType = z.infer<typeof packTypeSchema>;
 
+/**
+ * Espaço criado pelo pack (5.11: PARA — "cria espaços... Projetos, Áreas,
+ * Recursos, Arquivo"). Idempotente por `slug` (`ensureSpace`, `install.ts`)
+ * — igual `extendsSlug` de tipo, reaproveita um espaço já existente com o
+ * mesmo slug em vez de duplicar.
+ */
+export const packSpaceSchema = z.object({
+  ref: packRefSchema,
+  name: z.string().trim().min(1),
+  slug: z.string().trim().min(1).optional(),
+  icon: z.string().trim().max(8).optional(),
+  color: z.string().trim().max(30).optional(),
+});
+export type PackSpace = z.infer<typeof packSpaceSchema>;
+
 export const packViewSchema = z.object({
   ref: packRefSchema,
   typeRef: packRefSchema,
@@ -75,6 +90,15 @@ const jsonObjectSchema = z.record(z.string(), z.unknown());
 export const packAutomationSchema = z.object({
   ref: packRefSchema.optional(),
   typeRef: packRefSchema.optional(),
+  /**
+   * Alternativa a `typeRef` pra mirar num tipo de **outro** pack ou de
+   * sistema, pelo `slug` (5.11: "Projeto concluído → mover pra Arquivo" mira
+   * o tipo Projeto do pack Projetos, 5.8 — um pack não resolve `ref` de
+   * outro). Resolvido em `install.ts` por busca direta (`findTypeBySlug`);
+   * se o tipo ainda não existir (pack dependente não instalado), a
+   * automação **não é criada** nesta instalação — não fica órfã/sem escopo.
+   */
+  typeSlug: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1),
   description: z.string().trim().optional(),
   enabled: z.boolean().default(true),
@@ -119,6 +143,7 @@ export const packSchema = z
     icon: z.string().trim().max(8).optional(),
     requires: z.array(z.string().trim().min(1)).default([]),
     types: z.array(packTypeSchema).min(1),
+    spaces: z.array(packSpaceSchema).default([]),
     views: z.array(packViewSchema).default([]),
     automations: z.array(packAutomationSchema).default([]),
     reminderRules: z.array(packReminderRuleSchema).default([]),
@@ -138,6 +163,14 @@ export const packSchema = z
         ctx.addIssue({ code: "custom", message: `Tipo "${ref}" não existe neste pack.`, path });
       }
     };
+
+    const spaceRefs = new Set<string>();
+    pack.spaces.forEach((space, index) => {
+      if (spaceRefs.has(space.ref)) {
+        ctx.addIssue({ code: "custom", message: `Ref de espaço duplicada: "${space.ref}".`, path: ["spaces", index, "ref"] });
+      }
+      spaceRefs.add(space.ref);
+    });
 
     const viewRefs = new Set<string>();
     pack.views.forEach((view, index) => {

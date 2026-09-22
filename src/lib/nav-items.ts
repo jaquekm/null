@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   GraduationCap,
   Inbox,
+  Network,
   Search,
   Settings,
   Users,
@@ -48,6 +49,11 @@ const REVISAO_SEMANAL: NavItem = {
   label: "Revisão semanal",
   icon: CalendarCheck,
 };
+const ZETTELKASTEN: NavItem = {
+  href: "/zettelkasten",
+  label: "Zettelkasten",
+  icon: Network,
+};
 
 /** Itens da sidebar (desktop) e do menu completo (mobile). */
 export const NAV_ITEMS: NavItem[] = [
@@ -60,6 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
   RELATORIOS,
   ESTUDOS,
   REVISAO_SEMANAL,
+  ZETTELKASTEN,
   CONFIGURACOES,
 ];
 

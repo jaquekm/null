@@ -243,6 +243,109 @@ describe("installPack", () => {
     expect(progressField.rollupRelationTypeId).toBe(taskId);
   });
 
+  it("pack.spaces (5.11: PARA) cria os espaços declarados, idempotente por slug", async () => {
+    const fake = newFake();
+    const pack = buildPack({
+      types: [{ ref: "area", name: "Área de responsabilidade", fields: [] }],
+      spaces: [
+        { ref: "projects", name: "Projetos" },
+        { ref: "areas", name: "Áreas" },
+        { ref: "resources", name: "Recursos" },
+        { ref: "archive", name: "Arquivo" },
+      ],
+      views: [],
+      automations: [],
+      sampleItems: [],
+    });
+
+    const first = await installPack(client(fake), USER_ID, pack, { spaceId: null });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.data.spacesCreated).toBe(4);
+    expect(fake.rowsOf("spaces")).toHaveLength(4);
+
+    const second = await installPack(client(fake), USER_ID, pack, { spaceId: null });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.data.spacesCreated).toBe(0);
+    expect(fake.rowsOf("spaces")).toHaveLength(4);
+  });
+
+  it("automação com spaceRef (5.11) resolve pro id do espaço criado pelo mesmo pack", async () => {
+    const fake = newFake();
+    const pack = buildPack({
+      types: [{ ref: "project", name: "Projeto", fields: [{ key: "status", label: "Status", type: "select", options: [{ id: "concluido", label: "Concluído" }] }] }],
+      spaces: [{ ref: "archive", name: "Arquivo" }],
+      views: [],
+      automations: [
+        {
+          ref: "arquivar",
+          typeRef: "project",
+          name: "Arquivar projeto concluído",
+          trigger: { type: "property_changed", field: "status", to: "concluido" },
+          actions: [{ type: "move_to_space", spaceRef: "archive" }],
+        },
+      ],
+      sampleItems: [],
+    });
+
+    const result = await installPack(client(fake), USER_ID, pack, { spaceId: null });
+    expect(result.ok).toBe(true);
+
+    const archiveSpaceId = fake.rowsOf("spaces")[0]!.id;
+    const automation = fake.rowsOf("automations")[0]!;
+    expect((automation.actions as { spaceId?: string }[])[0]?.spaceId).toBe(archiveSpaceId);
+  });
+
+  it("automação com typeSlug (5.11: mira tipo de outro pack) não é criada se o tipo ainda não existe", async () => {
+    const fake = newFake();
+    const pack = buildPack({
+      types: [{ ref: "area", name: "Área de responsabilidade", fields: [] }],
+      views: [],
+      automations: [
+        {
+          ref: "projeto_concluido_arquiva",
+          typeSlug: "projeto",
+          name: "Projeto concluído → Arquivo",
+          trigger: { type: "status_changed", to: "concluido" },
+          actions: [{ type: "notify_me", title: "x", body: "y" }],
+        },
+      ],
+      sampleItems: [],
+    });
+
+    const result = await installPack(client(fake), USER_ID, pack, { spaceId: null });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.automationsCreated).toBe(0);
+    expect(fake.rowsOf("automations")).toHaveLength(0);
+  });
+
+  it("automação com typeSlug encontra o tipo se já existe (outro pack instalado antes)", async () => {
+    const fake = newFake();
+    fake.seed("object_types", [{ id: "projeto-1", owner_id: USER_ID, slug: "projeto", name: "Projeto" }]);
+    const pack = buildPack({
+      types: [{ ref: "area", name: "Área de responsabilidade", fields: [] }],
+      views: [],
+      automations: [
+        {
+          ref: "projeto_concluido_arquiva",
+          typeSlug: "projeto",
+          name: "Projeto concluído → Arquivo",
+          trigger: { type: "status_changed", to: "concluido" },
+          actions: [{ type: "notify_me", title: "x", body: "y" }],
+        },
+      ],
+      sampleItems: [],
+    });
+
+    const result = await installPack(client(fake), USER_ID, pack, { spaceId: null });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.automationsCreated).toBe(1);
+    expect(fake.rowsOf("automations")[0]!.type_id).toBe("projeto-1");
+  });
+
   it("exemplo com content (5.9: template de lista) grava content e content_text", async () => {
     const fake = newFake();
     const pack = buildPack({

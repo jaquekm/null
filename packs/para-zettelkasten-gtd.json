@@ -1,0 +1,94 @@
+{
+  "key": "para-zettelkasten-gtd",
+  "version": "1.0.0",
+  "name": "PARA, Zettelkasten e GTD",
+  "description": "Três métodos de organização: PARA (Projetos/Áreas/Recursos/Arquivo), Zettelkasten (notas permanentes conectadas) e GTD (contextos e próximas ações).",
+  "icon": "🧠",
+  "requires": [],
+  "types": [
+    {
+      "ref": "area_of_responsibility",
+      "name": "Área de responsabilidade",
+      "plural": "Áreas de responsabilidade",
+      "slug": "area-de-responsabilidade",
+      "icon": "🧭",
+      "defaultView": "list",
+      "fields": [
+        {
+          "key": "review_frequency",
+          "label": "Frequência de revisão",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "semanal", "label": "Semanal" },
+            { "id": "mensal", "label": "Mensal" },
+            { "id": "trimestral", "label": "Trimestral" },
+            { "id": "anual", "label": "Anual" }
+          ]
+        }
+      ]
+    },
+    {
+      "ref": "task",
+      "name": "Tarefa",
+      "extendsSlug": "tarefa",
+      "fields": [{ "key": "next_action", "label": "Próxima ação", "type": "checkbox", "showInCard": true }]
+    },
+    {
+      "ref": "permanent_note",
+      "name": "Nota permanente",
+      "plural": "Notas permanentes",
+      "slug": "nota-permanente",
+      "icon": "🗂️",
+      "fields": [
+        { "key": "id_zettel", "label": "Id Zettel", "type": "text", "showInCard": true, "description": "Gerado automaticamente ao criar pelo botão \"Nova nota permanente\" (/zettelkasten)." },
+        { "key": "sources", "label": "Fontes", "type": "relation", "multiple": true, "description": "Relação genérica — notas literárias, documentos ou qualquer item de origem." }
+      ]
+    },
+    {
+      "ref": "literary_note",
+      "name": "Nota literária",
+      "plural": "Notas literárias",
+      "slug": "nota-literaria",
+      "icon": "📖",
+      "fields": [
+        { "key": "source", "label": "Fonte", "type": "relation", "multiple": true, "description": "Relação genérica — livro, artigo, vídeo ou qualquer referência de origem." }
+      ]
+    }
+  ],
+  "spaces": [
+    { "ref": "projects", "name": "Projetos", "icon": "🚀" },
+    { "ref": "areas", "name": "Áreas", "icon": "🧭" },
+    { "ref": "resources", "name": "Recursos", "icon": "📚" },
+    { "ref": "archive", "name": "Arquivo", "icon": "🗄️" }
+  ],
+  "views": [
+    {
+      "ref": "proximas_acoes",
+      "typeRef": "task",
+      "name": "Próximas ações",
+      "kind": "list",
+      "config": { "filters": [{ "field": "next_action", "op": "eq", "value": true }], "sort": [] }
+    },
+    {
+      "ref": "aguardando",
+      "typeRef": "task",
+      "name": "Aguardando",
+      "kind": "list",
+      "config": { "filters": [{ "field": "assignee", "op": "not_empty" }], "sort": [] }
+    }
+  ],
+  "automations": [
+    {
+      "ref": "para_projeto_concluido_arquivo",
+      "typeSlug": "projeto",
+      "name": "Projeto concluído → Arquivo",
+      "description": "Ao concluir um projeto (pack Projetos, 5.8), move pro espaço Arquivo.",
+      "trigger": { "type": "property_changed", "field": "status", "to": "concluido" },
+      "conditions": [],
+      "actions": [{ "type": "move_to_space", "spaceRef": "archive" }]
+    }
+  ],
+  "reminderRules": [],
+  "sampleItems": []
+}

@@ -6,8 +6,8 @@ import { extractText } from "@/features/items/lib/extract-text";
 import { fail, ok, type Result } from "@/lib/result";
 import { slugify } from "@/lib/slugify";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import { missingModules, type Pack, type PackAutomation, type PackFieldDefinition, type PackReminderRule, type PackSampleItem, type PackType, type PackView } from "../schemas";
-import { resolveTypeRefs } from "./resolve-refs";
+import { missingModules, type Pack, type PackAutomation, type PackFieldDefinition, type PackReminderRule, type PackSampleItem, type PackSpace, type PackType, type PackView } from "../schemas";
+import { resolveSpaceRefs, resolveTypeRefs } from "./resolve-refs";
 
 type Client = SupabaseClient<Database>;
 
@@ -15,13 +15,14 @@ const UNIQUE_VIOLATION = "23505";
 
 export interface PackMapping {
   types: Record<string, string>;
+  spaces: Record<string, string>;
   views: Record<string, string>;
   automations: Record<string, string>;
   reminderRules: Record<string, string>;
 }
 
 export function emptyPackMapping(): PackMapping {
-  return { types: {}, views: {}, automations: {}, reminderRules: {} };
+  return { types: {}, spaces: {}, views: {}, automations: {}, reminderRules: {} };
 }
 
 export interface InstallPackTypeOverride {
@@ -42,6 +43,7 @@ export interface InstallPackSummary {
   version: string;
   typesCreated: number;
   fieldsAdded: number;
+  spacesCreated: number;
   viewsCreated: number;
   automationsCreated: number;
   reminderRulesCreated: number;
@@ -102,6 +104,31 @@ async function ensureType(
       .select("id")
       .single();
 
+    if (!error && data) return { id: data.id, created: true };
+    if (error && error.code !== UNIQUE_VIOLATION) return null;
+  }
+  return null;
+}
+
+/**
+ * Espaço declarado pelo pack (5.11: PARA — "cria espaços... Projetos,
+ * Áreas, Recursos, Arquivo"). Idempotente por slug: reaproveita um espaço
+ * já existente com o mesmo nome em vez de duplicar a cada reinstalação (ou
+ * se o dono já tinha criado um espaço com esse nome antes de instalar).
+ */
+async function ensureSpace(supabase: Client, userId: string, packSpace: PackSpace, existingId: string | undefined, position: number): Promise<{ id: string; created: boolean } | null> {
+  if (existingId) return { id: existingId, created: false };
+
+  const baseSlug = slugify(packSpace.slug || packSpace.name) || `espaco-${Date.now().toString(36)}`;
+  const existing = await supabase.from("spaces").select("id").eq("owner_id", userId).eq("slug", baseSlug).maybeSingle();
+  if (existing.data) return { id: existing.data.id, created: false };
+
+  for (const slug of slugCandidates(baseSlug)) {
+    const { data, error } = await supabase
+      .from("spaces")
+      .insert({ owner_id: userId, name: packSpace.name, slug, icon: packSpace.icon || null, color: packSpace.color || null, position })
+      .select("id")
+      .single();
     if (!error && data) return { id: data.id, created: true };
     if (error && error.code !== UNIQUE_VIOLATION) return null;
   }
@@ -195,9 +222,23 @@ async function ensureAutomation(
   automation: PackAutomation,
   spaceId: string | null,
   typeIdByRef: Record<string, string>,
+  spaceIdByRef: Record<string, string>,
   existingId: string | undefined,
 ): Promise<{ id: string; created: boolean } | null> {
   if (existingId) return { id: existingId, created: false };
+
+  let typeId: string | null = null;
+  if (automation.typeRef) {
+    typeId = typeIdByRef[automation.typeRef] ?? null;
+  } else if (automation.typeSlug) {
+    typeId = await findTypeBySlug(supabase, userId, automation.typeSlug);
+    // Tipo de outro pack ainda não instalado — não cria a automação sem escopo; tenta de novo na próxima instalação/atualização.
+    if (!typeId) return null;
+  }
+
+  const trigger = resolveSpaceRefs(resolveTypeRefs(automation.trigger, typeIdByRef), spaceIdByRef);
+  const conditions = resolveSpaceRefs(resolveTypeRefs(automation.conditions, typeIdByRef), spaceIdByRef);
+  const actions = resolveSpaceRefs(resolveTypeRefs(automation.actions, typeIdByRef), spaceIdByRef);
 
   const { data, error } = await supabase
     .from("automations")
@@ -206,11 +247,11 @@ async function ensureAutomation(
       name: automation.name,
       description: automation.description ?? null,
       enabled: automation.enabled,
-      trigger: resolveTypeRefs(automation.trigger, typeIdByRef) as unknown as Json,
-      conditions: resolveTypeRefs(automation.conditions, typeIdByRef) as unknown as Json,
-      actions: resolveTypeRefs(automation.actions, typeIdByRef) as unknown as Json,
+      trigger: trigger as unknown as Json,
+      conditions: conditions as unknown as Json,
+      actions: actions as unknown as Json,
       space_id: spaceId,
-      type_id: automation.typeRef ? (typeIdByRef[automation.typeRef] ?? null) : null,
+      type_id: typeId,
       pack_key: packKey,
     })
     .select("id")
@@ -292,6 +333,8 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
   const { data: existingRow } = await existingQuery.maybeSingle();
 
   const mapping: PackMapping = (existingRow?.mapping as unknown as PackMapping | null) ?? emptyPackMapping();
+  // Compatibilidade com instalações gravadas antes de `spaces` existir no mapeamento (5.11).
+  mapping.spaces ??= {};
 
   const { data: lastType } = await supabase
     .from("object_types")
@@ -336,6 +379,21 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
     fieldsAdded += await syncTypeFields(supabase, userId, typeId, resolvedFields);
   }
 
+  let spacesCreated = 0;
+  const spaceIdByRef: Record<string, string> = {};
+  const { data: lastSpace } = await supabase.from("spaces").select("position").eq("owner_id", userId).order("position", { ascending: false }).limit(1).maybeSingle();
+  let nextSpacePosition = (lastSpace?.position ?? -1) + 1;
+  for (const packSpace of pack.spaces) {
+    const result = await ensureSpace(supabase, userId, packSpace, mapping.spaces[packSpace.ref], nextSpacePosition);
+    if (!result) return fail(`Não foi possível criar o espaço "${packSpace.name}".`);
+    spaceIdByRef[packSpace.ref] = result.id;
+    mapping.spaces[packSpace.ref] = result.id;
+    if (result.created) {
+      spacesCreated += 1;
+      nextSpacePosition += 1;
+    }
+  }
+
   let viewsCreated = 0;
   for (const packView of pack.views) {
     const result = await ensureView(supabase, userId, packView, options.spaceId, typeIdByRef, mapping.views[packView.ref]);
@@ -348,7 +406,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
   let automationsCreated = 0;
   for (const [index, automation] of pack.automations.entries()) {
     const ref = automation.ref ?? (fieldKeyFromLabel(automation.name) || `automacao_${index}`);
-    const result = await ensureAutomation(supabase, userId, pack.key, automation, options.spaceId, typeIdByRef, mapping.automations[ref]);
+    const result = await ensureAutomation(supabase, userId, pack.key, automation, options.spaceId, typeIdByRef, spaceIdByRef, mapping.automations[ref]);
     if (result) {
       mapping.automations[ref] = result.id;
       if (result.created) automationsCreated += 1;
@@ -390,6 +448,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
     version: pack.version,
     typesCreated,
     fieldsAdded,
+    spacesCreated,
     viewsCreated,
     automationsCreated,
     reminderRulesCreated,

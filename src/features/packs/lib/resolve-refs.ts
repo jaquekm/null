@@ -23,6 +23,29 @@ export function resolveTypeRefs<T>(value: T, typeIdByRef: Record<string, string>
 }
 
 /**
+ * Mesma ideia de `resolveTypeRefs`, pra `spaceRef` → `spaceId` (5.11: ação
+ * `move_to_space` de uma automação mirando um espaço criado pelo próprio
+ * pack, ex. "Arquivo" do método PARA).
+ */
+export function resolveSpaceRefs<T>(value: T, spaceIdByRef: Record<string, string>): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveSpaceRefs(item, spaceIdByRef)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (key === "spaceRef" && typeof val === "string") {
+        out.spaceId = spaceIdByRef[val] ?? null;
+        continue;
+      }
+      out[key] = resolveSpaceRefs(val, spaceIdByRef);
+    }
+    return out as T;
+  }
+  return value;
+}
+
+/**
  * Inverso de `resolveTypeRefs` — usado pela exportação (5.2, "Exportar como
  * pack"): troca `typeId` por `typeRef` quando o id pertence à seleção
  * exportada; ids fora da seleção ficam como estão (referência externa).
