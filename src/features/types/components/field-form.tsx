@@ -24,7 +24,17 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   contact: "Contato",
   file: "Arquivo",
   duration: "Duração",
+  rollup: "Calculado (rollup)",
 };
+
+/**
+ * Campos `rollup` (5.8) só são criados por packs, com a config de agregação
+ * resolvida a partir das `ref`s do próprio pack — o editor manual de tipos
+ * ainda não tem UI pra montar essa config, então não oferece a opção aqui
+ * (o rótulo acima existe só pra satisfazer o `Record<FieldType, string>`
+ * exaustivo; um campo `rollup` já existente continua sendo exibido normal).
+ */
+const CREATABLE_FIELD_TYPES = fieldTypes.filter((type) => type !== "rollup");
 
 const HAS_OPTIONS: FieldType[] = ["select", "multi_select"];
 const HAS_RANGE: FieldType[] = ["number", "percent", "rating"];
@@ -102,7 +112,7 @@ export function FieldForm({
           onChange={(e) => setFieldType(e.target.value as FieldType)}
           className={inputClassName}
         >
-          {fieldTypes.map((type) => (
+          {CREATABLE_FIELD_TYPES.map((type) => (
             <option key={type} value={type}>
               {FIELD_TYPE_LABELS[type]}
             </option>

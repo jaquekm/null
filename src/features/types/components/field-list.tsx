@@ -155,13 +155,16 @@ function FieldRow({
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onEdit}
-        className="rounded-lg px-2.5 py-1 text-xs text-zinc-600 hover:bg-black/[.04] dark:text-zinc-300 dark:hover:bg-white/[.06]"
-      >
-        Editar
-      </button>
+      {/* Campo `rollup` (5.8): config vem só de pack, o editor manual ainda não sabe montá-la de novo — só remover. */}
+      {field.type !== "rollup" && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="rounded-lg px-2.5 py-1 text-xs text-zinc-600 hover:bg-black/[.04] dark:text-zinc-300 dark:hover:bg-white/[.06]"
+        >
+          Editar
+        </button>
+      )}
       <button
         type="button"
         onClick={onRemove}

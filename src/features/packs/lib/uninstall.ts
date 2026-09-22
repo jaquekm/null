@@ -39,8 +39,10 @@ export async function getPackUninstallPreview(supabase: Client, userId: string, 
   const typesWithoutItems: PackUninstallPreview["typesWithoutItems"] = [];
 
   if (typeIds.length > 0) {
-    const { data: types } = await supabase.from("object_types").select("id, name").in("id", typeIds);
+    const { data: types } = await supabase.from("object_types").select("id, name, pack_key").in("id", typeIds);
     for (const type of types ?? []) {
+      // Tipo de sistema estendido (`extendsSlug`, 5.8/5.10) — não é deste pack, nunca é excluído/arquivado. Não entra na prévia.
+      if (type.pack_key !== row.pack_key) continue;
       const { count } = await supabase
         .from("items")
         .select("id", { count: "exact", head: true })
@@ -105,6 +107,13 @@ export async function uninstallPack(
   let typesKept = 0;
   const typeIds = Object.values(row.mapping.types);
   for (const typeId of typeIds) {
+    // Tipo de sistema estendido (`extendsSlug`) não pertence a este pack — nunca excluir/arquivar (outras partes do app dependem dele).
+    const { data: typeRow } = await supabase.from("object_types").select("pack_key").eq("id", typeId).maybeSingle();
+    if (!typeRow || typeRow.pack_key !== row.pack_key) {
+      typesKept += 1;
+      continue;
+    }
+
     const { count } = await supabase.from("items").select("id", { count: "exact", head: true }).eq("type_id", typeId).is("deleted_at", null);
     if (!count || count === 0) {
       const { error } = await supabase.from("object_types").delete().eq("id", typeId).eq("owner_id", userId);

@@ -3,6 +3,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
+import { computeRollupsForRows } from "@/features/types/lib/rollup-query";
 import { listTagsByItemIds, type TagOption } from "@/features/tags/queries";
 import { DEFAULT_PAGE_SIZE, parseViewConfig, type ViewFilter, type ViewKind, type ViewSort } from "./schemas";
 import { resolveFilter } from "./lib/resolve-filter";
@@ -132,6 +133,8 @@ export async function queryViewItems(supabase: Client, params: QueryViewItemsPar
     data.map((item) => item.id),
   );
 
+  const rollupsByItem = await computeRollupsForRows(supabase, data, params.fields);
+
   return {
     rows: data.map((item) => ({
       id: item.id,
@@ -139,7 +142,7 @@ export async function queryViewItems(supabase: Client, params: QueryViewItemsPar
       status: item.status,
       spaceId: item.space_id,
       typeId: item.type_id,
-      properties: (item.properties as Record<string, unknown> | null) ?? {},
+      properties: { ...((item.properties as Record<string, unknown> | null) ?? {}), ...rollupsByItem.get(item.id) },
       updatedAt: item.updated_at,
       createdAt: item.created_at,
       position: item.position,

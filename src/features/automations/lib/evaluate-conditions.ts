@@ -28,14 +28,13 @@ function isEmptyValue(value: unknown): boolean {
 }
 
 /**
- * Avalia uma condição de automação (5.3: "mesma estrutura de filtros das
- * visões") contra um item já carregado, em memória — ao contrário de
- * `resolveFilter` (views/lib), que traduz pra uma query Postgrest. Pura e
- * testável sem banco.
+ * Núcleo de comparação de uma condição (`op`/`value`) contra um valor já
+ * resolvido — extraído de `evaluateCondition` pra ser reaproveitado por
+ * quem não tem um `ConditionItem` completo (ex.: `computeRollup`,
+ * `features/types/lib/compute-rollup.ts`, que só tem as `properties` do
+ * item relacionado, sem `title`/`status` de nível de item).
  */
-export function evaluateCondition(item: ConditionItem, condition: ViewFilter): boolean {
-  const value = fieldValue(item, condition.field);
-
+export function matchesOperator(value: unknown, condition: Pick<ViewFilter, "op" | "value">): boolean {
   switch (condition.op) {
     case "contains":
       return typeof value === "string" && value.toLowerCase().includes(String(condition.value ?? "").toLowerCase());
@@ -65,6 +64,16 @@ export function evaluateCondition(item: ConditionItem, condition: ViewFilter): b
       throw new Error(`Operador de condição desconhecido: ${String(exhaustive)}`);
     }
   }
+}
+
+/**
+ * Avalia uma condição de automação (5.3: "mesma estrutura de filtros das
+ * visões") contra um item já carregado, em memória — ao contrário de
+ * `resolveFilter` (views/lib), que traduz pra uma query Postgrest. Pura e
+ * testável sem banco.
+ */
+export function evaluateCondition(item: ConditionItem, condition: ViewFilter): boolean {
+  return matchesOperator(fieldValue(item, condition.field), condition);
 }
 
 /** Todas as condições precisam passar (E lógico) — automações não têm "OU" no enunciado. */

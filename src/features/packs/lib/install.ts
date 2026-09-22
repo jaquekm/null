@@ -53,6 +53,11 @@ function* slugCandidates(base: string) {
   yield `${base}-${Date.now().toString(36)}`;
 }
 
+async function findTypeBySlug(supabase: Client, userId: string, slug: string): Promise<string | null> {
+  const { data } = await supabase.from("object_types").select("id").eq("owner_id", userId).eq("slug", slug).is("archived_at", null).maybeSingle();
+  return data?.id ?? null;
+}
+
 async function ensureType(
   supabase: Client,
   userId: string,
@@ -65,8 +70,14 @@ async function ensureType(
 ): Promise<{ id: string; created: boolean } | null> {
   if (existingId) return { id: existingId, created: false };
 
+  if (packType.extendsSlug) {
+    const extendedId = await findTypeBySlug(supabase, userId, packType.extendsSlug);
+    if (extendedId) return { id: extendedId, created: false };
+    // Tipo de sistema não existe (ex.: dono excluiu) — cai pro fluxo normal e cria com esse mesmo slug.
+  }
+
   const name = override?.name?.trim() || packType.name;
-  const baseSlug = slugify(packType.slug || name) || `tipo-${Date.now().toString(36)}`;
+  const baseSlug = slugify(packType.extendsSlug || packType.slug || name) || `tipo-${Date.now().toString(36)}`;
 
   for (const slug of slugCandidates(baseSlug)) {
     const { data, error } = await supabase
@@ -105,6 +116,10 @@ function resolveField(
     field.type === "relation" && field.relationTypeId ? (typeIdByRef[field.relationTypeId] ?? undefined) : undefined;
   if (field.type === "relation" && field.relationTypeId && !relationTypeId) return null;
 
+  const rollupRelationTypeId =
+    field.type === "rollup" && field.rollupRelationTypeId ? (typeIdByRef[field.rollupRelationTypeId] ?? undefined) : undefined;
+  if (field.type === "rollup" && field.rollupRelationTypeId && !rollupRelationTypeId) return null;
+
   const options = field.options?.map((option) => ({
     ...option,
     label: override?.options?.[option.id]?.trim() || option.label,
@@ -115,6 +130,7 @@ function resolveField(
     label: override?.label?.trim() || field.label,
     options,
     relationTypeId,
+    rollupRelationTypeId,
   });
   return candidate.success ? candidate.data : null;
 }
