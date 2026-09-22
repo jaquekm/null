@@ -563,6 +563,14 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b) — ver `ensureSpace`/`resolveSpaceRefs` e a resolução de `typeSlug` em `ensureAutomation` (`features/packs/lib/install.ts`). Uma automação com `typeSlug` que não resolve **não é criada** (não vira uma automação sem escopo, `type_id = null`, que dispararia pra qualquer item) — fica pendente até uma reinstalação/atualização em que o tipo já exista.
 - **Consequências:** capacidade genérica, reaproveitável por qualquer pack futuro que precise organizar espaços de trabalho ou reagir a um tipo de um pack diferente. Espaços criados por pack **nunca** são removidos ao desinstalar (`uninstallPack` não foi estendido pra isso — mesma cautela já aplicada a tipos com itens: um espaço tende a acumular conteúdo do dono rápido, apagar sem confirmação seria arriscado demais). Uma automação com `typeSlug` que nunca resolve (o pack dependente nunca é instalado) fica pra sempre ausente, silenciosamente — não há aviso na tela de instalação hoje.
 
+### 2026-09-22 — Hábitos: sem tabela `habit_logs`, registro em `properties.log` do próprio item
+
+- **Fase/tarefa:** 5.12 (opcional — o próprio enunciado pede pra "avaliar a necessidade antes de criar")
+- **Contexto:** a migration da fase (5.1) já estava fechada e aplicada antes desta tarefa (é a mesma usada pelos packs 5.6-5.11); uma tabela `habit_logs` nova exigiria outra migration só pra uma tarefa marcada opcional, com uma linha por dia por hábito — volume que cresce rápido pra um dado que também dá pra representar como um mapinha dentro do próprio item.
+- **Opções consideradas:** (a) `habit_logs (id, habit_item_id, date, done)`, uma linha por dia marcado; (b) `properties.log = { "AAAA-MM-DD": true }` no próprio item Hábito, um campo **não declarado** no tipo (fora do editor genérico de propriedades, só manipulado por `toggleHabitLog`).
+- **Decisão:** (b) — ver `features/habits/lib/habit-log.ts` (puro) e `features/habits/actions.ts`. Desmarcar remove a chave em vez de gravar `false`, então o objeto nunca cresce além do número de dias realmente marcados.
+- **Consequências:** sem migration nova, sem RLS/índice pra configurar. Trade-off aceito: sem uma linha por evento não dá pra ter histórico/auditoria de quando cada marcação foi feita ou desfeita (só o estado atual "marcado nesse dia" ou não), e crescer pra "vários hábitos, anos de histórico, relatórios agregados" ficaria pesado num único jsonb por item — se isso um dia importar de verdade, migrar pra uma tabela de verdade é reescrever `habit-log.ts` mais uma migration, não redesenhar a UI.
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
