@@ -1,0 +1,149 @@
+{
+  "key": "mudancas-decisoes",
+  "version": "1.0.0",
+  "name": "Mudanças e decisões",
+  "description": "Registro de mudanças em sistemas/processos/casa, decisões (ADR) e documentos de processo (SOP) com revisão periódica.",
+  "icon": "🔁",
+  "requires": [],
+  "types": [
+    {
+      "ref": "change_log",
+      "name": "Registro de mudança",
+      "plural": "Registros de mudança",
+      "slug": "registro-de-mudanca",
+      "icon": "🔁",
+      "defaultView": "timeline",
+      "fields": [
+        {
+          "key": "area",
+          "label": "Área",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "sistema", "label": "Sistema" },
+            { "id": "processo", "label": "Processo" },
+            { "id": "casa", "label": "Casa" },
+            { "id": "saude", "label": "Saúde" },
+            { "id": "financeiro", "label": "Financeiro" }
+          ]
+        },
+        { "key": "system", "label": "Sistema", "type": "text" },
+        { "key": "date", "label": "Data", "type": "date", "showInCard": true },
+        {
+          "key": "change_type",
+          "label": "Tipo de mudança",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "nova_funcionalidade", "label": "Nova funcionalidade" },
+            { "id": "correcao", "label": "Correção" },
+            { "id": "configuracao", "label": "Configuração" },
+            { "id": "processo", "label": "Processo" },
+            { "id": "pessoal", "label": "Pessoal" }
+          ]
+        },
+        {
+          "key": "impact",
+          "label": "Impacto",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "baixo", "label": "Baixo" },
+            { "id": "medio", "label": "Médio" },
+            { "id": "alto", "label": "Alto" }
+          ]
+        },
+        { "key": "reversible", "label": "Reversível", "type": "checkbox" },
+        { "key": "rollback_plan", "label": "Plano de rollback", "type": "long_text" },
+        { "key": "related", "label": "Relacionado", "type": "relation", "multiple": true, "description": "Relação genérica — sem tipo fixo (pode ligar a qualquer item envolvido na mudança)." }
+      ]
+    },
+    {
+      "ref": "decision",
+      "name": "Decisão",
+      "plural": "Decisões",
+      "slug": "decisao",
+      "icon": "⚖️",
+      "defaultView": "table",
+      "fields": [
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "proposta", "label": "Proposta" },
+            { "id": "aceita", "label": "Aceita" },
+            { "id": "substituida", "label": "Substituída" },
+            { "id": "rejeitada", "label": "Rejeitada" }
+          ]
+        },
+        { "key": "date", "label": "Data", "type": "date", "showInCard": true },
+        { "key": "context", "label": "Contexto", "type": "long_text" },
+        { "key": "options", "label": "Opções consideradas", "type": "long_text" },
+        { "key": "decision", "label": "Decisão", "type": "long_text" },
+        { "key": "consequences", "label": "Consequências", "type": "long_text" },
+        { "key": "superseded_by", "label": "Substituída por", "type": "relation", "relationTypeId": "decision", "multiple": false }
+      ]
+    },
+    {
+      "ref": "sop",
+      "name": "Documento de processo",
+      "extendsSlug": "documento",
+      "fields": [
+        { "key": "owner_area", "label": "Área responsável", "type": "text" },
+        { "key": "review_every_days", "label": "Revisar a cada (dias)", "type": "number", "min": 1 },
+        { "key": "last_reviewed", "label": "Última revisão", "type": "date" }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "changelog",
+      "typeRef": "change_log",
+      "name": "Changelog",
+      "kind": "timeline",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [], "groupBy": "area", "startField": "date", "endField": "date" }
+    },
+    {
+      "ref": "decisoes_tabela",
+      "typeRef": "decision",
+      "name": "Decisões",
+      "kind": "table",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "status", "dir": "asc" }], "visibleFields": ["status", "date"] }
+    }
+  ],
+  "automations": [
+    {
+      "ref": "mudancas_sop_agenda_revisao",
+      "typeRef": "sop",
+      "name": "SOP: agenda a próxima revisão",
+      "description": "Ao marcar como revisado (mudar a data de última revisão), calcula a próxima revisão daqui a \"Revisar a cada (dias)\" dias.",
+      "trigger": { "type": "property_changed", "field": "last_reviewed" },
+      "conditions": [{ "field": "review_every_days", "op": "not_empty" }],
+      "actions": [{ "type": "set_property", "field": "revisar_em", "value": "{{today+review_every_daysd}}" }]
+    },
+    {
+      "ref": "mudancas_sop_revisar",
+      "typeRef": "sop",
+      "name": "SOP: revisão chegou",
+      "description": "Notifica no dia agendado pra revisar o documento.",
+      "trigger": { "type": "date_reached", "field": "revisar_em", "offsetMinutes": 0 },
+      "conditions": [],
+      "actions": [{ "type": "notify_me", "title": "Revisar documento", "body": "Revisar: {{title}}" }]
+    },
+    {
+      "ref": "mudancas_decisao_substituida_sem_motivo",
+      "typeRef": "decision",
+      "name": "Decisão substituída sem link",
+      "description": "Ao marcar uma decisão como Substituída sem preencher \"Substituída por\", pede pra linkar a nova decisão.",
+      "trigger": { "type": "property_changed", "field": "status", "to": "substituida" },
+      "conditions": [{ "field": "superseded_by", "op": "empty" }],
+      "actions": [{ "type": "notify_me", "title": "Decisão substituída", "body": "Decisão \"{{title}}\" marcada como Substituída sem apontar a decisão nova." }]
+    }
+  ],
+  "reminderRules": [],
+  "sampleItems": []
+}
