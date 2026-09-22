@@ -1,8 +1,12 @@
+import { formatInTimeZone } from "date-fns-tz";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { AttachmentList } from "@/features/attachments/components/attachment-list";
 import { listItemAttachments } from "@/features/attachments/queries";
+import { listContacts } from "@/features/contacts/queries";
+import { ItemFinancePanel } from "@/features/financas/components/item-finance-panel";
+import { listAccounts, listBillsForItem, listCategories, listTransactionsForItem } from "@/features/financas/queries";
 import { BacklinksPanel } from "@/features/items/components/backlinks-panel";
 import { ItemActionsBar } from "@/features/items/components/item-actions-bar";
 import { ItemEditor } from "@/features/items/components/item-editor";
@@ -36,21 +40,44 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const item = await getItemDetail(supabase, id);
   if (!item) notFound();
 
-  const [spaces, types, subitems, backlinks, versions, parent, tags, attachments, transcript, timezone, shareComments, shareLinks] =
-    await Promise.all([
-      listActiveSpaces(supabase),
-      listObjectTypesForPicker(supabase),
-      listSubitems(supabase, item.id),
-      listBacklinks(supabase, item.id),
-      listItemVersions(supabase, item.id),
-      item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
-      listItemTags(supabase, item.id),
-      listItemAttachments(supabase, item.id),
-      getTranscriptForItem(supabase, item.id),
-      getUserTimezone(supabase, user.id),
-      listItemShareComments(supabase, item.id),
-      listShareLinksForItem(supabase, item.id),
-    ]);
+  const timezone = await getUserTimezone(supabase, user.id);
+  const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
+
+  const [
+    spaces,
+    types,
+    subitems,
+    backlinks,
+    versions,
+    parent,
+    tags,
+    attachments,
+    transcript,
+    shareComments,
+    shareLinks,
+    financeAccounts,
+    financeCategories,
+    financeContacts,
+    itemTransactions,
+    itemBills,
+  ] = await Promise.all([
+    listActiveSpaces(supabase),
+    listObjectTypesForPicker(supabase),
+    listSubitems(supabase, item.id),
+    listBacklinks(supabase, item.id),
+    listItemVersions(supabase, item.id),
+    item.parentId ? getParent(supabase, item.parentId) : Promise.resolve(null),
+    listItemTags(supabase, item.id),
+    listItemAttachments(supabase, item.id),
+    getTranscriptForItem(supabase, item.id),
+    listItemShareComments(supabase, item.id),
+    listShareLinksForItem(supabase, item.id),
+    listAccounts(supabase),
+    listCategories(supabase),
+    listContacts(supabase, {}),
+    listTransactionsForItem(supabase, item.id),
+    listBillsForItem(supabase, item.id, today),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -132,6 +159,17 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       </dl>
 
       <AttachmentList itemId={item.id} attachments={attachments} />
+
+      <ItemFinancePanel
+        itemId={item.id}
+        itemTitle={item.title || "Sem título"}
+        today={today}
+        accounts={financeAccounts}
+        categories={financeCategories}
+        contacts={financeContacts}
+        transactions={itemTransactions}
+        bills={itemBills}
+      />
 
       <ItemShareComments comments={shareComments} />
 

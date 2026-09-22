@@ -190,10 +190,12 @@ export interface TransactionRow {
   installmentTotal: number | null;
   /** Não nulo quando o lançamento veio de uma importação (4.5) — usado pra oferecer "aprender com correções" (4.6) ao trocar a categoria. */
   importId: string | null;
+  /** Não nulo quando o lançamento foi criado a partir de um item, via "Registrar despesa/receita" (4.13). */
+  itemId: string | null;
 }
 
 const TRANSACTION_COLUMNS =
-  "id, occurred_on, description, amount_cents, status, kind, account_id, category_id, contact_id, space_id, tags, notes, transfer_group_id, installment_group_id, installment_number, installment_total, import_id";
+  "id, occurred_on, description, amount_cents, status, kind, account_id, category_id, contact_id, space_id, tags, notes, transfer_group_id, installment_group_id, installment_number, installment_total, import_id, item_id";
 
 function mapTransactionRow(row: Record<string, unknown>): TransactionRow {
   return {
@@ -214,7 +216,15 @@ function mapTransactionRow(row: Record<string, unknown>): TransactionRow {
     installmentNumber: row.installment_number as number | null,
     installmentTotal: row.installment_total as number | null,
     importId: row.import_id as string | null,
+    itemId: row.item_id as string | null,
   };
+}
+
+/** Lançamentos vinculados a um item (4.13, painel "Financeiro" — "Registrar despesa/receita"). */
+export async function listTransactionsForItem(supabase: Client, itemId: string): Promise<TransactionRow[]> {
+  const { data, error } = await supabase.from("fin_transactions").select(TRANSACTION_COLUMNS).eq("item_id", itemId).order("occurred_on", { ascending: false });
+  if (error) throw error;
+  return data.map(mapTransactionRow);
 }
 
 /**
@@ -481,12 +491,14 @@ export interface BillRow {
   pixCode: string | null;
   notes: string | null;
   paidAt: string | null;
+  /** Não nulo quando a conta foi criada a partir de um item, via "Criar conta a receber" (4.13). */
+  itemId: string | null;
   /** `status='open' and due_on < hoje` (calculado na consulta, sem job — 4.8). */
   overdue: boolean;
 }
 
 const BILL_COLUMNS =
-  "id, space_id, direction, description, contact_id, category_id, account_id, amount_cents, paid_cents, due_on, status, recurring_id, statement_id, attachment_id, barcode, pix_code, notes, paid_at";
+  "id, space_id, direction, description, contact_id, category_id, account_id, amount_cents, paid_cents, due_on, status, recurring_id, statement_id, attachment_id, barcode, pix_code, notes, paid_at, item_id";
 
 function mapBillRow(row: Record<string, unknown>, today: string): BillRow {
   const status = row.status as BillStatus;
@@ -510,6 +522,7 @@ function mapBillRow(row: Record<string, unknown>, today: string): BillRow {
     pixCode: row.pix_code as string | null,
     notes: row.notes as string | null,
     paidAt: row.paid_at as string | null,
+    itemId: row.item_id as string | null,
     overdue: status === "open" && dueOn < today,
   };
 }
@@ -534,6 +547,13 @@ export async function getBill(supabase: Client, id: string, today: string): Prom
   const { data, error } = await supabase.from("fin_bills").select(BILL_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw error;
   return data ? mapBillRow(data, today) : null;
+}
+
+/** Contas vinculadas a um item (4.13, painel "Financeiro" — "Criar conta a receber"). */
+export async function listBillsForItem(supabase: Client, itemId: string, today: string): Promise<BillRow[]> {
+  const { data, error } = await supabase.from("fin_bills").select(BILL_COLUMNS).eq("item_id", itemId).order("due_on", { ascending: false });
+  if (error) throw error;
+  return data.map((row) => mapBillRow(row, today));
 }
 
 // =========================================================
@@ -875,5 +895,34 @@ export async function getDashboardData(supabase: Client, ownerId: string, input:
     upcoming,
     topExpenses: topExpensesList,
     uncategorized,
+  };
+}
+
+// =========================================================
+// INTEGRAÇÃO COM CONTATOS (4.13)
+// =========================================================
+
+export interface ContactFinanceSummary {
+  /** Saldo líquido de divisões com esse contato (`fin_contact_balances`, 4.2/4.9) — positivo = ele me deve. */
+  balanceCents: number;
+  bills: BillRow[];
+  transactions: TransactionRow[];
+}
+
+/** Aba "Finanças" do contato (4.13): contas em aberto, lançamentos recentes e saldo de divisões com essa pessoa. */
+export async function getContactFinanceSummary(supabase: Client, contactId: string, today: string): Promise<ContactFinanceSummary> {
+  const [billsResult, transactionsResult, balanceResult] = await Promise.all([
+    supabase.from("fin_bills").select(BILL_COLUMNS).eq("contact_id", contactId).in("status", ["open", "partial"]).order("due_on", { ascending: true }),
+    supabase.from("fin_transactions").select(TRANSACTION_COLUMNS).eq("contact_id", contactId).order("occurred_on", { ascending: false }).limit(20),
+    supabase.from("fin_contact_balances").select("balance_cents").eq("contact_id", contactId),
+  ]);
+  if (billsResult.error) throw billsResult.error;
+  if (transactionsResult.error) throw transactionsResult.error;
+  if (balanceResult.error) throw balanceResult.error;
+
+  return {
+    balanceCents: sumCents((balanceResult.data ?? []).map((row) => row.balance_cents ?? 0)),
+    bills: billsResult.data.map((row) => mapBillRow(row, today)),
+    transactions: transactionsResult.data.map(mapTransactionRow),
   };
 }

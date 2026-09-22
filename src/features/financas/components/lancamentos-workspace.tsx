@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Filter, LayoutDashboard, PiggyBank, Plus, Receipt, Settings, Upload, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Filter, LayoutDashboard, PiggyBank, Plus, Receipt, Settings, Upload, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -27,6 +27,20 @@ import { TransactionsTable } from "./transactions-table";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
+
+/** "Exportação: lançamentos filtrados em CSV" (4.13) — mesmo filtro da tabela, como query string pro route handler. */
+function buildExportHref(filters: TransactionFilters): string {
+  const params = new URLSearchParams({ periodStart: filters.periodStart, periodEnd: filters.periodEnd });
+  if (filters.accountId) params.set("accountId", filters.accountId);
+  if (filters.spaceId) params.set("spaceId", filters.spaceId);
+  if (filters.categoryId) params.set("categoryId", filters.categoryId);
+  if (filters.contactId) params.set("contactId", filters.contactId);
+  if (filters.type) params.set("type", filters.type);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.text) params.set("text", filters.text);
+  if (filters.noCategory) params.set("noCategory", "1");
+  return `/api/financas/export?${params.toString()}`;
+}
 
 interface LancamentosWorkspaceProps {
   accounts: AccountRow[];
@@ -241,6 +255,12 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
           >
             <Upload className="h-4 w-4" /> Importar extrato
           </Link>
+          <a
+            href={buildExportHref(currentFilters())}
+            className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
+          >
+            <Download className="h-4 w-4" /> Exportar CSV
+          </a>
           <button
             type="button"
             onClick={() => setShowQuick(true)}
