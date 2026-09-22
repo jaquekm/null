@@ -1,6 +1,7 @@
 import "server-only";
 import { calendarPush } from "./handlers/calendar-push";
 import { calendarSync } from "./handlers/calendar-sync";
+import { checkBudgets } from "./handlers/check-budgets";
 import { closeCardStatements } from "./handlers/close-card-statements";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
 import { extractAttachment } from "./handlers/extract-attachment";
@@ -30,4 +31,5 @@ export const handlers: Record<string, JobHandler> = {
   generate_reminders: generateReminders,
   close_card_statements: closeCardStatements,
   generate_bills: generateBills,
+  check_budgets: checkBudgets,
 };

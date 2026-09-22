@@ -63,13 +63,24 @@ export interface CategoryRow {
   parentId: string | null;
   name: string;
   kind: "income" | "expense";
+  monthlyBudgetCents: number | null;
 }
 
-/** Categorias ativas do dono, pra revisar no onboarding (4.3) e usar em regras/lançamentos depois. */
+/** Categorias ativas do dono, pra revisar no onboarding (4.3) e usar em regras/lançamentos/orçamento depois. */
 export async function listCategories(supabase: Client): Promise<CategoryRow[]> {
-  const { data, error } = await supabase.from("fin_categories").select("id, parent_id, name, kind").is("archived_at", null).order("name", { ascending: true });
+  const { data, error } = await supabase
+    .from("fin_categories")
+    .select("id, parent_id, name, kind, monthly_budget_cents")
+    .is("archived_at", null)
+    .order("name", { ascending: true });
   if (error) throw error;
-  return data.map((row) => ({ id: row.id, parentId: row.parent_id, name: row.name, kind: row.kind as "income" | "expense" }));
+  return data.map((row) => ({
+    id: row.id,
+    parentId: row.parent_id,
+    name: row.name,
+    kind: row.kind as "income" | "expense",
+    monthlyBudgetCents: row.monthly_budget_cents,
+  }));
 }
 
 export interface PixKeyRow {

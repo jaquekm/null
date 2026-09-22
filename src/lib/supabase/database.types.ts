@@ -587,6 +587,41 @@ export type Database = {
           },
         ]
       }
+      fin_budget_alerts: {
+        Row: {
+          category_id: string
+          id: string
+          month: string
+          notified_at: string
+          owner_id: string
+          threshold: number
+        }
+        Insert: {
+          category_id: string
+          id?: string
+          month: string
+          notified_at?: string
+          owner_id?: string
+          threshold: number
+        }
+        Update: {
+          category_id?: string
+          id?: string
+          month?: string
+          notified_at?: string
+          owner_id?: string
+          threshold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_budget_alerts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_card_statements: {
         Row: {
           account_id: string
