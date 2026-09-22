@@ -191,6 +191,8 @@ function KanbanColumn({
         createdAt: result.data.createdAt,
         position: result.data.position,
         tags: [],
+        coverPath: null,
+        content: null,
       });
       setTitle2("");
       setAdding(false);

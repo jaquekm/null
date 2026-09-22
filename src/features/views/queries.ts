@@ -1,4 +1,5 @@
 import "server-only";
+import type { JSONContent } from "@tiptap/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
@@ -65,6 +66,9 @@ export interface ViewItemRow {
   createdAt: string;
   position: number;
   tags: TagOption[];
+  /** Capa (5.4: Galeria) — `cover_path` da coluna, ou `null` (aí quem exibe procura a primeira imagem em `content`). */
+  coverPath: string | null;
+  content: JSONContent | null;
 }
 
 export interface QueryViewItemsParams {
@@ -94,7 +98,7 @@ export async function queryViewItems(supabase: Client, params: QueryViewItemsPar
 
   let query = supabase
     .from("items")
-    .select("id, title, status, space_id, type_id, properties, updated_at, created_at, position", { count: "exact" })
+    .select("id, title, status, space_id, type_id, properties, updated_at, created_at, position, cover_path, content", { count: "exact" })
     .is("deleted_at", null);
 
   if (params.spaceId) query = query.eq("space_id", params.spaceId);
@@ -140,6 +144,8 @@ export async function queryViewItems(supabase: Client, params: QueryViewItemsPar
       createdAt: item.created_at,
       position: item.position,
       tags: tagsByItem.get(item.id) ?? [],
+      coverPath: item.cover_path,
+      content: item.content as unknown as JSONContent | null,
     })),
     total: count ?? 0,
   };
