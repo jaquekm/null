@@ -11,7 +11,16 @@ const inputClassName =
 
 const initialState: Result<null> = { ok: true, data: null };
 
-export function NewItemButton({ spaceId, types }: { spaceId: string; types: SpaceTypeOption[] }) {
+export function NewItemButton({
+  spaceId,
+  types,
+  defaultTypeId,
+}: {
+  spaceId: string;
+  types: SpaceTypeOption[];
+  /** Tipo da aba atual (`?tipo=`), se houver — sem isto o formulário sempre criava "Sem tipo", então o item não aparecia na aba filtrada de onde o dono clicou "Novo" (parecia ter sumido). */
+  defaultTypeId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createItemInSpace, initialState);
 
@@ -32,7 +41,7 @@ export function NewItemButton({ spaceId, types }: { spaceId: string; types: Spac
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="spaceId" value={spaceId} />
       <input name="title" placeholder="Título" autoFocus maxLength={200} className={`${inputClassName} min-w-0 flex-1`} />
-      <select name="typeId" aria-label="Tipo" defaultValue="" className={inputClassName}>
+      <select name="typeId" aria-label="Tipo" defaultValue={defaultTypeId ?? ""} className={inputClassName}>
         <option value="">Sem tipo</option>
         {types.map((type) => (
           <option key={type.id} value={type.id}>

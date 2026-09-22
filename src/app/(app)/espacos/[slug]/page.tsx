@@ -55,7 +55,7 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
             <p className="mt-1 text-sm text-black/60 dark:text-white/60">{space.description}</p>
           )}
         </div>
-        <NewItemButton spaceId={space.id} types={types} />
+        <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} />
       </header>
 
       {types.length > 0 && (
