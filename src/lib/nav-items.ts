@@ -2,6 +2,7 @@ import {
   BarChart3,
   Bell,
   Calendar,
+  CalendarCheck,
   GraduationCap,
   Inbox,
   Search,
@@ -42,6 +43,11 @@ const CONFIGURACOES: NavItem = {
   label: "Configurações",
   icon: Settings,
 };
+const REVISAO_SEMANAL: NavItem = {
+  href: "/revisao-semanal",
+  label: "Revisão semanal",
+  icon: CalendarCheck,
+};
 
 /** Itens da sidebar (desktop) e do menu completo (mobile). */
 export const NAV_ITEMS: NavItem[] = [
@@ -53,6 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
   CONTATOS,
   RELATORIOS,
   ESTUDOS,
+  REVISAO_SEMANAL,
   CONFIGURACOES,
 ];
 
