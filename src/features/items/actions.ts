@@ -64,7 +64,11 @@ export async function updateItemTitle(
 
   await attachHashtagsFromText(supabase, user.id, itemId, title);
 
-  revalidatePath(`/itens/${itemId}`);
+  // Sem `revalidatePath` de propósito: isto salva a cada perda de foco do título (autosave "vivo"),
+  // e o `ItemEditor` já se atualiza sozinho via `onSaved`/`updatedAt` — revalidar aqui forçaria a página
+  // a buscar dados de novo a cada salvamento, trocando a `key` do editor (`page.tsx`) e remontando-o no
+  // meio da digitação (perde o cursor). `restoreItemVersion`, que muda o conteúdo por fora do editor,
+  // continua revalidando — é o caso que realmente precisa da remontagem.
   return ok({ updatedAt: data.updated_at });
 }
 
@@ -134,7 +138,8 @@ export async function updateItemProperty(
 
   if (error || !data) return fail(GENERIC_ERROR);
 
-  revalidatePath(`/itens/${itemId}`);
+  // Sem `revalidatePath` de propósito — mesmo motivo de `updateItemTitle`: autosave por campo,
+  // o `PropertiesPanel` já se atualiza sozinho via `onSaved`/`updatedAt`.
   return ok({ updatedAt: data.updated_at });
 }
 
@@ -440,7 +445,11 @@ export async function updateItemContent(
   }
   await syncContactMentions(supabase, user.id, itemId, content);
 
-  revalidatePath(`/itens/${itemId}`);
+  // Sem `revalidatePath` de propósito — mesmo motivo de `updateItemTitle`: chamado a cada
+  // ~800ms enquanto o dono digita (debounce do Tiptap), o `ItemContentEditor` já se atualiza
+  // sozinho via `onSaved`/`updatedAt`. Revalidar aqui era o bug real: a página buscava dados
+  // de novo a cada salvamento, trocando a `key` do `ItemEditor` (`page.tsx`) e remontando o
+  // editor no meio da digitação — perdia o cursor a cada letra.
   return ok({ updatedAt: data.updated_at });
 }
 

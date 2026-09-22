@@ -63,13 +63,24 @@ export interface CategoryRow {
   parentId: string | null;
   name: string;
   kind: "income" | "expense";
+  monthlyBudgetCents: number | null;
 }
 
-/** Categorias ativas do dono, pra revisar no onboarding (4.3) e usar em regras/lançamentos depois. */
+/** Categorias ativas do dono, pra revisar no onboarding (4.3) e usar em regras/lançamentos/orçamento depois. */
 export async function listCategories(supabase: Client): Promise<CategoryRow[]> {
-  const { data, error } = await supabase.from("fin_categories").select("id, parent_id, name, kind").is("archived_at", null).order("name", { ascending: true });
+  const { data, error } = await supabase
+    .from("fin_categories")
+    .select("id, parent_id, name, kind, monthly_budget_cents")
+    .is("archived_at", null)
+    .order("name", { ascending: true });
   if (error) throw error;
-  return data.map((row) => ({ id: row.id, parentId: row.parent_id, name: row.name, kind: row.kind as "income" | "expense" }));
+  return data.map((row) => ({
+    id: row.id,
+    parentId: row.parent_id,
+    name: row.name,
+    kind: row.kind as "income" | "expense",
+    monthlyBudgetCents: row.monthly_budget_cents,
+  }));
 }
 
 export interface PixKeyRow {
@@ -100,6 +111,27 @@ export async function listPixKeys(supabase: Client): Promise<PixKeyRow[]> {
     spaceId: row.space_id,
     isDefault: row.is_default,
   }));
+}
+
+/** Chave Pix padrão do dono (4.10, página pública de cobrança) — `null` se nenhuma foi cadastrada ou marcada como padrão. */
+export async function getDefaultPixKey(admin: Client, ownerId: string): Promise<PixKeyRow | null> {
+  const { data } = await admin
+    .from("fin_pix_keys")
+    .select("id, label, key_type, key_value, merchant_name, merchant_city, space_id, is_default")
+    .eq("owner_id", ownerId)
+    .eq("is_default", true)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    label: data.label,
+    keyType: data.key_type as PixKeyType,
+    keyValue: data.key_value,
+    merchantName: data.merchant_name,
+    merchantCity: data.merchant_city,
+    spaceId: data.space_id,
+    isDefault: data.is_default,
+  };
 }
 
 /** "Enviar dados financeiros pra IA" (4.3, passo 4) — padrão desligado, só liga se o dono marcar explicitamente. */

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ContactRow } from "@/features/contacts/queries";
+import { ChargeLinkDialog } from "@/features/sharing/components/charge-link-dialog";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { formatBRL } from "@/lib/money";
 import { cancelBill, searchBills } from "../actions";
@@ -46,11 +47,13 @@ export function BillsWorkspace({ accounts, categories, spaces, contacts, initial
   const [showForm, setShowForm] = useState(false);
   const [editingBill, setEditingBill] = useState<BillRow | null>(null);
   const [payingBill, setPayingBill] = useState<BillRow | null>(null);
+  const [chargingBill, setChargingBill] = useState<BillRow | null>(null);
   const [, startTransition] = useTransition();
 
   const today = initialToday;
 
   const contactNameById = useMemo(() => new Map(contacts.map((c) => [c.id, c.name])), [contacts]);
+  const contactPhoneById = useMemo(() => new Map(contacts.map((c) => [c.id, c.phoneE164])), [contacts]);
   const accountNameById = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
   const categoryLabelById = useMemo(() => {
     const byId = new Map(categories.map((c) => [c.id, c]));
@@ -149,6 +152,7 @@ export function BillsWorkspace({ accounts, categories, spaces, contacts, initial
                       onEdit={() => setEditingBill(bill)}
                       onPay={() => setPayingBill(bill)}
                       onCancel={() => handleCancel(bill)}
+                      onCharge={() => setChargingBill(bill)}
                     />
                   ))}
                 </div>
@@ -167,6 +171,7 @@ export function BillsWorkspace({ accounts, categories, spaces, contacts, initial
                   onEdit={() => setEditingBill(bill)}
                   onPay={() => setPayingBill(bill)}
                   onCancel={() => handleCancel(bill)}
+                  onCharge={() => setChargingBill(bill)}
                 />
               ))}
             </div>
@@ -214,6 +219,20 @@ export function BillsWorkspace({ accounts, categories, spaces, contacts, initial
           }}
         />
       )}
+
+      {chargingBill && (
+        <ChargeLinkDialog
+          resourceType="bill"
+          resourceId={chargingBill.id}
+          title={chargingBill.description}
+          amountCents={chargingBill.amountCents - chargingBill.paidCents}
+          contactName={chargingBill.contactId ? (contactNameById.get(chargingBill.contactId) ?? null) : null}
+          contactPhone={chargingBill.contactId ? (contactPhoneById.get(chargingBill.contactId) ?? null) : null}
+          hasAttachment={chargingBill.attachmentId != null}
+          showFullSplitOption={false}
+          onClose={() => setChargingBill(null)}
+        />
+      )}
     </div>
   );
 }
@@ -226,6 +245,7 @@ function BillCard({
   onEdit,
   onPay,
   onCancel,
+  onCharge,
 }: {
   bill: BillRow;
   contactName: string | undefined;
@@ -234,9 +254,11 @@ function BillCard({
   onEdit: () => void;
   onPay: () => void;
   onCancel: () => void;
+  onCharge: () => void;
 }) {
   const canPay = bill.status === "open" || bill.status === "partial";
   const canCancel = bill.status !== "canceled" && bill.status !== "paid";
+  const canCharge = bill.direction === "receivable" && canPay;
   const amountColor = bill.direction === "payable" ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400";
 
   return (
@@ -264,6 +286,11 @@ function BillCard({
         {canPay && (
           <button type="button" onClick={onPay} className="text-black underline dark:text-zinc-50">
             {bill.direction === "payable" ? "Marcar como paga" : "Marcar como recebida"}
+          </button>
+        )}
+        {canCharge && (
+          <button type="button" onClick={onCharge} className="text-black underline dark:text-zinc-50">
+            Cobrar
           </button>
         )}
         <button type="button" onClick={onEdit} className="text-zinc-600 underline dark:text-zinc-300">

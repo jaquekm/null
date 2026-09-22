@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ContactRow } from "@/features/contacts/queries";
+import { ChargeLinkDialog } from "@/features/sharing/components/charge-link-dialog";
 import { formatBRL } from "@/lib/money";
 import { cancelSplit, getGroupSettlement, getSplitDetail, searchContactBalances, searchSplits, type GroupSettlementResult } from "../actions";
 import { ME } from "../lib/net-balances";
@@ -34,11 +35,13 @@ export function SplitsWorkspace({ accounts, categories, contacts, linkableTransa
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sharesBySplitId, setSharesBySplitId] = useState<Record<string, SplitShareRow[]>>({});
   const [payingShare, setPayingShare] = useState<{ share: SplitShareRow; personName: string | null } | null>(null);
+  const [chargingShare, setChargingShare] = useState<{ share: SplitShareRow; splitTitle: string; personName: string; phone: string | null } | null>(null);
   const [selectedGroup, setSelectedGroup] = useState(groupLabels[0] ?? "");
   const [settlement, setSettlement] = useState<GroupSettlementResult | null>(null);
   const [, startTransition] = useTransition();
 
   const contactNameById = useMemo(() => new Map(contacts.map((c) => [c.id, c.nickname || c.name])), [contacts]);
+  const contactPhoneById = useMemo(() => new Map(contacts.map((c) => [c.id, c.phoneE164])), [contacts]);
 
   function reload(nextTab: SplitTab = tab) {
     startTransition(async () => {
@@ -220,6 +223,17 @@ export function SplitsWorkspace({ accounts, categories, contacts, linkableTransa
                         {remaining > 0 ? (
                           <>
                             <span className="text-amber-600 dark:text-amber-400">({formatBRL(remaining)} em aberto)</span>
+                            {share.contactId && split.paidByContactId == null && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setChargingShare({ share, splitTitle: split.title, personName, phone: contactPhoneById.get(share.contactId!) ?? null })
+                                }
+                                className="text-black underline dark:text-zinc-50"
+                              >
+                                Cobrar
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setPayingShare({ share, personName: share.contactId ? personName : null })}
@@ -277,6 +291,20 @@ export function SplitsWorkspace({ accounts, categories, contacts, linkableTransa
             });
             reload();
           }}
+        />
+      )}
+
+      {chargingShare && (
+        <ChargeLinkDialog
+          resourceType="split"
+          resourceId={chargingShare.share.id}
+          title={chargingShare.splitTitle}
+          amountCents={chargingShare.share.shareCents - chargingShare.share.settledCents}
+          contactName={chargingShare.personName}
+          contactPhone={chargingShare.phone}
+          hasAttachment={splits.find((s) => s.id === chargingShare.share.splitId)?.attachmentId != null}
+          showFullSplitOption
+          onClose={() => setChargingShare(null)}
         />
       )}
     </div>

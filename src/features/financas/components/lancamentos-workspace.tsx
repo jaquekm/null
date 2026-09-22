@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Filter, Plus, Receipt, Settings, Upload, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, PiggyBank, Plus, Receipt, Settings, Upload, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -216,6 +216,12 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
             className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
           >
             <Receipt className="h-4 w-4" /> Contas
+          </Link>
+          <Link
+            href="/financas/orcamento"
+            className="flex items-center gap-1.5 rounded-full border border-black/[.12] px-4 py-1.5 text-sm font-medium dark:border-white/[.16]"
+          >
+            <PiggyBank className="h-4 w-4" /> Orçamento
           </Link>
           <Link
             href="/financas/regras"

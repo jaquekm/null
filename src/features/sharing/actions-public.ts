@@ -6,6 +6,7 @@ import { getOwnerNotificationPreferences } from "@/features/settings/queries";
 import { applyContactOptOut } from "@/lib/messaging/apply-contact-opt-out";
 import { notifyOwner } from "@/lib/messaging/notify-owner";
 import { verifyOptOutToken } from "@/lib/messaging/opt-out-token";
+import { formatBRL } from "@/lib/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { fail, ok, type Result } from "@/lib/result";
@@ -110,6 +111,57 @@ export async function submitShareComment(token: string, input: { authorName: str
       title: "Novo comentário no link compartilhado",
       text: `${parsed.data.authorName}: "${parsed.data.body.slice(0, 140)}"`,
     });
+  }
+
+  revalidatePath(`/p/${token}`);
+  return ok(null);
+}
+
+/**
+ * Permissão `settle` (4.10) — botão "Já paguei". Só grava `claimed_paid_at`
+ * e avisa o dono; NUNCA marca a divisão/conta como quitada de verdade (só o
+ * dono confirma isso, vendo o dinheiro cair ou pela conciliação da importação).
+ */
+export async function claimSharePayment(token: string): Promise<Result<null>> {
+  const admin = createAdminClient();
+  const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
+  if (!shareLink || !isShareLinkActive(shareLink)) return fail(GENERIC_INVALID);
+  if (shareLink.permission !== "settle") return fail("Essa ação não é permitida por esse link.");
+  if (!(await isAuthenticatedForShareLink(shareLink))) return fail("Não autenticado.");
+
+  const claimedAt = new Date().toISOString();
+
+  if (shareLink.resourceType === "split") {
+    const { data, error } = await admin
+      .from("fin_split_shares")
+      .update({ claimed_paid_at: claimedAt })
+      .eq("id", shareLink.resourceId)
+      .eq("owner_id", shareLink.ownerId)
+      .select("share_cents, settled_cents, fin_splits(title)")
+      .maybeSingle();
+    if (error || !data) return fail("Não foi possível registrar. Tente de novo.");
+
+    const splitTitle = (data.fin_splits as unknown as { title: string } | null)?.title ?? "Divisão";
+    await notifyOwner(shareLink.ownerId, {
+      title: '"Já paguei" recebido',
+      text: `${splitTitle}: ${formatBRL(data.share_cents - data.settled_cents)} marcado como pago pelo link. Confirme quando ver o valor na conta.`,
+    });
+  } else if (shareLink.resourceType === "bill") {
+    const { data, error } = await admin
+      .from("fin_bills")
+      .update({ claimed_paid_at: claimedAt })
+      .eq("id", shareLink.resourceId)
+      .eq("owner_id", shareLink.ownerId)
+      .select("description, amount_cents, paid_cents")
+      .maybeSingle();
+    if (error || !data) return fail("Não foi possível registrar. Tente de novo.");
+
+    await notifyOwner(shareLink.ownerId, {
+      title: '"Já paguei" recebido',
+      text: `${data.description}: ${formatBRL(data.amount_cents - data.paid_cents)} marcado como pago pelo link. Confirme quando ver o valor na conta.`,
+    });
+  } else {
+    return fail("Essa ação não é permitida por esse link.");
   }
 
   revalidatePath(`/p/${token}`);

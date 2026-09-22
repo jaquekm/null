@@ -12,6 +12,7 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { computeMissingChildCategories, computeMissingTopCategories, DEFAULT_CATEGORIES } from "./lib/default-categories";
 import { recurrencePresetForRepeat, recurringDirectionForType } from "./lib/build-recurring-from-transaction";
+import { computeCategoryBudgetProgress, sumExpensesByCategory, type BudgetStatus } from "./lib/budget-progress";
 import { buildInstallments } from "./lib/installments";
 import { computeOccurrenceIndexes, importHash } from "./lib/import-hash";
 import { matchBills } from "./lib/match-bills";
@@ -31,6 +32,7 @@ import {
   listAccounts,
   listBills,
   listCardStatementsByReferenceMonths,
+  listCategories,
   listContactBalances,
   listExistingImportHashes,
   listOpenBillsForMatching,
@@ -73,6 +75,7 @@ import {
   registerSplitPaymentSchema,
   renameCategorySchema,
   ruleInputSchema,
+  setCategoryBudgetSchema,
   transactionFiltersSchema,
   updateBillSchema,
   updateRecurringSchema,
@@ -109,6 +112,7 @@ const REGRAS_PATH = "/financas/regras";
 const CONTAS_PATH = "/financas/contas";
 const RECORRENCIAS_PATH = "/financas/recorrencias";
 const DIVIDIR_PATH = "/financas/dividir";
+const ORCAMENTO_PATH = "/financas/orcamento";
 
 /** "Aplicação: ... incrementa `times_applied`" (4.6) — chamado só quando a sugestão da regra realmente vira o dado salvo (não quando é só mostrada como sugestão e depois trocada). */
 async function incrementRuleTimesApplied(supabase: Client, ruleId: string): Promise<void> {
@@ -240,6 +244,23 @@ export async function archiveCategory(id: string): Promise<Result<null>> {
   return ok(null);
 }
 
+/** Orçamento mensal de uma categoria (4.11) — texto vazio remove o orçamento (`monthly_budget_cents` volta a `null`). */
+export async function setCategoryBudget(id: string, input: { monthlyBudget?: string }): Promise<Result<null>> {
+  const parsed = setCategoryBudgetSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+
+  const budgetCents = parseOptionalAmountCents(parsed.data.monthlyBudget);
+  if (budgetCents === "invalid") return fail("Dados inválidos.", { monthlyBudget: ["Valor inválido."] });
+  if (budgetCents !== null && budgetCents <= 0) return fail("Dados inválidos.", { monthlyBudget: ["O orçamento precisa ser maior que zero."] });
+
+  const { supabase, user } = await requireOwner();
+  const { error } = await supabase.from("fin_categories").update({ monthly_budget_cents: budgetCents }).eq("id", id).eq("owner_id", user.id);
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(ORCAMENTO_PATH);
+  return ok(null);
+}
+
 export async function createPixKey(input: CreatePixKeyInput): Promise<Result<{ id: string }>> {
   const parsed = createPixKeySchema.safeParse(input);
   if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
@@ -315,6 +336,7 @@ export async function completeFinanceOnboarding(): Promise<Result<null>> {
     [
       { kind: "close_card_statements", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
       { kind: "generate_bills", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
+      { kind: "check_budgets", owner_id: user.id, interval_seconds: 24 * 60 * 60, enabled: true },
     ],
     { onConflict: "kind" },
   );
@@ -334,6 +356,44 @@ export async function searchTransactions(filters: TransactionFilters): Promise<{
 
   const rows = await listTransactions(supabase, parsed.data);
   return { rows, totals: computeTransactionTotals(rows) };
+}
+
+export interface CategoryBudgetRow {
+  categoryId: string;
+  categoryName: string;
+  parentId: string | null;
+  budgetCents: number | null;
+  spentCents: number;
+  percent: number | null;
+  status: BudgetStatus | null;
+}
+
+/** `/financas/orcamento` (4.11): gasto do período × orçamento de cada categoria de despesa, com filtro de espaço opcional. */
+export async function searchCategoryBudgets(input: { periodStart: string; periodEnd: string; spaceId?: string }): Promise<CategoryBudgetRow[]> {
+  const { supabase } = await requireOwner();
+
+  const [categories, transactions] = await Promise.all([
+    listCategories(supabase),
+    listTransactions(supabase, { periodStart: input.periodStart, periodEnd: input.periodEnd, spaceId: input.spaceId, type: "expense" }),
+  ]);
+
+  const expenseCategories = categories.filter((c) => c.kind === "expense");
+  const spentByCategory = sumExpensesByCategory(transactions.map((t) => ({ categoryId: t.categoryId, amountCents: t.amountCents })));
+  const progress = computeCategoryBudgetProgress(
+    expenseCategories.map((c) => ({ id: c.id, budgetCents: c.monthlyBudgetCents })),
+    spentByCategory,
+  );
+  const progressById = new Map(progress.map((p) => [p.categoryId, p]));
+
+  return expenseCategories.map((category) => ({
+    categoryId: category.id,
+    categoryName: category.name,
+    parentId: category.parentId,
+    budgetCents: category.monthlyBudgetCents,
+    spentCents: progressById.get(category.id)!.spentCents,
+    percent: progressById.get(category.id)!.percent,
+    status: progressById.get(category.id)!.status,
+  }));
 }
 
 /** "Gasto rápido" (4.4): sugere a categoria da transação mais recente com descrição parecida. */

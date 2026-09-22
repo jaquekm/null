@@ -452,6 +452,7 @@ export type Database = {
           attachment_id: string | null
           barcode: string | null
           category_id: string | null
+          claimed_paid_at: string | null
           contact_id: string | null
           created_at: string
           description: string
@@ -476,6 +477,7 @@ export type Database = {
           attachment_id?: string | null
           barcode?: string | null
           category_id?: string | null
+          claimed_paid_at?: string | null
           contact_id?: string | null
           created_at?: string
           description: string
@@ -500,6 +502,7 @@ export type Database = {
           attachment_id?: string | null
           barcode?: string | null
           category_id?: string | null
+          claimed_paid_at?: string | null
           contact_id?: string | null
           created_at?: string
           description?: string
@@ -580,6 +583,41 @@ export type Database = {
             columns: ["statement_id"]
             isOneToOne: false
             referencedRelation: "fin_card_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_budget_alerts: {
+        Row: {
+          category_id: string
+          id: string
+          month: string
+          notified_at: string
+          owner_id: string
+          threshold: number
+        }
+        Insert: {
+          category_id: string
+          id?: string
+          month: string
+          notified_at?: string
+          owner_id?: string
+          threshold: number
+        }
+        Update: {
+          category_id?: string
+          id?: string
+          month?: string
+          notified_at?: string
+          owner_id?: string
+          threshold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_budget_alerts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -2034,6 +2072,7 @@ export type Database = {
           resource_id: string
           resource_type: string
           revoked_at: string | null
+          show_full_split: boolean
           token_hash: string
           token_prefix: string
           view_count: number
@@ -2052,6 +2091,7 @@ export type Database = {
           resource_id: string
           resource_type: string
           revoked_at?: string | null
+          show_full_split?: boolean
           token_hash: string
           token_prefix: string
           view_count?: number
@@ -2070,6 +2110,7 @@ export type Database = {
           resource_id?: string
           resource_type?: string
           revoked_at?: string | null
+          show_full_split?: boolean
           token_hash?: string
           token_prefix?: string
           view_count?: number

@@ -75,6 +75,11 @@ export const renameCategorySchema = z.object({
   name: z.string().trim().min(1, "Digite um nome.").max(120),
 });
 
+/** Vazio = remove o orçamento (categoria volta a não ter limite) — 4.11. */
+export const setCategoryBudgetSchema = z.object({
+  monthlyBudget: z.string().trim().optional().or(z.literal("")),
+});
+
 // =========================================================
 // LANÇAMENTOS (4.4)
 // =========================================================
