@@ -248,7 +248,7 @@ export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?
           onItemSaved={handleItemSaved}
         />
       ) : view.kind === "kanban" && groupField && spaceId && typeId ? (
-        <KanbanView rows={rows} fields={fields} groupField={groupField} spaceId={spaceId} typeId={typeId} />
+        <KanbanView rows={rows} fields={fields} groupField={groupField} spaceId={spaceId} typeId={typeId} sumField={fields.find((f) => f.key === view.config.sumField)} />
       ) : view.kind === "kanban" ? (
         <p className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
           Escolha um campo de seleção pra agrupar as colunas.

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { ContactFinanceSection } from "@/features/financas/components/contact-finance-section";
 import type { ContactFinanceSummary } from "@/features/financas/queries";
 import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
+import { ContactSalesSection } from "@/features/sales/components/contact-sales-section";
+import type { ContactSalesSummary } from "@/features/sales/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { archiveContact } from "../actions";
 import type { ContactActivity, ContactDetailRow } from "../queries";
@@ -25,12 +27,15 @@ export function ContactDetail({
   activity,
   timezone,
   finance,
+  sales,
 }: {
   spaces: SidebarSpace[];
   contact: ContactDetailRow;
   activity: ContactActivity;
   timezone: string;
   finance: ContactFinanceSummary;
+  /** `null` = pack Vendas (CRM, 5.6) não instalado — a seção some inteira. */
+  sales: ContactSalesSummary | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -102,6 +107,12 @@ export function ContactDetail({
       <Section title="Finanças">
         <ContactFinanceSection finance={finance} />
       </Section>
+
+      {sales && (
+        <Section title="Vendas">
+          <ContactSalesSection sales={sales} />
+        </Section>
+      )}
 
       <Section title="Itens ligados">
         {activity.linkedItems.length === 0 ? (

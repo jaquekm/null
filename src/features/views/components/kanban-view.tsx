@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateItemProperty, reorderItem } from "@/features/items/actions";
+import { formatBRL, sumCents } from "@/lib/money";
 import { positionBetween } from "@/features/spaces/lib/position";
 import type { FieldDefinition } from "@/features/types/schemas";
 import { createItemInColumn } from "../actions";
@@ -32,12 +33,15 @@ export function KanbanView({
   groupField,
   spaceId,
   typeId,
+  sumField,
 }: {
   rows: ViewItemRow[];
   fields: FieldDefinition[];
   groupField: FieldDefinition;
   spaceId: string;
   typeId: string;
+  /** Campo `money` somado no cabeçalho de cada coluna (5.6, "soma de valores por coluna") — genérico, opcional. */
+  sumField?: FieldDefinition;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [, startTransition] = useTransition();
@@ -133,6 +137,7 @@ export function KanbanView({
             spaceId={spaceId}
             typeId={typeId}
             groupField={groupField}
+            sumField={sumField?.type === "money" ? sumField : undefined}
             onCreated={(item) => handleCreated(columnId, item)}
           />
         ))}
@@ -149,6 +154,7 @@ function KanbanColumn({
   spaceId,
   typeId,
   groupField,
+  sumField,
   onCreated,
 }: {
   columnId: string;
@@ -158,6 +164,7 @@ function KanbanColumn({
   spaceId: string;
   typeId: string;
   groupField: FieldDefinition;
+  sumField?: FieldDefinition;
   onCreated: (item: ViewItemRow) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column:${columnId}` });
@@ -210,6 +217,11 @@ function KanbanColumn({
         <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{title}</h3>
         <span className="text-xs text-zinc-400 dark:text-zinc-500">{rows.length}</span>
       </div>
+      {sumField && (
+        <p className="px-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          {formatBRL(sumCents(rows.map((row) => (typeof row.properties[sumField.key] === "number" ? (row.properties[sumField.key] as number) : 0))))}
+        </p>
+      )}
 
       <SortableContext items={rows.map((row) => row.id)} strategy={verticalListSortingStrategy}>
         <div className="flex flex-col gap-1.5">

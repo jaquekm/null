@@ -121,6 +121,17 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 
       {item.type?.slug === "reuniao" && <RecordMeetingButton itemId={item.id} />}
 
+      {item.type?.slug === "proposta" && (
+        <a
+          href={`/api/vendas/propostas/${item.id}/export`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="self-start rounded-full border border-black/[.12] px-4 py-1.5 text-sm dark:border-white/[.16]"
+        >
+          Exportar proposta (HTML pra imprimir)
+        </a>
+      )}
+
       {transcript && (
         <TranscriptViewer
           transcriptId={transcript.id}

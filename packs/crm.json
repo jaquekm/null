@@ -1,0 +1,256 @@
+{
+  "key": "crm",
+  "version": "1.0.0",
+  "name": "Vendas (CRM)",
+  "description": "Oportunidades, propostas e atividades com funil, previsão e follow-ups automáticos.",
+  "icon": "💼",
+  "requires": ["finance"],
+  "types": [
+    {
+      "ref": "opportunity",
+      "name": "Oportunidade",
+      "plural": "Oportunidades",
+      "slug": "oportunidade",
+      "icon": "🎯",
+      "defaultView": "kanban",
+      "fields": [
+        { "key": "contact", "label": "Contato", "type": "contact", "required": true },
+        { "key": "company", "label": "Empresa", "type": "text" },
+        { "key": "value", "label": "Valor", "type": "money", "showInCard": true },
+        {
+          "key": "stage",
+          "label": "Etapa",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "lead", "label": "Lead" },
+            { "id": "qualificado", "label": "Qualificado" },
+            { "id": "proposta_enviada", "label": "Proposta enviada" },
+            { "id": "negociacao", "label": "Negociação" },
+            { "id": "ganho", "label": "Ganho" },
+            { "id": "perdido", "label": "Perdido" }
+          ]
+        },
+        { "key": "probability", "label": "Probabilidade", "type": "percent", "min": 0, "max": 100 },
+        { "key": "expected_close", "label": "Previsão de fechamento", "type": "date", "showInCard": true },
+        {
+          "key": "source",
+          "label": "Origem",
+          "type": "select",
+          "options": [
+            { "id": "indicacao", "label": "Indicação" },
+            { "id": "site", "label": "Site" },
+            { "id": "instagram", "label": "Instagram" },
+            { "id": "whatsapp", "label": "WhatsApp" },
+            { "id": "evento", "label": "Evento" },
+            { "id": "outro", "label": "Outro" }
+          ]
+        },
+        {
+          "key": "lost_reason",
+          "label": "Motivo da perda",
+          "type": "select",
+          "options": [
+            { "id": "preco", "label": "Preço" },
+            { "id": "timing", "label": "Timing" },
+            { "id": "concorrente", "label": "Concorrente" },
+            { "id": "sem_resposta", "label": "Sem resposta" },
+            { "id": "outro", "label": "Outro" }
+          ]
+        },
+        { "key": "next_step", "label": "Próximo passo", "type": "text" },
+        { "key": "next_step_date", "label": "Data do próximo passo", "type": "date" },
+        { "key": "products", "label": "Produtos", "type": "multi_select", "options": [] }
+      ]
+    },
+    {
+      "ref": "proposal",
+      "name": "Proposta",
+      "plural": "Propostas",
+      "slug": "proposta",
+      "icon": "📄",
+      "fields": [
+        { "key": "opportunity", "label": "Oportunidade", "type": "relation", "relationTypeId": "opportunity", "multiple": false },
+        { "key": "value", "label": "Valor", "type": "money" },
+        { "key": "valid_until", "label": "Válida até", "type": "date" },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "rascunho", "label": "Rascunho" },
+            { "id": "enviada", "label": "Enviada" },
+            { "id": "aceita", "label": "Aceita" },
+            { "id": "recusada", "label": "Recusada" }
+          ]
+        },
+        { "key": "sent_at", "label": "Enviada em", "type": "date" },
+        { "key": "file", "label": "Arquivo", "type": "file", "multiple": false }
+      ],
+      "template": {
+        "type": "doc",
+        "content": [
+          { "type": "heading", "attrs": { "level": 1 }, "content": [{ "type": "text", "text": "Proposta comercial" }] },
+          { "type": "paragraph", "content": [{ "type": "text", "text": "Resumo do que está sendo proposto…" }] },
+          { "type": "heading", "attrs": { "level": 2 }, "content": [{ "type": "text", "text": "Escopo" }] },
+          { "type": "paragraph", "content": [{ "type": "text", "text": "Descreva o que está incluso." }] },
+          { "type": "heading", "attrs": { "level": 2 }, "content": [{ "type": "text", "text": "Investimento e condições" }] },
+          { "type": "paragraph", "content": [{ "type": "text", "text": "Detalhe forma de pagamento e prazo de validade (o valor e a validade já aparecem no topo da exportação, a partir dos campos)." }] }
+        ]
+      }
+    },
+    {
+      "ref": "activity",
+      "name": "Atividade",
+      "plural": "Atividades",
+      "slug": "atividade",
+      "icon": "📞",
+      "fields": [
+        { "key": "opportunity", "label": "Oportunidade", "type": "relation", "relationTypeId": "opportunity", "multiple": false },
+        { "key": "contact", "label": "Contato", "type": "contact" },
+        {
+          "key": "activity_type",
+          "label": "Tipo",
+          "type": "select",
+          "showInCard": true,
+          "options": [
+            { "id": "ligacao", "label": "Ligação" },
+            { "id": "reuniao", "label": "Reunião" },
+            { "id": "email", "label": "E-mail" },
+            { "id": "whatsapp", "label": "WhatsApp" },
+            { "id": "visita", "label": "Visita" }
+          ]
+        },
+        { "key": "date", "label": "Data", "type": "datetime", "showInCard": true },
+        { "key": "outcome", "label": "Resultado", "type": "long_text" }
+      ]
+    },
+    {
+      "ref": "onboarding_project",
+      "name": "Projeto de onboarding",
+      "plural": "Projetos de onboarding",
+      "slug": "projeto-onboarding",
+      "icon": "🚀",
+      "fields": [],
+      "template": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "taskList",
+            "content": [
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Enviar e-mail de boas-vindas" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Agendar reunião de kickoff" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Configurar acesso/ferramentas do cliente" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Enviar contrato/proposta assinada pro financeiro" }] }] },
+              { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Primeira checagem em 30 dias" }] }] }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "views": [
+    {
+      "ref": "pipeline",
+      "typeRef": "opportunity",
+      "name": "Funil",
+      "kind": "kanban",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [], "groupBy": "stage", "sumField": "value" }
+    },
+    {
+      "ref": "forecast",
+      "typeRef": "opportunity",
+      "name": "Previsão",
+      "kind": "table",
+      "config": {
+        "filters": [
+          { "field": "stage", "op": "neq", "value": "ganho" },
+          { "field": "stage", "op": "neq", "value": "perdido" }
+        ],
+        "sort": [{ "field": "expected_close", "dir": "asc" }],
+        "visibleFields": ["expected_close", "value", "probability", "stage"]
+      }
+    },
+    {
+      "ref": "next_actions",
+      "typeRef": "opportunity",
+      "name": "Minhas próximas ações",
+      "kind": "list",
+      "config": {
+        "filters": [{ "field": "next_step_date", "op": "not_empty" }],
+        "sort": [{ "field": "next_step_date", "dir": "asc" }]
+      }
+    },
+    {
+      "ref": "open_proposals",
+      "typeRef": "proposal",
+      "name": "Propostas em aberto",
+      "kind": "table",
+      "config": {
+        "filters": [
+          { "field": "status", "op": "neq", "value": "aceita" },
+          { "field": "status", "op": "neq", "value": "recusada" }
+        ],
+        "sort": [{ "field": "valid_until", "dir": "asc" }],
+        "visibleFields": ["opportunity", "value", "valid_until", "status"]
+      }
+    }
+  ],
+  "automations": [
+    {
+      "ref": "crm_proposta_enviada_followup",
+      "typeRef": "opportunity",
+      "name": "Follow-up da proposta",
+      "description": "3 dias depois de mover pra \"Proposta enviada\", me lembra de cobrar retorno.",
+      "trigger": { "type": "property_changed", "field": "stage", "to": "proposta_enviada" },
+      "conditions": [],
+      "actions": [{ "type": "create_reminder", "recipient": "me", "offsetMinutes": 4320, "message": "Follow-up da proposta: {{title}}" }]
+    },
+    {
+      "ref": "crm_oportunidade_parada",
+      "typeRef": "opportunity",
+      "name": "Oportunidade parada",
+      "description": "7 dias sem atividade numa oportunidade aberta (nem ligados) — avisa.",
+      "trigger": { "type": "no_activity", "days": 7 },
+      "conditions": [
+        { "field": "stage", "op": "neq", "value": "ganho" },
+        { "field": "stage", "op": "neq", "value": "perdido" }
+      ],
+      "actions": [{ "type": "notify_me", "title": "Oportunidade parada", "body": "Oportunidade parada: {{title}}" }]
+    },
+    {
+      "ref": "crm_oportunidade_ganha",
+      "typeRef": "opportunity",
+      "name": "Oportunidade ganha",
+      "description": "Ao mover pra \"Ganho\": cria o projeto de onboarding (com checklist) e a conta a receber.",
+      "trigger": { "type": "property_changed", "field": "stage", "to": "ganho" },
+      "conditions": [],
+      "actions": [
+        { "type": "create_item", "typeRef": "onboarding_project", "title": "Onboarding — {{title}}", "linkToTrigger": true },
+        { "type": "create_bill", "direction": "receivable", "amountField": "value", "dueInDays": 30, "contactField": "contact", "description": "Oportunidade ganha: {{title}}" }
+      ]
+    },
+    {
+      "ref": "crm_oportunidade_perdida_sem_motivo",
+      "typeRef": "opportunity",
+      "name": "Motivo da perda",
+      "description": "Ao mover pra \"Perdido\" sem preencher o motivo, pede pra registrar.",
+      "trigger": { "type": "property_changed", "field": "stage", "to": "perdido" },
+      "conditions": [{ "field": "lost_reason", "op": "empty" }],
+      "actions": [{ "type": "notify_me", "title": "Motivo da perda?", "body": "Oportunidade perdida sem motivo registrado: {{title}}" }]
+    },
+    {
+      "ref": "crm_proximo_passo",
+      "typeRef": "opportunity",
+      "name": "Próximo passo chegou",
+      "description": "Notifica no dia da data do próximo passo, com o texto do próprio campo.",
+      "trigger": { "type": "date_reached", "field": "next_step_date", "offsetMinutes": 0 },
+      "conditions": [],
+      "actions": [{ "type": "notify_me", "title": "Próximo passo", "body": "{{next_step}}" }]
+    }
+  ],
+  "reminderRules": [],
+  "sampleItems": []
+}

@@ -46,6 +46,8 @@ export const viewConfigSchema = z.object({
   startField: z.string().optional(),
   endField: z.string().optional(),
   dependsOnField: z.string().optional(),
+  /** Kanban (5.6, "soma de valores por coluna"): campo `money` cujo total (por coluna) aparece no cabeçalho — genérico, qualquer tipo com campo `money` pode usar. */
+  sumField: z.string().optional(),
 });
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
 
