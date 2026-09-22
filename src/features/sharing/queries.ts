@@ -80,6 +80,7 @@ export interface ShareLinkAuthRow {
   resourceId: string;
   permission: string;
   includeAttachments: boolean;
+  showFullSplit: boolean;
   passwordHash: string | null;
   expiresAt: string | null;
   revokedAt: string | null;
@@ -89,7 +90,7 @@ export interface ShareLinkAuthRow {
 export async function findShareLinkByTokenHash(admin: Client, tokenHash: string): Promise<ShareLinkAuthRow | null> {
   const { data } = await admin
     .from("share_links")
-    .select("id, owner_id, resource_type, resource_id, permission, include_attachments, password_hash, expires_at, revoked_at")
+    .select("id, owner_id, resource_type, resource_id, permission, include_attachments, show_full_split, password_hash, expires_at, revoked_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
   if (!data) return null;
@@ -101,6 +102,7 @@ export async function findShareLinkByTokenHash(admin: Client, tokenHash: string)
     resourceId: data.resource_id,
     permission: data.permission,
     includeAttachments: data.include_attachments,
+    showFullSplit: data.show_full_split,
     passwordHash: data.password_hash,
     expiresAt: data.expires_at,
     revokedAt: data.revoked_at,
@@ -156,6 +158,113 @@ export async function getPublicAttachmentFile(admin: Client, ownerId: string, it
   if (!data) return null;
 
   return { storagePath: data.storage_path, fileName: data.file_name };
+}
+
+export interface PublicSplitShareResource {
+  splitTitle: string;
+  occurredOn: string;
+  totalCents: number;
+  shareCents: number;
+  settledCents: number;
+  claimedPaidAt: string | null;
+  participantName: string | null;
+  status: string;
+  attachmentId: string | null;
+  /** `null` = eu paguei (a parte desse participante vem pra mim — só aí faz sentido mostrar meu Pix). Se for outro contato, o dinheiro nem passa por mim. */
+  paidByContactId: string | null;
+  /** Só preenchido quando o link tem `show_full_split` — a divisão inteira, não só a parte de quem abriu o link. */
+  fullSplit: { participantName: string; shareCents: number; settledCents: number }[] | null;
+}
+
+/**
+ * A parte de UM participante de uma divisão (4.10) — `shareId` é o id da
+ * linha de `fin_split_shares`, não da divisão (`resource_id` do link é por
+ * participante, pra ninguém ver o valor de outra pessoa por padrão).
+ */
+export async function getPublicSplitShareResource(
+  admin: Client,
+  ownerId: string,
+  shareId: string,
+  options: { showFullSplit: boolean },
+): Promise<PublicSplitShareResource | null> {
+  const { data } = await admin
+    .from("fin_split_shares")
+    .select(
+      "split_id, share_cents, settled_cents, claimed_paid_at, contacts(name), fin_splits!inner(title, occurred_on, total_cents, status, attachment_id, paid_by_contact_id)",
+    )
+    .eq("id", shareId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!data) return null;
+
+  const split = data.fin_splits as unknown as {
+    title: string;
+    occurred_on: string;
+    total_cents: number;
+    status: string;
+    attachment_id: string | null;
+    paid_by_contact_id: string | null;
+  };
+  const contact = data.contacts as unknown as { name: string } | null;
+
+  let fullSplit: PublicSplitShareResource["fullSplit"] = null;
+  if (options.showFullSplit) {
+    const { data: shares } = await admin.from("fin_split_shares").select("share_cents, settled_cents, contacts(name)").eq("split_id", data.split_id);
+    fullSplit = (shares ?? []).map((row) => ({
+      participantName: (row.contacts as unknown as { name: string } | null)?.name ?? "Eu",
+      shareCents: row.share_cents as number,
+      settledCents: row.settled_cents as number,
+    }));
+  }
+
+  return {
+    splitTitle: split.title,
+    occurredOn: split.occurred_on,
+    totalCents: split.total_cents,
+    shareCents: data.share_cents,
+    settledCents: data.settled_cents,
+    claimedPaidAt: data.claimed_paid_at,
+    participantName: contact?.name ?? null,
+    status: split.status,
+    attachmentId: split.attachment_id,
+    paidByContactId: split.paid_by_contact_id,
+    fullSplit,
+  };
+}
+
+export interface PublicBillResource {
+  description: string;
+  dueOn: string;
+  amountCents: number;
+  paidCents: number;
+  status: string;
+  direction: string;
+  claimedPaidAt: string | null;
+  pixCode: string | null;
+  attachmentId: string | null;
+}
+
+/** Conta a pagar/receber atrás de um link público (4.10) — escopada por `ownerId`, igual ao item. */
+export async function getPublicBillResource(admin: Client, ownerId: string, billId: string): Promise<PublicBillResource | null> {
+  const { data } = await admin
+    .from("fin_bills")
+    .select("description, due_on, amount_cents, paid_cents, status, direction, claimed_paid_at, pix_code, attachment_id")
+    .eq("id", billId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!data) return null;
+
+  return {
+    description: data.description,
+    dueOn: data.due_on,
+    amountCents: data.amount_cents,
+    paidCents: data.paid_cents,
+    status: data.status,
+    direction: data.direction,
+    claimedPaidAt: data.claimed_paid_at,
+    pixCode: data.pix_code,
+    attachmentId: data.attachment_id,
+  };
 }
 
 export interface ShareCommentRow {

@@ -452,6 +452,7 @@ export type Database = {
           attachment_id: string | null
           barcode: string | null
           category_id: string | null
+          claimed_paid_at: string | null
           contact_id: string | null
           created_at: string
           description: string
@@ -476,6 +477,7 @@ export type Database = {
           attachment_id?: string | null
           barcode?: string | null
           category_id?: string | null
+          claimed_paid_at?: string | null
           contact_id?: string | null
           created_at?: string
           description: string
@@ -500,6 +502,7 @@ export type Database = {
           attachment_id?: string | null
           barcode?: string | null
           category_id?: string | null
+          claimed_paid_at?: string | null
           contact_id?: string | null
           created_at?: string
           description?: string
@@ -2034,6 +2037,7 @@ export type Database = {
           resource_id: string
           resource_type: string
           revoked_at: string | null
+          show_full_split: boolean
           token_hash: string
           token_prefix: string
           view_count: number
@@ -2052,6 +2056,7 @@ export type Database = {
           resource_id: string
           resource_type: string
           revoked_at?: string | null
+          show_full_split?: boolean
           token_hash: string
           token_prefix: string
           view_count?: number
@@ -2070,6 +2075,7 @@ export type Database = {
           resource_id?: string
           resource_type?: string
           revoked_at?: string | null
+          show_full_split?: boolean
           token_hash?: string
           token_prefix?: string
           view_count?: number

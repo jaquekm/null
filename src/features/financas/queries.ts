@@ -102,6 +102,27 @@ export async function listPixKeys(supabase: Client): Promise<PixKeyRow[]> {
   }));
 }
 
+/** Chave Pix padrão do dono (4.10, página pública de cobrança) — `null` se nenhuma foi cadastrada ou marcada como padrão. */
+export async function getDefaultPixKey(admin: Client, ownerId: string): Promise<PixKeyRow | null> {
+  const { data } = await admin
+    .from("fin_pix_keys")
+    .select("id, label, key_type, key_value, merchant_name, merchant_city, space_id, is_default")
+    .eq("owner_id", ownerId)
+    .eq("is_default", true)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    label: data.label,
+    keyType: data.key_type as PixKeyType,
+    keyValue: data.key_value,
+    merchantName: data.merchant_name,
+    merchantCity: data.merchant_city,
+    spaceId: data.space_id,
+    isDefault: data.is_default,
+  };
+}
+
 /** "Enviar dados financeiros pra IA" (4.3, passo 4) — padrão desligado, só liga se o dono marcar explicitamente. */
 export async function isFinanceAiEnabled(supabase: Client, ownerId: string): Promise<boolean> {
   const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", ownerId).maybeSingle();
