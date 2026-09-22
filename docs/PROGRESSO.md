@@ -442,7 +442,7 @@ Observações:
 
 Documento: `docs/fase-05-metodos-automacoes.md`
 
-- [ ] **5.1** Migration
+- [x] **5.1** Migration
 - [ ] **5.2** Formato e instalador de packs
 - [ ] **5.3** Motor de automações
 - [ ] **5.4** Novas visões
@@ -457,6 +457,10 @@ Documento: `docs/fase-05-metodos-automacoes.md`
 - [ ] **5.13** Testes da fase
 
 Observações:
+
+- **5.1 (migration `metodos_automacoes`, cópia fiel do enunciado)**: as dez tabelas novas (`packs_installed`, `automations`, `automation_runs`, `automation_event_log`, `canvases`, `canvas_nodes`, `canvas_edges`, `review_cards`, `review_logs`, `study_sessions`) foram criadas exatamente como o documento da fase especifica, sem alterações — inclusive nos casos em que a tabela foge um pouco do padrão geral do `CLAUDE.md` (ex.: `canvas_edges`/`study_sessions`/`packs_installed` não têm `updated_at`/trigger mesmo tendo campos editáveis; `automation_event_log` não tem FK nenhuma em `item_id`/`automation_id`/`chain_id`, só `owner_id`) — segui a decisão de design já tomada no próprio enunciado da fase em vez de "corrigir" por conta própria. `owner_id` some de `Relationships` em `automation_runs`/`automation_event_log`/`review_logs` porque essas três tabelas não têm `default auth.uid()` (populadas por job/sistema, não por formulário do dono, mesmo padrão de `share_link_views` da fase 1).
+- **5.1 (`database.types.ts` à mão, de novo sem Docker)**: mesma limitação registrada desde a 4.10 (sem daemon do Docker neste sandbox, `supabase start`/`db reset`/`db:types` não rodam) — as dez tabelas foram inseridas à mão em ordem alfabética exata (conferida por busca no arquivo), com o mesmo formato de `Row`/`Insert`/`Update`/`Relationships` que o gerador produz: coluna com `default` vira opcional no `Insert`; `jsonb` vira `Json`; coluna com `check` continua `string` (o gerador real desta base não expande `check` em union literal, confirmado pelo padrão já existente em `fin_splits.status`/`items.status`); FK pra `auth.users` (todo `owner_id`) nunca aparece em `Relationships`, confirmado por busca (`owner_id_fkey`: zero ocorrências no arquivo inteiro); coluna `bigint generated always as identity` (`automation_event_log.id`) virou `id: number` no `Row` e `id?: never` no `Insert`/`Update`, copiando o único outro caso igual no arquivo (`share_link_views.id`). `pnpm lint`/`typecheck` passam com os tipos novos. **Pendência igual à de toda migration desde a 4.10**: pedir pro dono rodar `supabase db reset && pnpm db:types` num ambiente com Docker antes de confiar 100% nesses tipos.
+- **5.1**: só rodei `pnpm lint`/`typecheck` (limpos) — não `test`/`build`, porque essa tarefa não criou nenhum código de aplicação ainda, só a migration e os tipos (nenhuma função nova, nenhum teste novo, nenhuma rota nova pra quebrar o build). `test`/`build` completos voltam a rodar a partir da 5.2, quando já existir código de verdade usando essas tabelas.
 
 
 ## Fase 6 — Relatórios, busca semântica, "pergunte à sua base" e servidor MCP
