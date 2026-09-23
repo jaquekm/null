@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { enqueueIndexItem } from "@/features/ai/lib/enqueue-index";
 import { enqueueJob } from "@/lib/jobs/enqueue";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { estimateTranscriptionCostUsd } from "@/lib/transcription/pricing";
@@ -55,6 +56,8 @@ export async function applyTranscriptionResult(
 
   const { error: rpcError } = await supabase.rpc("refresh_item_extra_text", { p_item_id: transcript.itemId });
   if (rpcError) throw rpcError;
+
+  await enqueueIndexItem(transcript.ownerId, transcript.itemId);
 
   await supabase.from("usage_events").insert({
     owner_id: transcript.ownerId,

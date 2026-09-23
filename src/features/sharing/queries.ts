@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
+import type { ReportKind } from "@/features/reports/schemas";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -264,6 +265,44 @@ export async function getPublicBillResource(admin: Client, ownerId: string, bill
     claimedPaidAt: data.claimed_paid_at,
     pixCode: data.pix_code,
     attachmentId: data.attachment_id,
+  };
+}
+
+export interface PublicReportRunResource {
+  kind: ReportKind;
+  title: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  data: unknown;
+  aiSummary: string | null;
+  pdfAttachmentId: string | null;
+  createdAt: string;
+}
+
+/**
+ * Snapshot de uma execução de relatório atrás de um link público (6.4) — só
+ * `report_runs`, exatamente como o enunciado pede ("renderiza somente o
+ * snapshot"), nunca recalculado. Escopado por `ownerId`, igual aos outros
+ * recursos públicos.
+ */
+export async function getPublicReportRunResource(admin: Client, ownerId: string, reportRunId: string): Promise<PublicReportRunResource | null> {
+  const { data } = await admin
+    .from("report_runs")
+    .select("kind, title, period_start, period_end, data, ai_summary, pdf_attachment_id, created_at")
+    .eq("id", reportRunId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (!data) return null;
+
+  return {
+    kind: data.kind as ReportKind,
+    title: data.title,
+    periodStart: data.period_start,
+    periodEnd: data.period_end,
+    data: data.data,
+    aiSummary: data.ai_summary,
+    pdfAttachmentId: data.pdf_attachment_id,
+    createdAt: data.created_at,
   };
 }
 

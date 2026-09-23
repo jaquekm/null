@@ -36,3 +36,16 @@ export function estimateCostUsd(model: string, usage: { input_tokens: number; ou
 
   return (usage.input_tokens * price.input + usage.output_tokens * price.output) / 1_000_000;
 }
+
+/** Preço por milhão de tokens (USD) dos modelos de embeddings (6.5) — conferido em docs.voyageai.com/docs/pricing em 2026-09-23. */
+const EMBEDDINGS_PRICE_PER_MILLION_TOKENS_USD: Record<string, number> = {
+  "voyage-3": 0.06,
+};
+
+/** Custo estimado de uma chamada de embeddings, em USD — mesma regra de `estimateCostUsd` (modelo desconhecido devolve `null`, não trava). */
+export function estimateEmbeddingCostUsd(model: string, totalTokens: number): number | null {
+  const pricePerMillion = EMBEDDINGS_PRICE_PER_MILLION_TOKENS_USD[model];
+  if (pricePerMillion == null) return null;
+
+  return (totalTokens * pricePerMillion) / 1_000_000;
+}

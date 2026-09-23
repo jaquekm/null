@@ -38,4 +38,4 @@ export function getMessageChannel(kind: MessageChannelKind): MessageChannel | nu
   return cache.get(kind) ?? null;
 }
 
-export type { MessageChannel, MessageChannelKind, MessageChannelSendInput } from "./types";
+export type { MessageChannel, MessageChannelAttachment, MessageChannelKind, MessageChannelSendInput } from "./types";

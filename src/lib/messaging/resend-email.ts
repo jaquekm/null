@@ -38,6 +38,7 @@ export class ResendEmailChannel implements MessageChannel {
       subject: input.subject ?? "Lembrete",
       html,
       replyTo: serverEnv.OWNER_EMAIL,
+      attachments: input.attachments?.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })),
     });
 
     if (result.error) throw new Error(result.error.message);

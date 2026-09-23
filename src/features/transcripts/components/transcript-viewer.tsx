@@ -58,6 +58,7 @@ export function TranscriptViewer({
   segments: initialSegments,
   speakerNames: initialSpeakerNames,
   summary,
+  initialSeek,
 }: {
   transcriptId: string;
   attachmentId: string;
@@ -66,6 +67,8 @@ export function TranscriptViewer({
   segments: Segment[];
   speakerNames: Record<string, string>;
   summary: MeetingSummary | null;
+  /** Segundos pra já abrir o player nesse ponto (6.6: "Ouvir a partir de X" no resultado de busca semântica, `?t=`). */
+  initialSeek?: number | null;
 }) {
   const [segments, setSegments] = useState(initialSegments);
   const [speakerNames, setSpeakerNames] = useState(initialSpeakerNames);
@@ -180,6 +183,9 @@ export function TranscriptViewer({
           controls
           src={`/api/attachments/${attachmentId}/file`}
           onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          onLoadedMetadata={(e) => {
+            if (initialSeek != null) e.currentTarget.currentTime = initialSeek;
+          }}
           className="w-full"
         />
       </div>

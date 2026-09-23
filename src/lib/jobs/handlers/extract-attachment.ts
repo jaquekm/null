@@ -2,6 +2,7 @@ import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import { z } from "zod";
+import { enqueueIndexItem } from "@/features/ai/lib/enqueue-index";
 import { toAnthropicImageMediaType } from "@/features/attachments/lib/anthropic-image-media-type";
 import { chunkPageIndices } from "@/features/attachments/lib/chunk-page-indices";
 import { hasSufficientTextLayer } from "@/features/attachments/lib/pdf-text-layer";
@@ -173,7 +174,10 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
     if (updateError) return { status: "retry", error: updateError.message };
 
     // Anexo avulso (4.8: boleto sem item) — não tem `content_text` de item pra recompor.
-    if (attachment.item_id) await supabase.rpc("refresh_item_extra_text", { p_item_id: attachment.item_id });
+    if (attachment.item_id) {
+      await supabase.rpc("refresh_item_extra_text", { p_item_id: attachment.item_id });
+      await enqueueIndexItem(attachment.owner_id, attachment.item_id);
+    }
 
     return { status: "done" };
   } catch (err) {

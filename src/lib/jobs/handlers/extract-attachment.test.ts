@@ -13,6 +13,9 @@ vi.mock("@/lib/ai/claude", () => ({
 const isAutoOcrEnabledMock = vi.fn().mockResolvedValue(true);
 vi.mock("@/features/settings/queries", () => ({ isAutoOcrEnabled: isAutoOcrEnabledMock }));
 
+const enqueueIndexItemMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/features/ai/lib/enqueue-index", () => ({ enqueueIndexItem: enqueueIndexItemMock }));
+
 const convertToMarkdownMock = vi.fn();
 vi.mock("mammoth", () => ({ default: { convertToMarkdown: convertToMarkdownMock } }));
 
@@ -89,6 +92,7 @@ describe("extractAttachment", () => {
     extractPdfTextMock.mockReset();
     pdfLibLoadMock.mockReset();
     pdfLibCreateMock.mockReset();
+    enqueueIndexItemMock.mockClear();
   });
 
   it("plain: lê o texto direto do blob", async () => {

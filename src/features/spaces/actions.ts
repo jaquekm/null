@@ -109,6 +109,17 @@ export async function setSpaceArchived(spaceId: string, archived: boolean): Prom
   return ok(null);
 }
 
+/** "Quais espaços são indexados" (6.5, `/configuracoes/ia`) — `spaces.ai_enabled` já existia desde a fundação (lido em `assertAiAllowed`), mas nenhuma tela editava até aqui. */
+export async function setSpaceAiEnabled(spaceId: string, enabled: boolean): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase.from("spaces").update({ ai_enabled: enabled }).eq("id", spaceId).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível atualizar o espaço.");
+
+  revalidatePath("/configuracoes/ia");
+  return ok(null);
+}
+
 export async function reorderSpace(
   spaceId: string,
   beforePosition: number | null,
