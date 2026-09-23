@@ -180,7 +180,16 @@ export async function archiveAccount(id: string): Promise<Result<null>> {
   return ok(null);
 }
 
-/** Insere só o que ainda falta — idempotente, pode chamar de novo sem duplicar (ver `default-categories.ts`). */
+/**
+ * Insere só o que ainda falta — idempotente, pode chamar de novo sem duplicar
+ * (ver `default-categories.ts`). Chamada direto durante o render de
+ * `/financas/configurar` (page.tsx) quando o dono ainda não tem categoria
+ * nenhuma — sem `revalidatePath` aqui: a própria página já rebusca
+ * `listCategories` na sequência, e chamar `revalidatePath` durante o render
+ * de uma Server Component é erro em runtime no Next.js ("used revalidatePath
+ * during render which is unsupported"), não só um aviso — quebrava o
+ * onboarding financeiro pra todo dono novo.
+ */
 export async function seedDefaultCategories(): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
 
@@ -206,7 +215,6 @@ export async function seedDefaultCategories(): Promise<Result<null>> {
     if (error) return fail(GENERIC_ERROR);
   }
 
-  revalidatePath("/financas/configurar");
   return ok(null);
 }
 

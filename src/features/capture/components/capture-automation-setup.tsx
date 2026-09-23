@@ -2,12 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { toast } from "sonner";
-import { createToken, initialCreateTokenState, type CreatedToken } from "@/features/tokens/actions";
+import { createToken, type CreatedToken, type CreateTokenState } from "@/features/tokens/actions";
 import { buildBookmarklet } from "../lib/build-bookmarklet";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
 const codeBlockClassName = "overflow-x-auto rounded-lg bg-black/[.04] p-3 text-xs whitespace-pre dark:bg-white/[.06]";
+
+/** Ver o mesmo comentário em `token-management.tsx`: não pode morar em `actions.ts` (`"use server"` só exporta função async). */
+const initialCreateTokenState: CreateTokenState = { ok: true, data: null };
 
 interface TokenOption {
   id: string;
