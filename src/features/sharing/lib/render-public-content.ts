@@ -1,5 +1,6 @@
 import "server-only";
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
 import Mention from "@tiptap/extension-mention";
@@ -82,6 +83,10 @@ function buildExtensions(interactiveChecklist: boolean) {
   return [
     StarterKit.configure({ codeBlock: false, link: { HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" } } }),
     CodeBlockLowlight.configure({ lowlight }),
+    // `<details>`/`<summary>` nativos — recolhível sem JS nenhum, o navegador já cuida disso.
+    Details.configure({ persist: true }),
+    DetailsSummary,
+    DetailsContent,
     TaskList,
     interactiveChecklist ? InteractiveTaskItem : TaskItem.configure({ nested: true }),
     TableKit.configure({ table: { resizable: false } }),

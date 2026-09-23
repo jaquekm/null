@@ -1,4 +1,5 @@
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
 import Mention from "@tiptap/extension-mention";
@@ -34,6 +35,11 @@ export function buildEditorExtensions(spaceId: string | null, itemId: string) {
     }),
     CodeBlockLowlight.configure({ lowlight }),
     Placeholder.configure({ placeholder: "Digite / para comandos" }),
+    // Bloco recolhível (6.8, "Resumir": resumo inserido como bloco recolhível) — `persist: true`
+    // grava o estado aberto/fechado no próprio documento, senão reabriria sempre ao recarregar.
+    Details.configure({ persist: true }),
+    DetailsSummary,
+    DetailsContent,
     TaskList,
     TaskItem.configure({ nested: true }),
     TableKit.configure({ table: { resizable: false } }),

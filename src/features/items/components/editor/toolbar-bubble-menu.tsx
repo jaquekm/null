@@ -5,8 +5,9 @@ import { useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { Bold, Code, Highlighter, Italic, Link as LinkIcon, Underline as UnderlineIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { ImproveTextMenu } from "./improve-text-menu";
 
-export function ToolbarBubbleMenu({ editor }: { editor: Editor }) {
+export function ToolbarBubbleMenu({ editor, itemId }: { editor: Editor; itemId: string }) {
   const active = useEditorState({
     editor,
     selector: ({ editor: e }) =>
@@ -65,6 +66,7 @@ export function ToolbarBubbleMenu({ editor }: { editor: Editor }) {
       <ToolbarButton active={active.code} onClick={() => editor.chain().focus().toggleCode().run()} label="Código">
         <Code className="h-4 w-4" />
       </ToolbarButton>
+      <ImproveTextMenu editor={editor} itemId={itemId} />
     </BubbleMenu>
   );
 }

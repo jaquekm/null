@@ -2,8 +2,11 @@ import { formatInTimeZone } from "date-fns-tz";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listActiveSpaces } from "@/features/spaces/queries";
+import { ExtractTasksPanel } from "@/features/ai/components/extract-tasks-panel";
+import { FillPropertiesPanel } from "@/features/ai/components/fill-properties-panel";
 import { ItemAskPanel } from "@/features/ai/components/item-ask-panel";
 import { RelatedItemsPanel } from "@/features/ai/components/related-items-panel";
+import { SummarizeItemPanel } from "@/features/ai/components/summarize-item-panel";
 import { listRelatedItems } from "@/features/ai/queries";
 import { AttachmentList } from "@/features/attachments/components/attachment-list";
 import { listItemAttachments } from "@/features/attachments/queries";
@@ -218,6 +221,9 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       <BacklinksPanel backlinks={backlinks} />
       <RelatedItemsPanel itemId={item.id} relatedItems={relatedItems} />
       <ItemAskPanel itemId={item.id} relatedItemIds={relatedItems.map((related) => related.id)} />
+      <SummarizeItemPanel itemId={item.id} />
+      <ExtractTasksPanel itemId={item.id} />
+      {item.type && <FillPropertiesPanel itemId={item.id} />}
       <CanvasRefsSection refs={canvasRefs} />
       <VersionsPanel
         itemId={item.id}

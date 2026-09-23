@@ -110,7 +110,7 @@ export function ItemContentEditor({
 
   return (
     <div className="flex flex-col gap-1">
-      <ToolbarBubbleMenu editor={editor} />
+      <ToolbarBubbleMenu editor={editor} itemId={itemId} />
       <EditorContent editor={editor} />
       <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
         <span>{statusLabel[status]}</span>
