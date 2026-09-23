@@ -10,6 +10,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
 import { removeItemAttachmentsFromStorage } from "@/features/attachments/actions";
 import { emitItemEvent } from "@/features/automations/lib/emit-item-event";
+import { enqueueIndexItem } from "@/features/ai/lib/enqueue-index";
 import { attachHashtagsFromText } from "@/features/tags/lib/attach-hashtags";
 import { positionBetween } from "@/features/spaces/lib/position";
 import { diffLinks } from "./lib/diff-links";
@@ -65,6 +66,7 @@ export async function updateItemTitle(
   if (error || !data) return fail(GENERIC_ERROR);
 
   await attachHashtagsFromText(supabase, user.id, itemId, title);
+  await enqueueIndexItem(user.id, itemId);
 
   // Sem `revalidatePath` de propósito: isto salva a cada perda de foco do título (autosave "vivo"),
   // e o `ItemEditor` já se atualiza sozinho via `onSaved`/`updatedAt` — revalidar aqui forçaria a página
@@ -146,6 +148,7 @@ export async function updateItemProperty(
     before: { status: item.status, properties: currentProperties },
     after: { status: item.status, properties: nextProperties },
   });
+  await enqueueIndexItem(user.id, itemId);
 
   // Sem `revalidatePath` de propósito — mesmo motivo de `updateItemTitle`: autosave por campo,
   // o `PropertiesPanel` já se atualiza sozinho via `onSaved`/`updatedAt`.
@@ -502,6 +505,7 @@ export async function updateItemContent(
     );
   }
   await syncContactMentions(supabase, user.id, itemId, content);
+  await enqueueIndexItem(user.id, itemId);
 
   // Sem `revalidatePath` de propósito — mesmo motivo de `updateItemTitle`: chamado a cada
   // ~800ms enquanto o dono digita (debounce do Tiptap), o `ItemContentEditor` já se atualiza

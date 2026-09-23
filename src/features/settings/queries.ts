@@ -66,3 +66,22 @@ export async function getOwnerNotificationPreferences(supabase: Client, ownerId:
   const stored = (preferences.ownerNotifications as Partial<OwnerNotificationPreferences> | undefined) ?? {};
   return { ...DEFAULT_OWNER_NOTIFICATIONS, ...stored };
 }
+
+/**
+ * "Finanças e contatos não são indexados por padrão" (6.5, contrato de
+ * privacidade de `/configuracoes/ia`) — desligado por padrão, diferente do
+ * OCR automático: o dono precisa optar por incluir campos `contact`/`money`
+ * no trecho de propriedades indexado (`chunkProperties`, `features/ai/lib/chunking.ts`).
+ */
+export async function isFinanceContactsIndexingEnabled(supabase: Client, ownerId: string): Promise<boolean> {
+  const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", ownerId).maybeSingle();
+  const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
+  return preferences.indexFinanceContacts === true;
+}
+
+/** Módulo de IA ligado globalmente (6.5) — mesma leitura de `assertAiAllowed`, `src/lib/ai/claude.ts`, exposta aqui pro job `index_item` não duplicar a query. */
+export async function isAiModuleEnabled(supabase: Client, ownerId: string): Promise<boolean> {
+  const { data } = await supabase.from("user_settings").select("modules").eq("owner_id", ownerId).maybeSingle();
+  const modules = (data?.modules as { ai?: boolean } | null) ?? {};
+  return modules.ai === true;
+}

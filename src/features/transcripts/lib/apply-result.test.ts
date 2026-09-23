@@ -76,7 +76,7 @@ describe("applyTranscriptionResult", () => {
     expect(enqueueJobMock).not.toHaveBeenCalled();
   });
 
-  it("completed, item comum sem summarize: salva, registra uso, não resume", async () => {
+  it("completed, item comum sem summarize: salva, registra uso, enfileira index_item mas não resumo", async () => {
     const supabase = makeSupabase({ itemTypeSlug: null });
     const result: TranscriptionResult = {
       status: "completed",
@@ -90,7 +90,8 @@ describe("applyTranscriptionResult", () => {
     expect(supabase.insertCalls).toEqual([
       expect.objectContaining({ table: "usage_events", row: expect.objectContaining({ provider: "transcription" }) }),
     ]);
-    expect(enqueueJobMock).not.toHaveBeenCalled();
+    expect(enqueueJobMock).toHaveBeenCalledTimes(1);
+    expect(enqueueJobMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "index_item", payload: { itemId: "item-1" } }));
   });
 
   it("completed, item do tipo Reunião: enfileira summarize_transcript mesmo sem summarize", async () => {
@@ -104,13 +105,14 @@ describe("applyTranscriptionResult", () => {
     );
   });
 
-  it("completed, summarize=true num item que não é Reunião: também enfileira", async () => {
+  it("completed, summarize=true num item que não é Reunião: também enfileira (index_item + summarize_transcript)", async () => {
     const supabase = makeSupabase({ itemTypeSlug: null });
     const result: TranscriptionResult = { status: "completed", text: "nota", segments: [], durationSeconds: 30 };
 
     await applyTranscriptionResult(supabase, { ...transcript, summarize: true }, result);
 
-    expect(enqueueJobMock).toHaveBeenCalledTimes(1);
+    expect(enqueueJobMock).toHaveBeenCalledTimes(2);
+    expect(enqueueJobMock).toHaveBeenCalledWith(expect.objectContaining({ kind: "summarize_transcript" }));
   });
 
   it("idempotente: se o update não afeta nenhuma linha (já resolvido antes), não repete os efeitos colaterais", async () => {

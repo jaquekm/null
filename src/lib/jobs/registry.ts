@@ -10,6 +10,7 @@ import { extractAttachment } from "./handlers/extract-attachment";
 import { generateBills } from "./handlers/generate-bills";
 import { generateReminders } from "./handlers/generate-reminders";
 import { generateReport } from "./handlers/generate-report";
+import { indexItem } from "./handlers/index-item";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
@@ -39,4 +40,5 @@ export const handlers: Record<string, JobHandler> = {
   evaluate_time_automations: evaluateTimeAutomations,
   generate_report: generateReport,
   schedule_reports: scheduleReports,
+  index_item: indexItem,
 };

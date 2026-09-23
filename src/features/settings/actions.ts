@@ -43,6 +43,22 @@ export async function setMeetingNotesSettings(enabled: boolean, minutesBefore: n
   return ok(null);
 }
 
+/** "Indexar finanças e contatos" (6.5, `/configuracoes/ia`) — desligado por padrão (ver `isFinanceContactsIndexingEnabled`). */
+export async function setFinanceContactsIndexing(enabled: boolean): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  const { data: current } = await supabase.from("user_settings").select("preferences").eq("owner_id", user.id).maybeSingle();
+  const preferences = { ...((current?.preferences as Record<string, unknown> | null) ?? {}), indexFinanceContacts: enabled };
+
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ owner_id: user.id, preferences: preferences as unknown as Json }, { onConflict: "owner_id" });
+  if (error) return fail("Não foi possível salvar.");
+
+  revalidatePath("/configuracoes/ia");
+  return ok(null);
+}
+
 /** "Notificações para o dono (configuráveis)" (3.9) — liga/desliga cada tipo de aviso. */
 export async function setOwnerNotificationPreferences(preferences: OwnerNotificationPreferences): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
