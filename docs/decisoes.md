@@ -571,6 +571,14 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Decisão:** (b) — ver `features/habits/lib/habit-log.ts` (puro) e `features/habits/actions.ts`. Desmarcar remove a chave em vez de gravar `false`, então o objeto nunca cresce além do número de dias realmente marcados.
 - **Consequências:** sem migration nova, sem RLS/índice pra configurar. Trade-off aceito: sem uma linha por evento não dá pra ter histórico/auditoria de quando cada marcação foi feita ou desfeita (só o estado atual "marcado nesse dia" ou não), e crescer pra "vários hábitos, anos de histórico, relatórios agregados" ficaria pesado num único jsonb por item — se isso um dia importar de verdade, migrar pra uma tabela de verdade é reescrever `habit-log.ts` mais uma migration, não redesenhar a UI.
 
+### 2026-09-23 — Embeddings: Voyage AI (voyage-3, 1024 dimensões)
+
+- **Fase/tarefa:** 6.1/6.5 ("[HUMANO + pesquisa]": provedor com bom desempenho em português, custo baixo, dimensão compatível com pgvector/HNSW)
+- **Contexto:** a Anthropic não tem modelo de embeddings próprio; a migration da 6.1 precisa da dimensão do vetor fechada antes de rodar (`vector(1024)` no schema), então essa escolha bloqueia o resto da fase 6 de indexação/busca semântica.
+- **Opções consideradas:** Voyage AI (`voyage-3`, 1024 dim, multilíngue); OpenAI (`text-embedding-3-small`, 1536 dim, truncável); Cohere (`embed-multilingual-v3.0`, 1024 dim).
+- **Decisão:** Voyage AI, modelo `voyage-3`, 1024 dimensões — confirmado com o dono. É o parceiro que a própria documentação da Anthropic recomenda pra embeddings (o enunciado da 6.5 já citava isso), multilíngue com bom suporte a português, e a dimensão bate exatamente com o placeholder que a migration da 6.1 já trazia — nenhum ajuste necessário no `vector(1024)`.
+- **Consequências:** usa as env vars genéricas que o `.env.example` já reservava pra fase 6 (`EMBEDDINGS_PROVIDER=voyage`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_MODEL=voyage-3`, `EMBEDDINGS_DIM=1024`) em vez de uma variável `VOYAGE_*` própria — mesmo padrão de "provedor trocável por variável de ambiente" de transcrição/mensageria/e-mail. `src/lib/embeddings/` ganha uma implementação `voyage.ts` atrás da interface `EmbeddingsProvider` (6.5). Trocar de provedor depois exigiria reindexar tudo (o botão "Reindexar tudo" da 6.5 já está previsto pra isso) e, se a dimensão mudar, uma migration nova pra recriar a coluna `embedding`.
+
 ## Decisões em aberto previstas no plano
 - [ ] Buscar o evento atualizado no conflito de `etag` em vez de esperar a próxima sincronização (fase 3.5 — revisitar se incomodar na prática)
 - [ ] Persistir o pedido de Google Meet pra sobreviver a um retry de `calendar_push` (fase 3.5 — revisitar se incomodar na prática)
@@ -579,7 +587,6 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - [ ] Integração do WhatsApp no N8N: Cloud API ou integração existente (fase 3.9) — documentado em `docs/n8n-whatsapp.md`, fluxo de verdade é trabalho do dono
 - [ ] Preferência "lembretes pessoais" (notificações ao dono) não tem efeito ainda — precisaria de um `skip_reason` novo em `reminder_deliveries` (fase 3.9, ver decisão acima)
 - [ ] Reagendamento de horário silencioso por destinatário dentro do mesmo `tick` de `dispatch_reminders` (fase 3.8 — revisitar se incomodar na prática; hoje a ocorrência já nasce fora da janela silenciosa na maioria dos casos, ver decisão acima)
-- [ ] Provedor, modelo e dimensão de embeddings (fase 6.5)
 - [ ] Destino dos backups externos (fase 7.1)
 - [ ] Modelo do Claude usado em `ANTHROPIC_MODEL`
 - [ ] Provedor de teste determinístico ("mock") pra transcrição/IA em E2E (fase 2.11 — revisitar se mais fases precisarem)

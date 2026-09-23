@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          scope: Json
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          scope?: Json
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          scope?: Json
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          citations: Json
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          role: string
+        }
+        Insert: {
+          citations?: Json
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          role: string
+        }
+        Update: {
+          citations?: Json
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_tokens: {
         Row: {
           created_at: string
@@ -1683,6 +1748,62 @@ export type Database = {
         }
         Relationships: []
       }
+      item_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          content_hash: string
+          created_at: string
+          embedding: unknown | null
+          embedding_model: string | null
+          id: string
+          item_id: string
+          metadata: Json
+          owner_id: string
+          source: string
+          source_id: string | null
+          token_estimate: number
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          content_hash: string
+          created_at?: string
+          embedding?: unknown | null
+          embedding_model?: string | null
+          id?: string
+          item_id: string
+          metadata?: Json
+          owner_id: string
+          source: string
+          source_id?: string | null
+          token_estimate: number
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          content_hash?: string
+          created_at?: string
+          embedding?: unknown | null
+          embedding_model?: string | null
+          id?: string
+          item_id?: string
+          metadata?: Json
+          owner_id?: string
+          source?: string
+          source_id?: string | null
+          token_estimate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_chunks_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_contacts: {
         Row: {
           contact_id: string
@@ -1809,6 +1930,8 @@ export type Database = {
           extra_text: string
           icon: string | null
           id: string
+          indexed_at: string | null
+          indexed_hash: string | null
           owner_id: string
           parent_id: string | null
           pinned: boolean
@@ -1832,6 +1955,8 @@ export type Database = {
           extra_text?: string
           icon?: string | null
           id?: string
+          indexed_at?: string | null
+          indexed_hash?: string | null
           owner_id?: string
           parent_id?: string | null
           pinned?: boolean
@@ -1855,6 +1980,8 @@ export type Database = {
           extra_text?: string
           icon?: string | null
           id?: string
+          indexed_at?: string | null
+          indexed_hash?: string | null
           owner_id?: string
           parent_id?: string | null
           pinned?: boolean
@@ -2024,6 +2151,50 @@ export type Database = {
             columns: ["target_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mcp_audit: {
+        Row: {
+          arguments: Json | null
+          created_at: string
+          duration_ms: number | null
+          id: number
+          owner_id: string
+          result_summary: string | null
+          status: string
+          token_id: string | null
+          tool: string
+        }
+        Insert: {
+          arguments?: Json | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: never
+          owner_id: string
+          result_summary?: string | null
+          status: string
+          token_id?: string | null
+          tool: string
+        }
+        Update: {
+          arguments?: Json | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: never
+          owner_id?: string
+          result_summary?: string | null
+          status?: string
+          token_id?: string | null
+          tool?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_audit_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "api_tokens"
             referencedColumns: ["id"]
           },
         ]
@@ -2351,6 +2522,130 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_definitions: {
+        Row: {
+          channels: string[]
+          created_at: string
+          deliver_to: Json
+          enabled: boolean
+          id: string
+          include_ai_summary: boolean
+          kind: string
+          name: string
+          next_run_at: string | null
+          owner_id: string
+          params: Json
+          schedule_rrule: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          channels?: string[]
+          created_at?: string
+          deliver_to?: Json
+          enabled?: boolean
+          id?: string
+          include_ai_summary?: boolean
+          kind: string
+          name: string
+          next_run_at?: string | null
+          owner_id?: string
+          params?: Json
+          schedule_rrule?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          channels?: string[]
+          created_at?: string
+          deliver_to?: Json
+          enabled?: boolean
+          id?: string
+          include_ai_summary?: boolean
+          kind?: string
+          name?: string
+          next_run_at?: string | null
+          owner_id?: string
+          params?: Json
+          schedule_rrule?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      report_runs: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          data: Json
+          definition_id: string | null
+          error: string | null
+          id: string
+          kind: string
+          owner_id: string
+          pdf_attachment_id: string | null
+          period_end: string | null
+          period_start: string | null
+          share_link_id: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          data: Json
+          definition_id?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          owner_id: string
+          pdf_attachment_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          share_link_id?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          data?: Json
+          definition_id?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          owner_id?: string
+          pdf_attachment_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          share_link_id?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_runs_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "report_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_runs_pdf_attachment_id_fkey"
+            columns: ["pdf_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_runs_share_link_id_fkey"
+            columns: ["share_link_id"]
+            isOneToOne: false
+            referencedRelation: "share_links"
             referencedColumns: ["id"]
           },
         ]
@@ -2995,6 +3290,23 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      hybrid_search: {
+        Args: {
+          p_limit?: number
+          p_space_ids?: string[]
+          p_type_ids?: string[]
+          q: string
+          q_embedding: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          item_id: string
+          metadata: Json
+          score: number
+          title: string
+        }[]
       }
       item_backlinks: {
         Args: { p_item_id: string }
