@@ -2,6 +2,8 @@ import { formatInTimeZone } from "date-fns-tz";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listActiveSpaces } from "@/features/spaces/queries";
+import { RelatedItemsPanel } from "@/features/ai/components/related-items-panel";
+import { listRelatedItems } from "@/features/ai/queries";
 import { AttachmentList } from "@/features/attachments/components/attachment-list";
 import { listItemAttachments } from "@/features/attachments/queries";
 import { CanvasRefsSection } from "@/features/canvas/components/canvas-refs-section";
@@ -39,6 +41,7 @@ import { requireOwner } from "@/lib/auth";
 
 export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const { id } = await props.params;
+  const searchParams = await props.searchParams;
   const { supabase, user } = await requireOwner();
 
   const item = await getItemDetail(supabase, id);
@@ -79,6 +82,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     itemTransactions,
     itemBills,
     canvasRefs,
+    relatedItems,
   ] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
@@ -97,6 +101,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listTransactionsForItem(supabase, item.id),
     listBillsForItem(supabase, item.id, today),
     listCanvasesContainingItem(supabase, item.id),
+    listRelatedItems(supabase, item.id),
   ]);
 
   return (
@@ -144,6 +149,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
           segments={transcript.segments}
           speakerNames={transcript.speakerNames}
           summary={transcript.summary}
+          initialSeek={typeof searchParams.t === "string" ? Number(searchParams.t) : null}
         />
       )}
 
@@ -209,6 +215,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
       <BacklinksPanel backlinks={backlinks} />
+      <RelatedItemsPanel itemId={item.id} relatedItems={relatedItems} />
       <CanvasRefsSection refs={canvasRefs} />
       <VersionsPanel
         itemId={item.id}

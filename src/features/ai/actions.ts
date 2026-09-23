@@ -1,9 +1,10 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth";
 import { enqueueJob } from "@/lib/jobs/enqueue";
 import { fail, ok, type Result } from "@/lib/result";
-import { listActiveItemIds } from "./queries";
+import { createRelatedLink, listActiveItemIds } from "./queries";
 
 /**
  * "Reindexar tudo" (6.5, `/configuracoes/ia`) — enfileira `index_item` pra
@@ -23,4 +24,18 @@ export async function reindexAllItems(): Promise<Result<{ count: number }>> {
 
   if (itemIds.length === 0) return fail("Nenhum item pra reindexar.");
   return ok({ count: itemIds.length });
+}
+
+/** "Criar link" no painel "Talvez relacionado" (6.6). */
+export async function createRelatedLinkAction(itemId: string, relatedItemId: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  try {
+    await createRelatedLink(supabase, user.id, itemId, relatedItemId);
+  } catch {
+    return fail("Não foi possível criar o link.");
+  }
+
+  revalidatePath(`/itens/${itemId}`);
+  return ok(null);
 }

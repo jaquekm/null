@@ -4,12 +4,24 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import type { BrowseItemRow, TypeOptionWithFields } from "@/features/items/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import type { TagOption } from "@/features/tags/queries";
-import { searchItems, type SearchResultRow as SearchResultData } from "../actions";
+import { hybridSearchItems, searchItems, type HybridSearchResultRow, type SearchResultRow as SearchResultData } from "../actions";
 import { dateRangeToIso } from "../lib/date-range-to-iso";
 import { extractTagFilter } from "../lib/extract-tag-filter";
 import { SearchResultRow } from "./search-result-row";
 
 const DEBOUNCE_MS = 250;
+
+type SearchMode = "words" | "meaning";
+
+/** Um resultado da alternância (6.6) — textual e semântico têm formas ligeiramente diferentes (`seekSeconds` só existe no semântico), normalizados aqui pra `SearchResultRow` não precisar saber qual modo gerou o dado. */
+type NormalizedResult = { id: string; title: string; snippet: string; plainSnippet: boolean; seekSeconds: number | null; spaceId: string | null; typeId: string | null };
+
+function normalize(mode: SearchMode, rows: SearchResultData[] | HybridSearchResultRow[]): NormalizedResult[] {
+  if (mode === "meaning") {
+    return (rows as HybridSearchResultRow[]).map((row) => ({ ...row, plainSnippet: true }));
+  }
+  return (rows as SearchResultData[]).map((row) => ({ ...row, plainSnippet: false, seekSeconds: null }));
+}
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -27,21 +39,25 @@ export function SearchWorkspace({
   tags,
   pinned,
   recent,
+  aiEnabled,
 }: {
   spaces: SidebarSpace[];
   types: TypeOptionWithFields[];
   tags: TagOption[];
   pinned: BrowseItemRow[];
   recent: BrowseItemRow[];
+  /** Módulo de IA ligado (6.6) — só decide o padrão inicial da alternância; o dono continua podendo trocar. */
+  aiEnabled: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<SearchMode>(aiEnabled ? "meaning" : "words");
   const [spaceId, setSpaceId] = useState("");
   const [typeId, setTypeId] = useState("");
   const [tagId, setTagId] = useState("");
   const [status, setStatus] = useState("");
   const [updatedFrom, setUpdatedFrom] = useState("");
   const [updatedTo, setUpdatedTo] = useState("");
-  const [results, setResults] = useState<SearchResultData[] | null>(null);
+  const [results, setResults] = useState<NormalizedResult[] | null>(null);
   const [pending, startTransition] = useTransition();
 
   const spaceById = useMemo(() => new Map(spaces.map((space) => [space.id, space])), [spaces]);
@@ -57,6 +73,11 @@ export function SearchWorkspace({
     const timer = setTimeout(() => {
       const { after, before } = dateRangeToIso(updatedFrom, updatedTo);
       startTransition(async () => {
+        if (mode === "meaning") {
+          const data = await hybridSearchItems(textForSearch, { spaceId: spaceId || null, typeId: typeId || null });
+          setResults(normalize("meaning", data));
+          return;
+        }
         const data = await searchItems(textForSearch, {
           spaceId: spaceId || null,
           typeId: typeId || null,
@@ -65,12 +86,12 @@ export function SearchWorkspace({
           updatedAfter: after,
           updatedBefore: before,
         });
-        setResults(data);
+        setResults(normalize("words", data));
       });
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [hasQuery, textForSearch, effectiveTagId, spaceId, typeId, status, updatedFrom, updatedTo]);
+  }, [hasQuery, mode, textForSearch, effectiveTagId, spaceId, typeId, status, updatedFrom, updatedTo]);
 
   const showEmptyState = !hasQuery;
 
@@ -85,6 +106,23 @@ export function SearchWorkspace({
         autoFocus
         className={`${inputClassName} w-full`}
       />
+
+      <div className="flex items-center gap-1 self-start rounded-full border border-black/[.12] p-0.5 text-xs dark:border-white/[.16]">
+        <button
+          type="button"
+          onClick={() => setMode("words")}
+          className={`rounded-full px-3 py-1 ${mode === "words" ? "bg-foreground text-background" : "text-zinc-500 dark:text-zinc-400"}`}
+        >
+          Por palavras
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("meaning")}
+          className={`rounded-full px-3 py-1 ${mode === "meaning" ? "bg-foreground text-background" : "text-zinc-500 dark:text-zinc-400"}`}
+        >
+          Por significado
+        </button>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <select aria-label="Espaço" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} className={inputClassName}>
@@ -104,47 +142,51 @@ export function SearchWorkspace({
             </option>
           ))}
         </select>
-        <select
-          aria-label="Tag"
-          value={tagId}
-          onChange={(e) => setTagId(e.target.value)}
-          disabled={tagFromText !== null}
-          className={inputClassName}
-        >
-          <option value="">Qualquer tag</option>
-          {tags.map((tag) => (
-            <option key={tag.id} value={tag.id}>
-              #{tag.name}
-            </option>
-          ))}
-        </select>
-        <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className={inputClassName}>
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-          de
-          <input
-            type="date"
-            aria-label="Atualizado de"
-            value={updatedFrom}
-            onChange={(e) => setUpdatedFrom(e.target.value)}
-            className={inputClassName}
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-          até
-          <input
-            type="date"
-            aria-label="Atualizado até"
-            value={updatedTo}
-            onChange={(e) => setUpdatedTo(e.target.value)}
-            className={inputClassName}
-          />
-        </label>
+        {mode === "words" && (
+          <>
+            <select
+              aria-label="Tag"
+              value={tagId}
+              onChange={(e) => setTagId(e.target.value)}
+              disabled={tagFromText !== null}
+              className={inputClassName}
+            >
+              <option value="">Qualquer tag</option>
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  #{tag.name}
+                </option>
+              ))}
+            </select>
+            <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className={inputClassName}>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              de
+              <input
+                type="date"
+                aria-label="Atualizado de"
+                value={updatedFrom}
+                onChange={(e) => setUpdatedFrom(e.target.value)}
+                className={inputClassName}
+              />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              até
+              <input
+                type="date"
+                aria-label="Atualizado até"
+                value={updatedTo}
+                onChange={(e) => setUpdatedTo(e.target.value)}
+                className={inputClassName}
+              />
+            </label>
+          </>
+        )}
       </div>
 
       {showEmptyState ? (
@@ -200,6 +242,8 @@ export function SearchWorkspace({
                 id={result.id}
                 title={result.title}
                 snippet={result.snippet}
+                plainSnippet={result.plainSnippet}
+                seekSeconds={result.seekSeconds}
                 space={result.spaceId ? spaceById.get(result.spaceId) : undefined}
                 type={result.typeId ? typeById.get(result.typeId) : undefined}
               />

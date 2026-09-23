@@ -3322,6 +3322,18 @@ export type Database = {
         Args: { p_item_id: string }
         Returns: undefined
       }
+      related_items: {
+        Args: {
+          p_embedding: string
+          p_item_id: string
+          p_limit?: number
+        }
+        Returns: {
+          distance: number
+          item_id: string
+          title: string
+        }[]
+      }
       search_items: {
         Args: {
           p_limit?: number
