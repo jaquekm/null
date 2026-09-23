@@ -1,5 +1,6 @@
 import "server-only";
 import { billsForecastReport } from "./generators/bills-forecast";
+import { customReport } from "./generators/custom";
 import { financeCategoryReport } from "./generators/finance-category";
 import { financeMonthlyReport } from "./generators/finance-monthly";
 import { meetingsDigestReport } from "./generators/meetings-digest";
@@ -11,9 +12,10 @@ import { weeklyReviewReport } from "./generators/weekly-review-report";
 import type { BaseReportParams, ReportKind } from "./schemas";
 import type { ReportGenerator } from "./types";
 
-/** Todo relatório "pronto" (6.2/6.2b) — os `kind` que ainda não têm generator caem em `custom` (6.3). */
+/** Todo relatório "pronto" (6.2/6.2b) mais o construtor de personalizados (6.3, `kind: "custom"`). */
 export const reportRegistry: Partial<Record<ReportKind, ReportGenerator<BaseReportParams, unknown>>> = {
   finance_monthly: financeMonthlyReport as ReportGenerator<BaseReportParams, unknown>,
+  custom: customReport as unknown as ReportGenerator<BaseReportParams, unknown>,
   finance_category: financeCategoryReport as unknown as ReportGenerator<BaseReportParams, unknown>,
   bills_forecast: billsForecastReport as ReportGenerator<BaseReportParams, unknown>,
   splits_statement: splitsStatementReport as unknown as ReportGenerator<BaseReportParams, unknown>,
