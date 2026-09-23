@@ -19,9 +19,19 @@ export interface ResolvedFilter {
  * valor, não por texto (`"9" < "10"` na comparação de texto, o que é errado
  * pra número). Datas (`date`/`datetime`) são strings ISO de largura fixa,
  * então comparam certo como texto, sem precisar de cast.
+ *
+ * `fieldDef` presente = o TIPO declara um campo próprio com essa chave —
+ * sempre `properties->>chave`, mesmo que a chave colida com um nome de
+ * coluna comum. Vários packs definem um campo `status` próprio (Proposta
+ * do CRM, Curso/Livro/Plano de Estudos, Tarefa de projeto) que sem essa
+ * checagem comparava silenciosamente contra `items.status`, a coluna de
+ * ciclo de vida active/archived/trashed, não o valor do `select` do tipo —
+ * por exemplo, a visão "Propostas em aberto" do CRM (`status != aceita`
+ * e `status != recusada`) nunca filtrava nada de verdade. Só cai pra coluna
+ * comum quando o tipo **não** declara campo nenhum com essa chave.
  */
 export function resolveFilterColumn(field: string, fieldDef?: FieldDefinition): string {
-  if (isCommonField(field)) return field;
+  if (!fieldDef && isCommonField(field)) return field;
   const cast = fieldDef && NUMERIC_TYPES.has(fieldDef.type) ? "::numeric" : "";
   return `properties->>${field}${cast}`;
 }

@@ -35,6 +35,12 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition(item(), { field: "value", op: "between", value: [50, 150] })).toBe(true);
     expect(evaluateCondition(item(), { field: "value", op: "between", value: [150, 200] })).toBe(false);
   });
+
+  it("item com campo próprio `status` em properties usa esse valor, não a coluna de ciclo de vida", () => {
+    const withOwnStatus = item({ status: "active", properties: { status: "done" } });
+    expect(evaluateCondition(withOwnStatus, { field: "status", op: "eq", value: "done" })).toBe(true);
+    expect(evaluateCondition(withOwnStatus, { field: "status", op: "eq", value: "active" })).toBe(false);
+  });
 });
 
 describe("matchesOperator", () => {

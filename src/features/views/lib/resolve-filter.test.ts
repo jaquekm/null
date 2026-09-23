@@ -23,6 +23,11 @@ describe("resolveFilterColumn", () => {
   it("campo de data não ganha cast — string ISO já compara certo como texto", () => {
     expect(resolveFilterColumn("prazo", dateField)).toBe("properties->>prazo");
   });
+
+  it("tipo com campo próprio chamado `status` usa properties, não a coluna de ciclo de vida", () => {
+    const ownStatusField: FieldDefinition = { key: "status", label: "Status", type: "select", required: false };
+    expect(resolveFilterColumn("status", ownStatusField)).toBe("properties->>status");
+  });
 });
 
 describe("resolveFilter", () => {

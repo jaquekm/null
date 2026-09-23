@@ -8,7 +8,22 @@ export interface ConditionItem {
   properties: Record<string, unknown>;
 }
 
+/**
+ * `title`/`status`/`updated_at`/`created_at` são atalhos pras colunas
+ * comuns de `items` — mas só quando o item não tem um valor próprio nessa
+ * chave em `properties`. Vários tipos de pack definem um campo `status`
+ * deles mesmos (Proposta do CRM, Curso/Livro/Plano de Estudos, Tarefa de
+ * projeto): sem essa checagem, uma condição `{field:"status",...}` batia
+ * silenciosamente contra `items.status` (ciclo de vida active/archived/
+ * trashed), nunca contra o valor de verdade do campo — mesmo bug corrigido
+ * em `resolveFilterColumn` (views/lib/resolve-filter.ts). `computeRollup`
+ * evita isso por outro caminho (nunca passa por `fieldValue`, só por
+ * `matchesOperator` direto em `properties`) — este fix cobre os demais
+ * usos de `evaluateCondition`/`evaluateConditions` (condições de
+ * automação).
+ */
 function fieldValue(item: ConditionItem, field: string): unknown {
+  if (field in item.properties) return item.properties[field];
   switch (field) {
     case "title":
       return item.title;
