@@ -9,18 +9,17 @@ import { evaluateTimeAutomations } from "./handlers/evaluate-time-automations";
 import { extractAttachment } from "./handlers/extract-attachment";
 import { generateBills } from "./handlers/generate-bills";
 import { generateReminders } from "./handlers/generate-reminders";
+import { generateReport } from "./handlers/generate-report";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
 import { runAutomations } from "./handlers/run-automations";
+import { scheduleReports } from "./handlers/schedule-reports";
 import { summarizeTranscript } from "./handlers/summarize-transcript";
 import { transcribeAudio } from "./handlers/transcribe-audio";
 import type { JobHandler } from "./types";
 
-/**
- * Um handler por `kind` de job (2.2). Fase seguinte registra mais:
- * `generate_report` (fase 6).
- */
+/** Um handler por `kind` de job (2.2). */
 export const handlers: Record<string, JobHandler> = {
   purge_trash: purgeTrash,
   transcribe_audio: transcribeAudio,
@@ -38,4 +37,6 @@ export const handlers: Record<string, JobHandler> = {
   check_reviews_due: checkReviewsDue,
   run_automations: runAutomations,
   evaluate_time_automations: evaluateTimeAutomations,
+  generate_report: generateReport,
+  schedule_reports: scheduleReports,
 };

@@ -1,9 +1,17 @@
+export interface MessageChannelAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface MessageChannelSendInput {
   deliveryId: string;
   to: string;
   text: string;
   subject?: string;
   template?: { name: string; language: string; variables: string[] };
+  /** Só o canal de e-mail usa (6.4: PDF de relatório anexado) — outros canais ignoram. */
+  attachments?: MessageChannelAttachment[];
 }
 
 /**

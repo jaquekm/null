@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import type { TypeWithFields } from "@/features/automations/queries";
 import type { CategoryRow } from "@/features/financas/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
-import { previewCustomReport, saveCustomReportDefinition } from "../actions";
+import { previewCustomReport, saveReportDefinition } from "../actions";
 import type { ReportBlock } from "../lib/blocks";
 import type { MetricKind, Visualization } from "../lib/custom-report";
 import type { RelativePeriod } from "../lib/resolve-period";
@@ -270,7 +270,7 @@ export function CustomReportBuilder({ types, spaces, categories }: { types: Type
   function handleSave() {
     const config = { sections: sections.map(sectionDraftToConfig) };
     startSaving(async () => {
-      const result = await saveCustomReportDefinition(null, {
+      const result = await saveReportDefinition(null, {
         name,
         kind: "custom",
         params: { period, spaceId: spaceId || null, config },

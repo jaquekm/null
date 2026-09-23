@@ -4,6 +4,8 @@ import { listItemAttachments } from "@/features/attachments/queries";
 import { getDefaultPixKey } from "@/features/financas/queries";
 import { BILL_DIRECTION_LABELS, BILL_STATUS_LABELS, SPLIT_STATUS_LABELS, type BillDirection, type BillStatus, type SplitStatus } from "@/features/financas/schemas";
 import { buildPixPayload, normalizePixKeyValue } from "@/features/financas/lib/pix";
+import { REPORT_KIND_LABELS } from "@/features/reports/schemas";
+import { ReportRunView } from "@/features/reports/components/report-run-view";
 import { PasswordGate } from "@/features/sharing/components/password-gate";
 import { SharePageContent } from "@/features/sharing/components/share-page-content";
 import { SharePaymentContent, type SharePaymentPixInfo } from "@/features/sharing/components/share-payment-content";
@@ -13,7 +15,13 @@ import { createRateLimiter } from "@/features/sharing/lib/rate-limit";
 import { registerShareLinkView } from "@/features/sharing/lib/register-share-link-view";
 import { shareAuthCookieName, verifyShareAuthCookie } from "@/features/sharing/lib/share-auth-cookie";
 import { hashShareToken } from "@/features/sharing/lib/share-token";
-import { findShareLinkByTokenHash, getPublicBillResource, getPublicItemResource, getPublicSplitShareResource } from "@/features/sharing/queries";
+import {
+  findShareLinkByTokenHash,
+  getPublicBillResource,
+  getPublicItemResource,
+  getPublicReportRunResource,
+  getPublicSplitShareResource,
+} from "@/features/sharing/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const checkPageRateLimit = createRateLimiter(60, 60 * 1000);
@@ -139,6 +147,32 @@ export default async function SharePage(props: PageProps<"/p/[token]">) {
         hasAttachment={shareLink.includeAttachments && bill.attachmentId != null}
         pix={pix}
       />
+    );
+  }
+
+  if (shareLink.resourceType === "report") {
+    const run = await getPublicReportRunResource(admin, shareLink.ownerId, shareLink.resourceId);
+    if (!run) return <InvalidLinkMessage />;
+
+    const userAgent = (await headers()).get("user-agent");
+    await registerShareLinkView(admin, shareLink.ownerId, shareLink.id, ip, userAgent);
+
+    const generatedAt = new Date(run.createdAt).toLocaleDateString("pt-BR");
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">{REPORT_KIND_LABELS[run.kind]}</p>
+          {run.pdfAttachmentId && (
+            <a
+              href={`/p/${token}/report-pdf`}
+              className="rounded-full border border-black/[.12] px-4 py-1.5 text-sm dark:border-white/[.16]"
+            >
+              Baixar PDF
+            </a>
+          )}
+        </div>
+        <ReportRunView kind={run.kind} title={run.title} subtitle={`Gerado em ${generatedAt}`} data={run.data} />
+      </div>
     );
   }
 
