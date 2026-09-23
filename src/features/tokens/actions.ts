@@ -19,8 +19,6 @@ export interface CreatedToken {
 
 export type CreateTokenState = Result<CreatedToken | null>;
 
-export const initialCreateTokenState: CreateTokenState = { ok: true, data: null };
-
 export async function createToken(_prevState: CreateTokenState, formData: FormData): Promise<CreateTokenState> {
   const parsed = createTokenSchema.safeParse({
     name: formData.get("name"),

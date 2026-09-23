@@ -3,12 +3,15 @@
 import { Check, Copy } from "lucide-react";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { createToken, initialCreateTokenState, revokeToken, type CreatedToken } from "../actions";
+import { createToken, revokeToken, type CreatedToken, type CreateTokenState } from "../actions";
 import type { ApiTokenRow } from "../queries";
 import { AVAILABLE_SCOPES, SCOPE_LABELS, TOKEN_VALIDITY_OPTIONS, UPCOMING_SCOPES, type TokenValidity } from "../schemas";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
+
+/** Estado inicial do `useActionState` — mora aqui (componente cliente), não em `actions.ts`: um arquivo `"use server"` só pode exportar funções async, nunca um valor como este (erro em runtime no Next.js, quebrava esta página inteira em produção). */
+const initialCreateTokenState: CreateTokenState = { ok: true, data: null };
 
 export function TokenManagement({ tokens: initialTokens }: { tokens: ApiTokenRow[] }) {
   const [tokens, setTokens] = useState(initialTokens);
