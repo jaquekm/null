@@ -2,6 +2,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listActiveSpaces } from "@/features/spaces/queries";
+import { ItemAskPanel } from "@/features/ai/components/item-ask-panel";
 import { RelatedItemsPanel } from "@/features/ai/components/related-items-panel";
 import { listRelatedItems } from "@/features/ai/queries";
 import { AttachmentList } from "@/features/attachments/components/attachment-list";
@@ -216,6 +217,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
       <BacklinksPanel backlinks={backlinks} />
       <RelatedItemsPanel itemId={item.id} relatedItems={relatedItems} />
+      <ItemAskPanel itemId={item.id} relatedItemIds={relatedItems.map((related) => related.id)} />
       <CanvasRefsSection refs={canvasRefs} />
       <VersionsPanel
         itemId={item.id}
