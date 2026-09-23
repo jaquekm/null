@@ -8,6 +8,7 @@ import {
   Network,
   Search,
   Settings,
+  Sparkles,
   Users,
   Wallet,
   type LucideIcon,
@@ -33,6 +34,11 @@ const RELATORIOS: NavItem = {
   href: "/relatorios",
   label: "Relatórios",
   icon: BarChart3,
+};
+const PERGUNTAR: NavItem = {
+  href: "/perguntar",
+  label: "Perguntar",
+  icon: Sparkles,
 };
 const ESTUDOS: NavItem = {
   href: "/estudos",
@@ -63,6 +69,7 @@ export const NAV_ITEMS: NavItem[] = [
   LEMBRETES,
   FINANCAS,
   CONTATOS,
+  PERGUNTAR,
   RELATORIOS,
   ESTUDOS,
   REVISAO_SEMANAL,

@@ -1,9 +1,21 @@
 import "server-only";
 import { estimateTokens } from "@/features/ai/lib/chunking";
 import { averageEmbedding } from "@/features/ai/lib/embeddings-math";
+import type { AskScope } from "@/features/ai/lib/retrieve";
+import type { AskSource } from "@/features/ai/lib/ask-context";
+import type { ConversationTurn } from "@/features/ai/lib/reformulate-query";
 import { estimateEmbeddingCostUsd } from "@/lib/ai/pricing";
 import { getEmbeddingsProvider } from "@/lib/embeddings";
+import type { Json } from "@/lib/supabase/database.types";
 import type { Client } from "./types";
+
+const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+
+/** Mesmo padrão repetido por feature (`agenda`, `financas`, `reminders`) — sem util compartilhado no projeto. */
+export async function getUserTimezone(supabase: Client, ownerId: string): Promise<string> {
+  const { data } = await supabase.from("user_settings").select("timezone").eq("owner_id", ownerId).maybeSingle();
+  return data?.timezone ?? DEFAULT_TIMEZONE;
+}
 
 export interface ReindexEstimate {
   itemCount: number;
@@ -94,5 +106,104 @@ export async function createRelatedLink(supabase: Client, ownerId: string, sourc
   if (existing) return;
 
   const { error } = await supabase.from("links").insert({ owner_id: ownerId, source_id: sourceId, target_id: targetId, kind: "related" });
+  if (error) throw error;
+}
+
+/**
+ * Conversa existente (confere que é do dono — RLS já bloquearia outro dono,
+ * isso só decide se cria uma nova) ou uma nova, com `scope` (6.7, "Escopo
+ * escolhido") salvo pra reaproveitar em perguntas seguintes da mesma conversa.
+ */
+export async function getOrCreateConversation(supabase: Client, ownerId: string, conversationId: string | null, scope: AskScope): Promise<string> {
+  if (conversationId) {
+    const { data } = await supabase.from("ai_conversations").select("id").eq("id", conversationId).maybeSingle();
+    if (data) return data.id;
+  }
+
+  const { data, error } = await supabase.from("ai_conversations").insert({ owner_id: ownerId, scope: scope as unknown as Json }).select("id").single();
+  if (error || !data) throw new Error(error?.message ?? "Não foi possível criar a conversa.");
+  return data.id;
+}
+
+const HISTORY_LIMIT = 20;
+
+/** Histórico recente da conversa (6.7, passo 2) — só `role`/`content`, na ordem em que aconteceram (o mais antigo primeiro). */
+export async function getConversationHistory(supabase: Client, conversationId: string): Promise<ConversationTurn[]> {
+  const { data } = await supabase
+    .from("ai_messages")
+    .select("role, content, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(HISTORY_LIMIT);
+
+  return (data ?? [])
+    .slice()
+    .reverse()
+    .map((row) => ({ role: row.role as ConversationTurn["role"], content: row.content }));
+}
+
+/** Salva uma mensagem (usuário ou assistente) e atualiza `updated_at` da conversa, pra ordenar a lista lateral por atividade recente. */
+export async function saveMessage(
+  supabase: Client,
+  ownerId: string,
+  conversationId: string,
+  role: "user" | "assistant",
+  content: string,
+  citations: AskSource[] = [],
+): Promise<void> {
+  const { error } = await supabase.from("ai_messages").insert({
+    owner_id: ownerId,
+    conversation_id: conversationId,
+    role,
+    content,
+    citations: citations as unknown as Json,
+  });
+  if (error) throw error;
+
+  await supabase.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+}
+
+export interface ConversationSummaryRow {
+  id: string;
+  title: string | null;
+  scope: AskScope;
+  updatedAt: string;
+}
+
+/** Lista lateral de "Pergunte à sua base" (6.7) — mais recentemente ativa primeiro. */
+export async function listConversations(supabase: Client, ownerId: string): Promise<ConversationSummaryRow[]> {
+  const { data } = await supabase.from("ai_conversations").select("id, title, scope, updated_at").eq("owner_id", ownerId).order("updated_at", { ascending: false });
+  return (data ?? []).map((row) => ({ id: row.id, title: row.title, scope: (row.scope as unknown as AskScope) ?? {}, updatedAt: row.updated_at }));
+}
+
+export interface AiMessageRow {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: AskSource[];
+  createdAt: string;
+}
+
+/** Histórico completo de uma conversa, pra reabrir na lateral (6.7) — diferente de `getConversationHistory`, que já vem cortado e sem `citations` (só serve pra reformulação/mensagens ao modelo). */
+export async function getConversationMessages(supabase: Client, conversationId: string): Promise<AiMessageRow[]> {
+  const { data } = await supabase.from("ai_messages").select("id, role, content, citations, created_at").eq("conversation_id", conversationId).order("created_at", { ascending: true });
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    role: row.role as "user" | "assistant",
+    content: row.content,
+    citations: (row.citations as unknown as AskSource[]) ?? [],
+    createdAt: row.created_at,
+  }));
+}
+
+/** "Renomear" (6.7, lateral de conversas). */
+export async function renameConversation(supabase: Client, conversationId: string, title: string): Promise<void> {
+  const { error } = await supabase.from("ai_conversations").update({ title }).eq("id", conversationId);
+  if (error) throw error;
+}
+
+/** "Excluir" (6.7, lateral de conversas) — `ai_messages` some junto (`on delete cascade`). */
+export async function deleteConversation(supabase: Client, conversationId: string): Promise<void> {
+  const { error } = await supabase.from("ai_conversations").delete().eq("id", conversationId);
   if (error) throw error;
 }

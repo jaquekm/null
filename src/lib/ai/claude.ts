@@ -136,6 +136,105 @@ export async function callClaude(opts: CallClaudeOptions): Promise<CallClaudeRes
   return { text, usage };
 }
 
+export interface AskTool {
+  name: string;
+  description: string;
+  /** JSON Schema do `input` — o SDK só valida a forma no lado do modelo; `execute` ainda deve validar antes de usar. */
+  inputSchema: Anthropic.Tool.InputSchema;
+  execute: (input: unknown) => Promise<unknown>;
+}
+
+export interface StreamAskWithToolsOptions {
+  ownerId: string;
+  feature: string;
+  system: string;
+  messages: Anthropic.MessageParam[];
+  tools?: AskTool[];
+  maxTokens?: number;
+  /** Máximo de rodadas que podem *chamar* uma ferramenta (6.7: "limitar a 5 rodadas") — depois disso, uma última chamada sem `tools` força uma resposta em texto. */
+  maxToolRounds?: number;
+  onTextDelta?: (delta: string) => void;
+  onToolUse?: (name: string, input: unknown) => void;
+}
+
+export interface StreamAskWithToolsResult {
+  text: string;
+  toolsUsed: string[];
+}
+
+const DEFAULT_MAX_TOOL_ROUNDS = 5;
+
+/**
+ * Chamada em streaming, com tool use em várias rodadas (6.7, "Pergunte à
+ * sua base") — mesmo prólogo de `callClaude` (módulo/orçamento) e mesmo
+ * registro de uso no fim, mas soma o uso de **todas** as rodadas numa
+ * chamada só de `recordUsage`. Cada rodada com `tools` pode terminar em
+ * `stop_reason: "tool_use"` (o modelo pediu uma ou mais ferramentas — todas
+ * executadas e devolvidas como `tool_result` na próxima rodada) ou já
+ * responder em texto. Depois de `maxToolRounds` rodadas com ferramenta
+ * ainda sem resposta, a última chamada roda sem `tools` (não pode pedir
+ * outra ferramenta), forçando uma resposta final em texto.
+ */
+export async function streamAskWithTools(opts: StreamAskWithToolsOptions): Promise<StreamAskWithToolsResult> {
+  await assertAiAllowed(opts.ownerId, undefined);
+  await assertWithinBudget(opts.ownerId);
+
+  const model = serverEnv.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+  const maxToolRounds = opts.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
+  const anthropicTools = opts.tools?.map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema }));
+
+  const conversation: Anthropic.MessageParam[] = [...opts.messages];
+  const toolsUsed: string[] = [];
+  let finalText = "";
+  const totalUsage = { input_tokens: 0, output_tokens: 0 };
+
+  for (let round = 0; round <= maxToolRounds; round++) {
+    const allowTools = round < maxToolRounds;
+    finalText = "";
+
+    const stream = getClient().messages.stream({
+      model,
+      max_tokens: opts.maxTokens ?? 2048,
+      system: opts.system,
+      messages: conversation,
+      tools: allowTools ? anthropicTools : undefined,
+    });
+    stream.on("text", (delta) => {
+      finalText += delta;
+      opts.onTextDelta?.(delta);
+    });
+    const message = await stream.finalMessage();
+    totalUsage.input_tokens += message.usage.input_tokens;
+    totalUsage.output_tokens += message.usage.output_tokens;
+
+    if (message.stop_reason !== "tool_use" || !allowTools) break;
+
+    conversation.push({ role: "assistant", content: message.content });
+    const toolUseBlocks = message.content.filter((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+    for (const block of toolUseBlocks) {
+      const tool = opts.tools?.find((t) => t.name === block.name);
+      opts.onToolUse?.(block.name, block.input);
+      toolsUsed.push(block.name);
+
+      let content: string;
+      try {
+        const result = tool ? await tool.execute(block.input) : { error: `Ferramenta "${block.name}" não existe.` };
+        content = JSON.stringify(result);
+      } catch (err) {
+        content = JSON.stringify({ error: err instanceof Error ? err.message : "Falha ao executar a ferramenta." });
+      }
+      toolResults.push({ type: "tool_result", tool_use_id: block.id, content });
+    }
+    conversation.push({ role: "user", content: toolResults });
+  }
+
+  await recordUsage({ ownerId: opts.ownerId, feature: opts.feature, model, usage: totalUsage });
+
+  return { text: finalText, toolsUsed };
+}
+
 const JSON_ONLY_INSTRUCTION =
   "\n\nResponda somente com JSON válido — sem texto antes ou depois, sem cercas de código markdown (```).";
 
