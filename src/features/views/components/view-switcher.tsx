@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createView, deleteView, duplicateView, renameView, setDefaultView } from "../actions";
 import type { ViewRow } from "../queries";
-import { viewKinds, type ViewKind } from "../schemas";
+import { parseViewConfig, viewKinds, type ViewKind } from "../schemas";
 import { ItemsView } from "./items-view";
 
 const KIND_ICON: Record<ViewKind, LucideIcon> = {
@@ -64,7 +64,7 @@ export function ViewSwitcher({
         kind: result.data.kind,
         spaceId,
         typeId,
-        config: { filters: [], sort: [] },
+        config: parseViewConfig({}),
         isDefault: false,
         position: views.length,
       };
@@ -105,7 +105,7 @@ export function ViewSwitcher({
         kind: result.data.kind,
         spaceId,
         typeId,
-        config: original?.config ?? { filters: [], sort: [] },
+        config: original?.config ?? parseViewConfig({}),
         isDefault: false,
         position: views.length,
       };
