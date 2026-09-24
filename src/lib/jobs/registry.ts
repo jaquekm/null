@@ -15,6 +15,7 @@ import { indexItem } from "./handlers/index-item";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
+import { remindRestoreTest } from "./handlers/remind-restore-test";
 import { runAutomations } from "./handlers/run-automations";
 import { scheduleReports } from "./handlers/schedule-reports";
 import { summarizeTranscript } from "./handlers/summarize-transcript";
@@ -43,4 +44,5 @@ export const handlers: Record<string, JobHandler> = {
   schedule_reports: scheduleReports,
   index_item: indexItem,
   check_mcp_token_expiry: checkMcpTokenExpiry,
+  remind_restore_test: remindRestoreTest,
 };

@@ -1,0 +1,107 @@
+name: Teste de restauração
+
+# 7.3 — restaura o backup mais recente (7.1) num Postgres descartável do
+# runner e roda consultas de verificação, sem tocar em nada de produção.
+# Só manual (workflow_dispatch) — mensal, feito/confirmado pelo dono (o job
+# `remind_restore_test` do Hub só empurra o lembrete por push).
+#
+# A chave privada `age` NUNCA fica guardada como secret permanente do
+# repositório (ver docs/restauracao.md) — é colada aqui, no input, só na
+# hora de rodar. `::add-mask::` esconde o valor do log da run.
+on:
+  workflow_dispatch:
+    inputs:
+      age_private_key:
+        description: "Chave privada age (AGE-SECRET-KEY-...) — cole na hora, nunca guarde como secret permanente."
+        required: true
+
+jobs:
+  restore-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION }}
+      PGPASSWORD: postgres
+    steps:
+      - name: Mascarar a chave privada no log
+        run: echo "::add-mask::${{ inputs.age_private_key }}"
+
+      - name: Instalar cliente PostgreSQL 17 e age
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17 age
+
+      - name: Baixar o backup mais recente
+        run: |
+          set -euo pipefail
+          LATEST=$(aws s3api list-objects-v2 --bucket "${{ secrets.BACKUP_S3_BUCKET }}" --endpoint-url "${{ secrets.BACKUP_S3_ENDPOINT }}" \
+            --prefix "db/" --query "sort_by(Contents, &LastModified)[-1].Key" --output text)
+          echo "Restaurando $LATEST"
+          aws s3 cp "s3://${{ secrets.BACKUP_S3_BUCKET }}/$LATEST" backup.dump.age --endpoint-url "${{ secrets.BACKUP_S3_ENDPOINT }}"
+
+      - name: Descriptografar
+        run: |
+          set -euo pipefail
+          echo "${{ inputs.age_private_key }}" > age.key
+          age -d -i age.key -o backup.dump backup.dump.age
+          rm age.key
+
+      - name: Restaurar no Postgres descartável
+        run: pg_restore --no-owner --no-privileges --clean --if-exists -h localhost -U postgres -d postgres backup.dump || true
+        # `pg_restore` sai com status != 0 em warnings inofensivos (ex.: role
+        # que não existe no Postgres descartável) — o que importa é a
+        # consulta de verificação abaixo ter dado certo de verdade.
+
+      - name: Consultas de verificação
+        id: verify
+        run: |
+          set -euo pipefail
+          ITEMS=$(psql -h localhost -U postgres -d postgres -tAc "select count(*) from public.items")
+          TRANSACTIONS=$(psql -h localhost -U postgres -d postgres -tAc "select count(*) from public.fin_transactions")
+          CONTACTS=$(psql -h localhost -U postgres -d postgres -tAc "select count(*) from public.contacts")
+          BALANCE=$(psql -h localhost -U postgres -d postgres -tAc "select coalesce(sum(amount_cents), 0) from public.fin_transactions")
+          LATEST_ITEM=$(psql -h localhost -U postgres -d postgres -tAc "select coalesce(max(created_at)::text, '(nenhum)') from public.items")
+          echo "items=$ITEMS, fin_transactions=$TRANSACTIONS, contacts=$CONTACTS, soma_amount_cents=$BALANCE, item_mais_recente=$LATEST_ITEM"
+          {
+            echo "detail=items=$ITEMS; fin_transactions=$TRANSACTIONS; contacts=$CONTACTS; soma_amount_cents=$BALANCE; item_mais_recente=$LATEST_ITEM"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$ITEMS" -eq 0 ]; then
+            echo "0 items restaurados — algo deu errado." >&2
+            exit 1
+          fi
+
+      - name: Registrar sucesso
+        if: success()
+        env:
+          BACKUP_REPORT_SECRET: ${{ secrets.BACKUP_REPORT_SECRET }}
+        run: |
+          curl -fsS -X POST "${{ vars.APP_URL }}/api/ops/backup-report" \
+            -H "Authorization: Bearer $BACKUP_REPORT_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"kind\":\"restore_test\",\"status\":\"success\",\"detail\":\"${{ steps.verify.outputs.detail }}\"}"
+
+      - name: Registrar falha
+        if: failure()
+        env:
+          BACKUP_REPORT_SECRET: ${{ secrets.BACKUP_REPORT_SECRET }}
+        run: |
+          curl -fsS -X POST "${{ vars.APP_URL }}/api/ops/backup-report" \
+            -H "Authorization: Bearer $BACKUP_REPORT_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"kind":"restore_test","status":"failed","detail":"Um dos passos do workflow restore-test.yml falhou — ver o log do run no GitHub Actions."}' \
+          || true
