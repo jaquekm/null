@@ -186,6 +186,39 @@ export type Database = {
           },
         ]
       }
+      backup_runs: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          location: string | null
+          owner_id: string
+          size_bytes: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          location?: string | null
+          owner_id: string
+          size_bytes?: number | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          location?: string | null
+          owner_id?: string
+          size_bytes?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       automation_event_log: {
         Row: {
           automation_id: string

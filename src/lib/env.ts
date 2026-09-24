@@ -43,6 +43,8 @@ const serverSchema = z.object({
 
   // Fase 7 — opcional até operação/monitoramento
   SENTRY_DSN: z.string().optional(),
+  // Autentica POST /api/ops/backup-report (7.1) — chamado pelo workflow do GitHub Actions, nunca pelo navegador.
+  BACKUP_REPORT_SECRET: z.string().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
