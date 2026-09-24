@@ -1,5 +1,23 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseObsidianFile, parseObsidianVault } from "./parse-obsidian";
+
+const fixturePath = path.join(process.cwd(), "tests/fixtures/import/sample-obsidian-note.md");
+const fixture = readFileSync(fixturePath, "utf-8");
+
+describe("parseObsidianFile (fixture .md)", () => {
+  it("lê título, tags (front matter + inline), datas e preserva o wikilink do fixture", () => {
+    const item = parseObsidianFile({ path: "reuniao-de-terca.md", content: fixture }, "local-fixture");
+    expect(item.title).toBe("Reunião de terça");
+    expect(item.tags.sort()).toEqual(["cliente-x", "trabalho", "urgente"]);
+    expect(item.createdAt).toBe(new Date("2026-02-03T10:00:00.000Z").toISOString());
+    expect(item.updatedAt).toBe(new Date("2026-02-04T08:30:00.000Z").toISOString());
+    expect(item.bodyMarkdown).toContain("[[Projeto Alfa]]");
+    expect(item.bodyMarkdown).toContain("- [ ] Enviar proposta");
+    expect(item.bodyMarkdown).toContain("- [x] Confirmar horário");
+  });
+});
 
 describe("parseObsidianFile", () => {
   it("título do front matter, tags da lista + inline, datas ISO", () => {

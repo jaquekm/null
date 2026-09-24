@@ -1,5 +1,24 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseGoogleKeepExport, parseGoogleKeepNote } from "./parse-google-keep";
+
+const fixturePath = path.join(process.cwd(), "tests/fixtures/import/sample-keep-note.json");
+const fixture = readFileSync(fixturePath, "utf-8");
+
+describe("parseGoogleKeepExport (fixture .json)", () => {
+  it("lê o fixture do Takeout: checklist, label, cor e datas", () => {
+    const result = parseGoogleKeepExport([{ path: "Takeout/Keep/lista-de-compras.json", content: fixture }]);
+    expect(result.items).toHaveLength(1);
+    const item = result.items[0]!;
+    expect(item.title).toBe("Lista de compras");
+    expect(item.bodyMarkdown).toBe("- [ ] Leite\n- [ ] Ovos\n- [x] Pagar a conta de luz");
+    expect(item.tags).toEqual(["casa", "cor-blue"]);
+    expect(item.createdAt).toBe(new Date("2026-01-09T12:00:00.000Z").toISOString());
+    expect(item.updatedAt).toBe(new Date("2026-01-10T12:00:00.000Z").toISOString());
+    expect(result.warnings).toEqual([]);
+  });
+});
 
 describe("parseGoogleKeepNote", () => {
   it("nota de texto simples, com label e cor", () => {
