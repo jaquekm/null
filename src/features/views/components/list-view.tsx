@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TagBadge } from "@/components/shared/tag-badge";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { ViewItemRow } from "../queries";
 import { formatPropertyValue } from "../lib/format-property-value";
@@ -33,12 +34,7 @@ export function ListView({
               {typeIcon && <span className="shrink-0">{typeIcon}</span>}
               <span className="truncate text-black dark:text-zinc-50">{row.title || "Sem título"}</span>
               {row.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="shrink-0 rounded-full border border-black/[.12] px-1.5 text-[11px] text-zinc-500 dark:border-white/[.16] dark:text-zinc-400"
-                >
-                  #{tag.name}
-                </span>
+                <TagBadge key={tag.id} tag={tag} size="sm" />
               ))}
             </div>
             <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500">

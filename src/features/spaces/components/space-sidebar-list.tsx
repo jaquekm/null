@@ -18,6 +18,7 @@ import { GripVertical } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
+import { colorDotClassName } from "@/lib/color-tokens";
 import { positionBetween } from "../lib/position";
 import { reorderSpace } from "../actions";
 import type { SidebarSpace } from "../queries";
@@ -116,6 +117,7 @@ function SpaceSidebarRow({ space, collapsed }: { space: SidebarSpace; collapsed:
             : "text-zinc-600 hover:bg-black/[.04] hover:text-black dark:text-zinc-400 dark:hover:bg-white/[.06] dark:hover:text-zinc-50"
         }`}
       >
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${colorDotClassName(space.color)}`} />
         <span className="shrink-0">{space.icon || "•"}</span>
         {!collapsed && <span className="truncate">{space.name}</span>}
       </Link>

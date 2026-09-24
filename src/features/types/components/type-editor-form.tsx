@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { Result } from "@/lib/result";
+import { ColorPicker } from "@/components/shared/color-picker";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { updateObjectType } from "../actions";
 import { viewKinds } from "../object-type-schemas";
@@ -74,6 +75,8 @@ export function TypeEditorForm({ type, spaces }: { type: ObjectTypeDetail; space
           className={`${inputClassName} min-w-0 flex-1`}
         />
       </div>
+
+      <ColorPicker name="color" defaultValue={type.color} aria-label="Cor do tipo" />
 
       {!state.ok && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">

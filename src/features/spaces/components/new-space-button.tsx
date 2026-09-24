@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useActionState, useState } from "react";
 import type { Result } from "@/lib/result";
+import { ColorPicker } from "@/components/shared/color-picker";
 import { createSpace } from "../actions";
 
 const initialState: Result<{ slug: string } | null> = { ok: true, data: null };
@@ -49,6 +50,7 @@ export function NewSpaceButton({ collapsed }: { collapsed: boolean }) {
           className={`${inputClassName} min-w-0 flex-1`}
         />
       </div>
+      <ColorPicker name="color" aria-label="Cor do espaço" />
       {!state.ok && <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>}
       <div className="flex gap-1.5">
         <button
