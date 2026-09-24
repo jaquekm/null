@@ -27,6 +27,11 @@ export interface VerifiedToken {
   tokenId: string;
 }
 
+export interface VerifiedScopedToken extends VerifiedToken {
+  /** Todos os escopos do token, não só o(s) pedido(s) — o MCP (6.9) usa isso pra decidir quais ferramentas registrar por chamada. */
+  scopes: string[];
+}
+
 /**
  * Confere o token da rota `Authorization: Bearer <token>` (1.10/1.11):
  * hash existe, não revogado, não expirado, tem o escopo pedido. Atualiza
@@ -59,6 +64,41 @@ export async function verifyApiToken(request: Request, scope: string): Promise<V
   } catch {
     // Falha inesperada (rede, config) não deve vazar um 500 cru — trata como
     // "não autenticado", igual a um token ausente ou inválido.
+    return null;
+  }
+}
+
+/**
+ * Variante de `verifyApiToken` pro servidor MCP (6.9): cada ferramenta exige
+ * um escopo diferente (`mcp:read`/`mcp:write`/`finance:read`), então a
+ * verificação da requisição em si só confere que o token tem *algum* dos
+ * escopos MCP (`anyOfScopes`) — a rota decide, por ferramenta, se o escopo
+ * específico dela está em `scopes` antes de registrá-la ou executá-la.
+ */
+export async function verifyApiTokenAnyScope(request: Request, anyOfScopes: string[]): Promise<VerifiedScopedToken | null> {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) return null;
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("api_tokens")
+      .select("id, owner_id, scopes, revoked_at, expires_at")
+      .eq("token_hash", hashToken(token))
+      .maybeSingle();
+
+    if (error || !data) return null;
+    if (data.revoked_at) return null;
+    if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null;
+    if (!anyOfScopes.some((scope) => data.scopes.includes(scope))) return null;
+
+    await admin.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
+
+    return { ownerId: data.owner_id, tokenId: data.id, scopes: data.scopes };
+  } catch {
     return null;
   }
 }
