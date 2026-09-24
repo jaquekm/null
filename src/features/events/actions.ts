@@ -55,7 +55,7 @@ export async function createEvent(input: unknown): Promise<Result<{ id: string }
     .eq("id", data.calendarId)
     .eq("owner_id", user.id)
     .maybeSingle();
-  if (!calendar) return fail("Calendário não encontrado.");
+  if (!calendar || !calendar.connection_id) return fail("Calendário não encontrado.");
 
   if (data.itemId) {
     const { data: item } = await supabase.from("items").select("id").eq("id", data.itemId).eq("owner_id", user.id).maybeSingle();
@@ -130,7 +130,7 @@ export async function updateEvent(input: unknown): Promise<Result<null>> {
     .select("connection_id, external_id")
     .eq("id", event.calendar_id)
     .maybeSingle();
-  if (!calendar) return fail("Calendário do evento não encontrado.");
+  if (!calendar || !calendar.connection_id) return fail("Calendário do evento não encontrado.");
 
   const merged: EventRowForPush = {
     title: data.title ?? event.title,
@@ -211,7 +211,7 @@ export async function deleteEvent(eventId: string): Promise<Result<null>> {
     .select("connection_id, external_id")
     .eq("id", event.calendar_id)
     .maybeSingle();
-  if (!calendar) return fail("Calendário do evento não encontrado.");
+  if (!calendar || !calendar.connection_id) return fail("Calendário do evento não encontrado.");
 
   try {
     const accessToken = await getAccessToken(supabase, calendar.connection_id);

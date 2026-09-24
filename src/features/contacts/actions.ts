@@ -15,6 +15,7 @@ import {
   type ContactRow,
 } from "./queries";
 import { normalizePhoneToE164 } from "./lib/normalize-phone";
+import { deleteContactPermanently as deleteContactPermanentlyQuery, getContactExportData } from "./lib/lgpd";
 import { mergeContactFields, type MergeableContact } from "./lib/merge-contact-fields";
 import { parseVCard } from "./lib/parse-vcard";
 import { consentInputSchema, contactInputSchema, csvColumnKeys, type CsvColumnKey } from "./schemas";
@@ -114,6 +115,33 @@ export async function archiveContact(id: string): Promise<Result<null>> {
     .eq("id", id)
     .eq("owner_id", user.id);
   if (error) return fail("Não foi possível arquivar o contato.");
+
+  revalidatePath("/contatos");
+  return ok(null);
+}
+
+/** "Exportar os dados de um contato a pedido" (7.7, LGPD) — tudo que o Hub sabe sobre ele, num JSON só. */
+export async function exportContactData(id: string): Promise<Result<{ fileName: string; json: string }>> {
+  const { supabase, user } = await requireOwner();
+
+  const data = await getContactExportData(supabase, user.id, id);
+  if (!data) return fail("Contato não encontrado.");
+
+  const contact = data.contato as { name?: string } | undefined;
+  const slug = (contact?.name ?? "contato").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-");
+  return ok({ fileName: `${slug || "contato"}.json`, json: JSON.stringify(data, null, 2) });
+}
+
+/**
+ * "Excluir definitivamente os dados de um contato a pedido" (7.7, LGPD) —
+ * irreversível. Ver `src/features/contacts/lib/lgpd.ts` pro que é
+ * anonimizado (registros financeiros, via FK `on delete set null`) vs. o
+ * que é apagado de vez (entregas de mensagem, avatar).
+ */
+export async function deleteContactPermanently(id: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  await deleteContactPermanentlyQuery(supabase, user.id, id);
 
   revalidatePath("/contatos");
   return ok(null);

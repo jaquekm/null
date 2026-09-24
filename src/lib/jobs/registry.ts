@@ -7,14 +7,18 @@ import { checkReviewsDue } from "./handlers/check-reviews-due";
 import { closeCardStatements } from "./handlers/close-card-statements";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
 import { evaluateTimeAutomations } from "./handlers/evaluate-time-automations";
+import { exportAll } from "./handlers/export-all";
 import { extractAttachment } from "./handlers/extract-attachment";
 import { generateBills } from "./handlers/generate-bills";
 import { generateReminders } from "./handlers/generate-reminders";
 import { generateReport } from "./handlers/generate-report";
 import { indexItem } from "./handlers/index-item";
+import { opsDailyCheck } from "./handlers/ops-daily-check";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
+import { reencryptSecrets } from "./handlers/reencrypt-secrets";
+import { remindRestoreTest } from "./handlers/remind-restore-test";
 import { runAutomations } from "./handlers/run-automations";
 import { scheduleReports } from "./handlers/schedule-reports";
 import { summarizeTranscript } from "./handlers/summarize-transcript";
@@ -43,4 +47,8 @@ export const handlers: Record<string, JobHandler> = {
   schedule_reports: scheduleReports,
   index_item: indexItem,
   check_mcp_token_expiry: checkMcpTokenExpiry,
+  remind_restore_test: remindRestoreTest,
+  export_all: exportAll,
+  ops_daily_check: opsDailyCheck,
+  reencrypt_secrets: reencryptSecrets,
 };

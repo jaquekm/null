@@ -110,6 +110,7 @@ export const calendarSync: JobHandler = async (job, { supabase }) => {
   let eventsUpserted = 0;
 
   for (const calendar of calendars) {
+    if (!calendar.connection_id) continue; // calendário local (7.5, importação de .ics) — nada do Google pra sincronizar
     if (connectionStatusById.get(calendar.connection_id) !== "active") continue; // revogada — espera o dono reconectar (3.4)
 
     let accessToken: string;

@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -33,6 +34,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Server action de upload da importação (7.5: .enex/.zip/.json) — maior que o padrão de 1MB.
+    serverActions: { bodySizeLimit: "8mb" },
+  },
   async headers() {
     return [
       {
@@ -48,4 +53,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// `next.config.ts` roda fora do runtime da aplicação (antes/fora de `src/lib/env.ts`) — lido direto de `process.env`
+// de propósito, não é "código da aplicação" pra fins da regra do CLAUDE.md (que exige ler variáveis só via `env.ts`).
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  // Build usa Turbopack (`next build`) — a instrumentação automática do plugin webpack do Sentry não se aplica
+  // (aviso do próprio SDK); o que continua funcionando de verdade é o `Sentry.init()` em `src/instrumentation*.ts`.
+});

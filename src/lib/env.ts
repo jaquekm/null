@@ -4,6 +4,8 @@ const publicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().optional(),
+  // Mesmo DSN de SENTRY_DSN (servidor) — precisa do prefixo NEXT_PUBLIC_ pra ir no bundle do navegador (7.6). Um DSN não é segredo (é feito pra ser público), só identifica o projeto no Sentry.
+  NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
 });
 
 const serverSchema = z.object({
@@ -11,6 +13,8 @@ const serverSchema = z.object({
   OWNER_EMAIL: z.string().email(),
   CRON_SECRET: z.string().min(1),
   ENCRYPTION_KEY: z.string().min(1),
+  // Rotação sem downtime (7.7): a chave anterior, só usada como fallback de leitura por `decrypt()` — nunca pra criptografar de novo. Some depois que o job `reencrypt_secrets` reescrever tudo com a chave atual.
+  ENCRYPTION_KEY_PREVIOUS: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // Fase 2 — opcionais até a fase de mídia/transcrição
@@ -43,6 +47,14 @@ const serverSchema = z.object({
 
   // Fase 7 — opcional até operação/monitoramento
   SENTRY_DSN: z.string().optional(),
+  // Só pro upload de source maps no build (`withSentryConfig`, sentry.config em next.config.ts) — sem isso, o Sentry ainda funciona, só mostra o código minificado no stack trace.
+  SENTRY_ORG: z.string().optional(),
+  SENTRY_PROJECT: z.string().optional(),
+  SENTRY_AUTH_TOKEN: z.string().optional(),
+  // Autentica POST /api/ops/backup-report (7.1) — chamado pelo workflow do GitHub Actions, nunca pelo navegador.
+  BACKUP_REPORT_SECRET: z.string().optional(),
+  // Alerta de uso de Storage perto do limite do plano (7.6, `ops_daily_check`) — sem isso configurado, o alerta fica desligado (não tem como saber o limite sozinho).
+  STORAGE_PLAN_LIMIT_BYTES: z.coerce.number().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -59,6 +71,7 @@ function parsePublicEnv(): PublicEnv {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
   });
   if (!result.success) {
     throw new Error(

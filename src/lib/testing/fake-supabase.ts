@@ -1,7 +1,8 @@
 /**
  * Cliente Supabase falso, em memória, só com o subconjunto de operações que
- * este projeto usa (`select`/`eq`/`is`/`in`/`order`/`limit`/`insert`/
- * `update`/`delete`/`maybeSingle`/`single`, mais `count` no `select`).
+ * este projeto usa (`select`/`eq`/`is`/`in`/`contains`/`order`/`limit`/
+ * `insert`/`update`/`delete`/`maybeSingle`/`single`, mais `count` no
+ * `select`).
  * Nasceu pros testes de `features/packs` (5.2: `install.ts`/`uninstall.ts`/
  * `export.ts`) e é reaproveitado por qualquer feature que precise simular
  * várias tabelas encadeadas num teste de unidade — não é um emulador
@@ -44,6 +45,25 @@ class FakeQuery implements PromiseLike<PgResult> {
   }
   in(field: string, values: unknown[]) {
     this.filters.push((row) => values.includes(row[field]));
+    return this;
+  }
+  /**
+   * Aproximação rasa do `@>` do Postgres — dois casos: coluna `uuid[]`/array
+   * (`value` também é array, ex.: `reminders.contact_ids @> ARRAY[id]`,
+   * 7.7 LGPD — checa que todo elemento de `value` está no array da linha) e
+   * coluna jsonb/objeto (`value` é um Record, ex.: `properties @> { _import_id }`,
+   * 7.5 — checa as chaves de `value` contra o objeto da coluna). Suficiente
+   * pros usos de hoje, não é um emulador de Postgrest de verdade.
+   */
+  contains(field: string, value: Record<string, unknown> | unknown[]) {
+    this.filters.push((row) => {
+      const target = row[field];
+      if (Array.isArray(value)) {
+        return Array.isArray(target) && value.every((item) => target.includes(item));
+      }
+      if (!target || typeof target !== "object" || Array.isArray(target)) return false;
+      return Object.entries(value).every(([key, val]) => (target as Record<string, unknown>)[key] === val);
+    });
     return this;
   }
   order(field: string, opts?: { ascending?: boolean }) {

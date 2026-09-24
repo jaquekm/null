@@ -186,6 +186,39 @@ export type Database = {
           },
         ]
       }
+      backup_runs: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          location: string | null
+          owner_id: string
+          size_bytes: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          location?: string | null
+          owner_id: string
+          size_bytes?: number | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          location?: string | null
+          owner_id?: string
+          size_bytes?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       automation_event_log: {
         Row: {
           automation_id: string
@@ -330,7 +363,7 @@ export type Database = {
       calendars: {
         Row: {
           color: string | null
-          connection_id: string
+          connection_id: string | null
           created_at: string
           external_id: string
           id: string
@@ -345,7 +378,7 @@ export type Database = {
         }
         Insert: {
           color?: string | null
-          connection_id: string
+          connection_id?: string | null
           created_at?: string
           external_id: string
           id?: string
@@ -360,7 +393,7 @@ export type Database = {
         }
         Update: {
           color?: string | null
-          connection_id?: string
+          connection_id?: string | null
           created_at?: string
           external_id?: string
           id?: string
@@ -1751,6 +1784,39 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batches: {
+        Row: {
+          created_at: string
+          detail: Json | null
+          id: string
+          items_created: number
+          items_skipped: number
+          owner_id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          items_created?: number
+          items_skipped?: number
+          owner_id?: string
+          source: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          items_created?: number
+          items_skipped?: number
+          owner_id?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
       item_chunks: {
         Row: {
           chunk_index: number
@@ -2272,6 +2338,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ops_heartbeat: {
+        Row: {
+          last_tick_at: string
+          owner_id: string
+        }
+        Insert: {
+          last_tick_at?: string
+          owner_id: string
+        }
+        Update: {
+          last_tick_at?: string
+          owner_id?: string
+        }
+        Relationships: []
       }
       packs_installed: {
         Row: {
@@ -3358,6 +3439,28 @@ export type Database = {
           title: string
           type_id: string
           updated_at: string
+        }[]
+      }
+      security_check_anon_policies: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          policy_name: string
+          table_name: string
+        }[]
+      }
+      security_check_definer_functions: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          function_name: string
+          grants_anon: boolean
+          grants_authenticated: boolean
+          has_search_path: boolean
+        }[]
+      }
+      security_check_tables_without_rls: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
         }[]
       }
     }

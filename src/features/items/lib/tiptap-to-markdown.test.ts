@@ -120,6 +120,24 @@ describe("tiptapDocToMarkdown", () => {
     expect(tiptapDocToMarkdown(doc)).toBe("| Nome | Idade |\n| --- | --- |\n| Ana | 30 |");
   });
 
+  it("converte menção de item e de contato em [[label]] (7.4: export completo)", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Ver " },
+            { type: "mention", attrs: { id: "item-1", label: "Reunião de terça" } },
+            { type: "text", text: " com " },
+            { type: "contactMention", attrs: { id: "contact-1", label: "Maria" } },
+          ],
+        },
+      ],
+    };
+    expect(tiptapDocToMarkdown(doc)).toBe("Ver [[Reunião de terça]] com [[Maria]]");
+  });
+
   it("doc nulo ou vazio vira string vazia", () => {
     expect(tiptapDocToMarkdown(null)).toBe("");
     expect(tiptapDocToMarkdown({ type: "doc", content: [{ type: "paragraph", content: [] }] })).toBe("");

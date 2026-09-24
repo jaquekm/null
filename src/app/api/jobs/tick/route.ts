@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSoleOwnerId, recordTickHeartbeat } from "@/features/ops/queries";
 import { serverEnv } from "@/lib/env";
 import { runJob } from "@/lib/jobs/run-job";
+import { logEvent } from "@/lib/observability/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { timingSafeEqualStrings } from "@/lib/timing-safe-equal";
@@ -49,6 +51,10 @@ export async function POST(request: Request) {
   const supabase = createAdminClient();
   const startedAt = Date.now();
 
+  // "Último tick de jobs < 5 min" (7.6) precisa disto mesmo numa execução sem nenhum job pra processar.
+  const ownerId = await getSoleOwnerId(supabase);
+  if (ownerId) await recordTickHeartbeat(supabase, ownerId);
+
   await enqueueDueSchedules(supabase);
 
   const processedIds: string[] = [];
@@ -63,5 +69,6 @@ export async function POST(request: Request) {
     }
   }
 
+  logEvent("info", "jobs_tick", { processed: processedIds.length });
   return NextResponse.json({ processed: processedIds.length, ids: processedIds });
 }

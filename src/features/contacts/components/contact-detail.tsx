@@ -10,7 +10,7 @@ import { RemindAboutButton } from "@/features/reminders/components/remind-about-
 import { ContactSalesSection } from "@/features/sales/components/contact-sales-section";
 import type { ContactSalesSummary } from "@/features/sales/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
-import { archiveContact } from "../actions";
+import { archiveContact, deleteContactPermanently, exportContactData } from "../actions";
 import type { ContactActivity, ContactDetailRow } from "../queries";
 import { RELATIONSHIP_LABELS, type Relationship } from "../schemas";
 import { ConsentSection } from "./consent-section";
@@ -55,6 +55,42 @@ export function ContactDetail({
     });
   }
 
+  /** Exportação de dados (7.7, LGPD) — baixa um `.json` com tudo que o Hub sabe sobre o contato. */
+  function handleExport() {
+    startTransition(async () => {
+      const result = await exportContactData(contact.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      const blob = new Blob([result.data.json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.data.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  /** Exclusão definitiva (7.7, LGPD) — irreversível, por isso pede o nome digitado, não só um confirm(). */
+  function handleDeletePermanently() {
+    const typed = window.prompt(`Isso apaga o contato "${contact.name}" pra sempre, sem volta. Digite o nome exatamente igual pra confirmar:`);
+    if (typed !== contact.name) {
+      if (typed !== null) toast.error("Nome não bateu — nada foi excluído.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await deleteContactPermanently(contact.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Contato excluído definitivamente.");
+      router.push("/contatos");
+    });
+  }
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <Link href="/contatos" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
@@ -78,6 +114,17 @@ export function ContactDetail({
               </button>
               <button type="button" onClick={handleArchive} disabled={pending} className="rounded-full border border-black/[.12] px-3 py-1.5 text-xs text-red-600 disabled:opacity-60 dark:border-white/[.16]">
                 Arquivar
+              </button>
+              <button type="button" onClick={handleExport} disabled={pending} className="rounded-full border border-black/[.12] px-3 py-1.5 text-xs disabled:opacity-60 dark:border-white/[.16]">
+                Exportar dados
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePermanently}
+                disabled={pending}
+                className="rounded-full border border-red-600/40 px-3 py-1.5 text-xs font-medium text-red-600 disabled:opacity-60 dark:border-red-400/40 dark:text-red-400"
+              >
+                Excluir definitivamente
               </button>
             </div>
           </div>

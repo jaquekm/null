@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Dependências do app (7.7: "Dependabot semanal para dependências, com CI obrigatório").
+  # A CI (.github/workflows/ci.yml) já roda em todo push/PR — habilitar "Require status
+  # checks to pass" nas regras de proteção da branch `main` (GitHub → Settings → Branches)
+  # é o que torna a CI "obrigatória" pra um PR do Dependabot poder ser mesclado.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      # Um PR só por semana para os pacotes @sentry/@tiptap/@fullcalendar/etc. (várias
+      # versões sempre juntas) — menos ruído que um PR por pacote individual.
+      sentry:
+        patterns: ["@sentry/*"]
+      tiptap:
+        patterns: ["@tiptap/*"]
+      fullcalendar:
+        patterns: ["@fullcalendar/*"]
+      dnd-kit:
+        patterns: ["@dnd-kit/*"]
+
+  # Ações usadas pelos workflows (backup.yml, storage-backup.yml, restore-test.yml, ci.yml).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
