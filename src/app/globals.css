@@ -4,6 +4,12 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* Sem isso, o navegador não sabe que a página está clara/escura e renderiza
+     os controles nativos (popup de `<select>`, checkbox, date picker, barra
+     de rolagem) sempre no esquema claro do SO — fica um popup branco flutuando
+     sobre uma tela escura, ilegível ("onde estou?"). `color-scheme` resolve os
+     dois temas sem precisar reimplementar cada `<select>` como componente. */
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
   /* Painel financeiro (4.12, recharts) — mesmas cores de entrada/saída já usadas em texto (emerald/red) desde a 4.4,
@@ -15,6 +21,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0a0a0a;
   --foreground: #ededed;
   /* Vermelho um tom mais claro que o do texto (red-500 em vez de red-400) — é o par que passou no validador
