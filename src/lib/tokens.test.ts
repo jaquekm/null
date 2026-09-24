@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAdminClient } from "./supabase/admin";
-import { hashToken, verifyApiToken } from "./tokens";
+import { hashToken, verifyApiToken, verifyApiTokenAnyScope } from "./tokens";
 
 vi.mock("./supabase/admin", () => ({
   createAdminClient: vi.fn(),
@@ -108,5 +108,46 @@ describe("verifyApiToken", () => {
     });
     const result = await verifyApiToken(requestWithToken("hub_valido"), "capture");
     expect(result).toEqual({ ownerId: "user-1", tokenId: "tok-1" });
+  });
+});
+
+describe("verifyApiTokenAnyScope", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("sem cabeçalho Authorization retorna null", async () => {
+    const result = await verifyApiTokenAnyScope(requestWithToken(null), ["mcp:read", "mcp:write", "finance:read"]);
+    expect(result).toBeNull();
+  });
+
+  it("token sem nenhum dos escopos pedidos retorna null (6.9: só mcp:read/mcp:write/finance:read abrem o MCP)", async () => {
+    mockAdmin({ id: "tok-1", owner_id: "user-1", scopes: ["capture"], revoked_at: null, expires_at: null });
+    const result = await verifyApiTokenAnyScope(requestWithToken("hub_valido"), ["mcp:read", "mcp:write", "finance:read"]);
+    expect(result).toBeNull();
+  });
+
+  it("token revogado retorna null mesmo com o escopo certo", async () => {
+    mockAdmin({ id: "tok-1", owner_id: "user-1", scopes: ["mcp:read"], revoked_at: new Date().toISOString(), expires_at: null });
+    const result = await verifyApiTokenAnyScope(requestWithToken("hub_valido"), ["mcp:read"]);
+    expect(result).toBeNull();
+  });
+
+  it("token expirado retorna null", async () => {
+    mockAdmin({ id: "tok-1", owner_id: "user-1", scopes: ["mcp:read"], revoked_at: null, expires_at: new Date(Date.now() - 1000).toISOString() });
+    const result = await verifyApiTokenAnyScope(requestWithToken("hub_valido"), ["mcp:read"]);
+    expect(result).toBeNull();
+  });
+
+  it("basta ter um dos escopos pedidos — devolve todos os escopos do token, não só o pedido", async () => {
+    mockAdmin({ id: "tok-1", owner_id: "user-1", scopes: ["mcp:write"], revoked_at: null, expires_at: null });
+    const result = await verifyApiTokenAnyScope(requestWithToken("hub_valido"), ["mcp:read", "mcp:write", "finance:read"]);
+    expect(result).toEqual({ ownerId: "user-1", tokenId: "tok-1", scopes: ["mcp:write"] });
+  });
+
+  it("token com todos os três escopos MCP devolve a lista inteira", async () => {
+    mockAdmin({ id: "tok-1", owner_id: "user-1", scopes: ["mcp:read", "mcp:write", "finance:read"], revoked_at: null, expires_at: null });
+    const result = await verifyApiTokenAnyScope(requestWithToken("hub_valido"), ["mcp:read", "mcp:write", "finance:read"]);
+    expect(result).toEqual({ ownerId: "user-1", tokenId: "tok-1", scopes: ["mcp:read", "mcp:write", "finance:read"] });
   });
 });

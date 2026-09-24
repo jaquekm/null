@@ -2,6 +2,7 @@ import "server-only";
 import { calendarPush } from "./handlers/calendar-push";
 import { calendarSync } from "./handlers/calendar-sync";
 import { checkBudgets } from "./handlers/check-budgets";
+import { checkMcpTokenExpiry } from "./handlers/check-mcp-token-expiry";
 import { checkReviewsDue } from "./handlers/check-reviews-due";
 import { closeCardStatements } from "./handlers/close-card-statements";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
@@ -41,4 +42,5 @@ export const handlers: Record<string, JobHandler> = {
   generate_report: generateReport,
   schedule_reports: scheduleReports,
   index_item: indexItem,
+  check_mcp_token_expiry: checkMcpTokenExpiry,
 };
