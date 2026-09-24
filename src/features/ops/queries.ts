@@ -100,6 +100,11 @@ export async function ensureOpsDailyCheckSchedule(supabase: Client, ownerId: str
   await supabase.from("job_schedules").upsert({ kind: "ops_daily_check", owner_id: ownerId, interval_seconds: 24 * 60 * 60, enabled: true }, { onConflict: "kind" });
 }
 
+/** Agenda o job `cleanup_old_data` (7.9, diário) — mesmo padrão de `ensureOpsDailyCheckSchedule`. */
+export async function ensureCleanupSchedule(supabase: Client, ownerId: string): Promise<void> {
+  await supabase.from("job_schedules").upsert({ kind: "cleanup_old_data", owner_id: ownerId, interval_seconds: 24 * 60 * 60, enabled: true }, { onConflict: "kind" });
+}
+
 /** Carimba que `/api/jobs/tick` (2.2) rodou agora — "último tick de jobs < 5 min" (7.6) precisa disso mesmo quando não havia nenhum job pra processar. */
 export async function recordTickHeartbeat(admin: Client, ownerId: string): Promise<void> {
   await admin.from("ops_heartbeat").upsert({ owner_id: ownerId, last_tick_at: new Date().toISOString() }, { onConflict: "owner_id" });

@@ -1,8 +1,8 @@
 /**
  * Cliente Supabase falso, em memória, só com o subconjunto de operações que
- * este projeto usa (`select`/`eq`/`is`/`in`/`contains`/`order`/`limit`/
- * `insert`/`update`/`delete`/`maybeSingle`/`single`, mais `count` no
- * `select`).
+ * este projeto usa (`select`/`eq`/`is`/`in`/`contains`/`lt`/`lte`/`gt`/`gte`/
+ * `order`/`limit`/`insert`/`update`/`delete`/`maybeSingle`/`single`, mais
+ * `count` no `select`).
  * Nasceu pros testes de `features/packs` (5.2: `install.ts`/`uninstall.ts`/
  * `export.ts`) e é reaproveitado por qualquer feature que precise simular
  * várias tabelas encadeadas num teste de unidade — não é um emulador
@@ -45,6 +45,23 @@ class FakeQuery implements PromiseLike<PgResult> {
   }
   in(field: string, values: unknown[]) {
     this.filters.push((row) => values.includes(row[field]));
+    return this;
+  }
+  /** Comparação lexicográfica basta pros usos de hoje — sempre timestamptz ISO 8601 (7.9, jobs de limpeza), nunca número. */
+  lt(field: string, value: unknown) {
+    this.filters.push((row) => (row[field] as string | number) < (value as string | number));
+    return this;
+  }
+  lte(field: string, value: unknown) {
+    this.filters.push((row) => (row[field] as string | number) <= (value as string | number));
+    return this;
+  }
+  gt(field: string, value: unknown) {
+    this.filters.push((row) => (row[field] as string | number) > (value as string | number));
+    return this;
+  }
+  gte(field: string, value: unknown) {
+    this.filters.push((row) => (row[field] as string | number) >= (value as string | number));
     return this;
   }
   /**

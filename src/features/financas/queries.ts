@@ -220,9 +220,9 @@ function mapTransactionRow(row: Record<string, unknown>): TransactionRow {
   };
 }
 
-/** Lançamentos vinculados a um item (4.13, painel "Financeiro" — "Registrar despesa/receita"). */
+/** Lançamentos vinculados a um item (4.13, painel "Financeiro" — "Registrar despesa/receita"). `limit(500)` (7.9): mesma proteção de `listTransactions`, não paginação de verdade. */
 export async function listTransactionsForItem(supabase: Client, itemId: string): Promise<TransactionRow[]> {
-  const { data, error } = await supabase.from("fin_transactions").select(TRANSACTION_COLUMNS).eq("item_id", itemId).order("occurred_on", { ascending: false });
+  const { data, error } = await supabase.from("fin_transactions").select(TRANSACTION_COLUMNS).eq("item_id", itemId).order("occurred_on", { ascending: false }).limit(500);
   if (error) throw error;
   return data.map(mapTransactionRow);
 }

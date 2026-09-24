@@ -27,5 +27,37 @@ jobs:
 
       - run: pnpm test
 
-      # Fase 0.5+: subir o Supabase local no runner e rodar `supabase db reset`
-      # para validar as migrations antes de aplicá-las em dev/prod.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - run: supabase start
+
+      # Valida as migrations de verdade (não só que o SQL é sintaticamente
+      # válido) — se alguma migration nova quebrar o `db reset`, o CI já
+      # pega antes de chegar em dev/prod.
+      - run: supabase db reset
+
+      - name: Capturar credenciais do Supabase local
+        run: |
+          eval "$(supabase status -o env | sed 's/^/LOCAL_/')"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$LOCAL_API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$LOCAL_ANON_KEY" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$LOCAL_SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+
+      - run: pnpm build
+        env:
+          APP_URL: http://localhost:3000
+          OWNER_EMAIL: ci@example.com
+          CRON_SECRET: ci-only-secret-not-used-in-production
+          ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+
+      # 7.11: `security:check` contra o Supabase local (com as migrations
+      # aplicadas de verdade acima) — roda o script direto, não via `pnpm
+      # security:check` (que assume um `.env.local`, inexistente no runner).
+      - run: node scripts/security-check.mjs
+        env:
+          APP_URL: http://localhost:3000
+          OWNER_EMAIL: ci@example.com
+          CRON_SECRET: ci-only-secret-not-used-in-production
+          ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=

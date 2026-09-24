@@ -187,14 +187,22 @@ export interface InboxItemRow {
   tags: TagOption[];
 }
 
-/** Itens do inbox (1.13), mais recentes primeiro (data de captura). */
+/**
+ * Itens do inbox (1.13), mais recentes primeiro (data de captura). Sem
+ * paginação de verdade (7.9): a tela organiza o inbox em lote (`OrganizeInboxPanel`,
+ * 6.8) e precisa da lista inteira de uma vez pra sugerir destino de todo item —
+ * cursor quebraria esse fluxo. `limit(500)` é só uma proteção (mesmo critério
+ * de `listTransactions`, financas/queries.ts) contra um inbox nunca processado
+ * crescendo sem limite, não uma UI de paginação.
+ */
 export async function listInboxItems(supabase: Client): Promise<InboxItemRow[]> {
   const { data, error } = await supabase
     .from("items")
     .select("id, title, content_text, source, space_id, type_id, created_at, updated_at")
     .eq("status", "inbox")
     .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
   if (error) throw error;
   if (data.length === 0) return [];
 

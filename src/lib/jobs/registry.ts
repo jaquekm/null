@@ -4,6 +4,7 @@ import { calendarSync } from "./handlers/calendar-sync";
 import { checkBudgets } from "./handlers/check-budgets";
 import { checkMcpTokenExpiry } from "./handlers/check-mcp-token-expiry";
 import { checkReviewsDue } from "./handlers/check-reviews-due";
+import { cleanupOldData } from "./handlers/cleanup-old-data";
 import { closeCardStatements } from "./handlers/close-card-statements";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
 import { evaluateTimeAutomations } from "./handlers/evaluate-time-automations";
@@ -51,4 +52,5 @@ export const handlers: Record<string, JobHandler> = {
   export_all: exportAll,
   ops_daily_check: opsDailyCheck,
   reencrypt_secrets: reencryptSecrets,
+  cleanup_old_data: cleanupOldData,
 };

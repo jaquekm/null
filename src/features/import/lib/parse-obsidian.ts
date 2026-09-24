@@ -23,17 +23,34 @@ function toIsoOrNull(value: string | undefined): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-/** Uma nota `.md` do Obsidian → `ParsedImportItem` (7.5). `#tags` soltas no corpo (fora do front matter) também viram tags — ficam visíveis no texto, mesmo comportamento do Obsidian. */
+function firstString(data: Record<string, string | string[]>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Uma nota `.md` do Obsidian → `ParsedImportItem` (7.5). `#tags` soltas no
+ * corpo (fora do front matter) também viram tags — ficam visíveis no texto,
+ * mesmo comportamento do Obsidian. As chaves em português (`titulo`,
+ * `criado_em`, `atualizado_em`) são as do **nosso próprio** front matter de
+ * exportação (7.4, `buildItemMarkdown`) — reconhecidas como alternativa às
+ * chaves em inglês (convenção comum de vault Obsidian de verdade) pra que
+ * "exportar em Markdown → importar como Obsidian" (7.11) recrie título e
+ * datas de verdade, não só o corpo do texto.
+ */
 export function parseObsidianFile(file: ObsidianFile, localId: string): ParsedImportItem {
   const { data, body } = parseFrontMatter(file.content);
 
-  const title = typeof data.title === "string" && data.title.trim() ? data.title.trim() : titleFromPath(file.path);
+  const title = firstString(data, ["title", "titulo"])?.trim() ?? titleFromPath(file.path);
   const frontMatterTags = toStringArray(data.tags);
   const inlineTags = [...body.matchAll(/(?:^|\s)#([a-zA-Z0-9_/-]+)/g)].map((m) => m[1]!);
   const tags = [...new Set([...frontMatterTags, ...inlineTags].map((t) => t.toLowerCase()))];
 
-  const createdAt = toIsoOrNull(typeof data.created === "string" ? data.created : typeof data.date === "string" ? data.date : undefined);
-  const updatedAt = toIsoOrNull(typeof data.updated === "string" ? data.updated : typeof data.modified === "string" ? data.modified : undefined) ?? createdAt;
+  const createdAt = toIsoOrNull(firstString(data, ["created", "date", "criado_em"]));
+  const updatedAt = toIsoOrNull(firstString(data, ["updated", "modified", "atualizado_em"])) ?? createdAt;
 
   return { localId, title, bodyMarkdown: body.trim(), tags, createdAt, updatedAt, attachments: [] };
 }

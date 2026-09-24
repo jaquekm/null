@@ -1,0 +1,15 @@
+{
+  "title": "Lista de compras",
+  "textContent": "",
+  "listContent": [
+    { "text": "Leite", "isChecked": false },
+    { "text": "Ovos", "isChecked": false },
+    { "text": "Pagar a conta de luz", "isChecked": true }
+  ],
+  "labels": [{ "name": "Casa" }],
+  "color": "BLUE",
+  "isTrashed": false,
+  "isArchived": false,
+  "createdTimestampUsec": 1767960000000000,
+  "userEditedTimestampUsec": 1768046400000000
+}
