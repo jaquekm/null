@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useActionState } from "react";
 import type { Result } from "@/lib/result";
+import { ColorPicker } from "@/components/shared/color-picker";
 import { completeOnboarding } from "../actions";
 
 interface SpaceRowState {
@@ -11,8 +12,6 @@ interface SpaceRowState {
   icon: string;
   color: string;
 }
-
-const COLOR_TOKENS = ["slate", "red", "amber", "emerald", "teal", "sky", "blue", "violet", "rose"];
 
 const SUGGESTED_SPACES: Omit<SpaceRowState, "id">[] = [
   { name: "Pessoal", icon: "🏠", color: "sky" },
@@ -98,18 +97,11 @@ export function OnboardingForm() {
                 className={`${inputClassName} min-w-0 flex-1`}
                 maxLength={80}
               />
-              <select
-                aria-label="Cor"
+              <ColorPicker
                 value={row.color}
-                onChange={(e) => updateRow(row.id, { color: e.target.value })}
-                className={inputClassName}
-              >
-                {COLOR_TOKENS.map((token) => (
-                  <option key={token} value={token}>
-                    {token}
-                  </option>
-                ))}
-              </select>
+                onChange={(color) => updateRow(row.id, { color })}
+                aria-label="Cor do espaço"
+              />
               <button
                 type="button"
                 onClick={() => removeRow(row.id)}

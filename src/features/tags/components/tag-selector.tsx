@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { TagBadge } from "@/components/shared/tag-badge";
 import { addTagToItem, removeTagFromItem } from "../actions";
 import type { TagOption } from "../queries";
 
@@ -61,21 +62,7 @@ export function TagSelector({
       <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Tags</span>
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
-          <span
-            key={tag.id}
-            className="flex items-center gap-1 rounded-full border border-black/[.12] px-2 py-0.5 text-xs text-zinc-700 dark:border-white/[.16] dark:text-zinc-200"
-          >
-            #{tag.name}
-            <button
-              type="button"
-              onClick={() => handleRemove(tag.id)}
-              disabled={pending}
-              aria-label={`Remover tag ${tag.name}`}
-              className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-            >
-              ×
-            </button>
-          </span>
+          <TagBadge key={tag.id} tag={tag} onRemove={pending ? undefined : handleRemove} />
         ))}
         <input
           id={inputId}

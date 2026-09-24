@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import type { Result } from "@/lib/result";
+import { ColorPicker } from "@/components/shared/color-picker";
 import type { SidebarSpace } from "../queries";
 import { deleteSpace, moveItemsAndDeleteSpace, setSpaceArchived, updateSpace } from "../actions";
 
@@ -89,6 +90,7 @@ export function SpaceSettingsForm({ space, otherSpaces }: SpaceSettingsFormProps
             rows={2}
             className={inputClassName}
           />
+          <ColorPicker name="color" defaultValue={space.color} aria-label="Cor do espaço" />
           {!updateState.ok && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {updateState.error}

@@ -1,5 +1,6 @@
 "use client";
 
+import { TagBadge } from "@/components/shared/tag-badge";
 import { TagSelector } from "@/features/tags/components/tag-selector";
 import type { TagOption } from "@/features/tags/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
@@ -76,12 +77,7 @@ export function InboxRow({
           {item.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {item.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="rounded-full border border-black/[.12] px-1.5 text-[11px] text-zinc-500 dark:border-white/[.16] dark:text-zinc-400"
-                >
-                  #{tag.name}
-                </span>
+                <TagBadge key={tag.id} tag={tag} size="sm" />
               ))}
             </div>
           )}

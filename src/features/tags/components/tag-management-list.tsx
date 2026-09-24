@@ -2,10 +2,10 @@
 
 import { useActionState, useState, useTransition } from "react";
 import type { Result } from "@/lib/result";
+import { ColorPicker } from "@/components/shared/color-picker";
+import { TagBadge } from "@/components/shared/tag-badge";
 import { deleteTag, mergeTags, renameTag } from "../actions";
 import type { TagWithCount } from "../queries";
-
-const COLOR_TOKENS = ["slate", "red", "amber", "emerald", "teal", "sky", "blue", "violet", "rose"];
 
 const initialRenameState: Result<null> = { ok: true, data: null };
 
@@ -67,8 +67,8 @@ export function TagManagementList({ tags: initialTags }: { tags: TagWithCount[] 
               />
             ) : (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-black dark:text-zinc-50">
-                  #{tag.name}{" "}
+                <span className="flex items-center gap-2 text-sm text-black dark:text-zinc-50">
+                  <TagBadge tag={tag} />
                   <span className="text-xs text-zinc-400 dark:text-zinc-500">
                     ({tag.itemCount} {tag.itemCount === 1 ? "item" : "itens"})
                   </span>
@@ -144,14 +144,14 @@ function TagRenameForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(tag.name);
-  const [color, setColor] = useState(tag.color ?? "");
+  const [color, setColor] = useState(tag.color ?? "slate");
   const action = renameTag.bind(null, tag.id);
   const [state, formAction, pending] = useActionState(action, initialRenameState);
 
   const [handledState, setHandledState] = useState(state);
   if (state !== handledState) {
     setHandledState(state);
-    if (state.ok) onDone({ name: name.toLowerCase(), color: color || null });
+    if (state.ok) onDone({ name: name.toLowerCase(), color });
   }
 
   return (
@@ -163,19 +163,7 @@ function TagRenameForm({
         maxLength={50}
         className="rounded-lg border border-black/[.12] bg-transparent px-2 py-1 text-sm dark:border-white/[.16]"
       />
-      <select
-        name="color"
-        value={color}
-        onChange={(e) => setColor(e.target.value)}
-        className="rounded-lg border border-black/[.12] bg-transparent px-2 py-1 text-sm dark:border-white/[.16]"
-      >
-        <option value="">sem cor</option>
-        {COLOR_TOKENS.map((token) => (
-          <option key={token} value={token}>
-            {token}
-          </option>
-        ))}
-      </select>
+      <ColorPicker name="color" value={color} onChange={setColor} aria-label="Cor da tag" />
       <button
         type="submit"
         disabled={pending}
