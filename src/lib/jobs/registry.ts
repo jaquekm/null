@@ -17,6 +17,7 @@ import { opsDailyCheck } from "./handlers/ops-daily-check";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
+import { reencryptSecrets } from "./handlers/reencrypt-secrets";
 import { remindRestoreTest } from "./handlers/remind-restore-test";
 import { runAutomations } from "./handlers/run-automations";
 import { scheduleReports } from "./handlers/schedule-reports";
@@ -49,4 +50,5 @@ export const handlers: Record<string, JobHandler> = {
   remind_restore_test: remindRestoreTest,
   export_all: exportAll,
   ops_daily_check: opsDailyCheck,
+  reencrypt_secrets: reencryptSecrets,
 };

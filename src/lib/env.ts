@@ -13,6 +13,8 @@ const serverSchema = z.object({
   OWNER_EMAIL: z.string().email(),
   CRON_SECRET: z.string().min(1),
   ENCRYPTION_KEY: z.string().min(1),
+  // Rotação sem downtime (7.7): a chave anterior, só usada como fallback de leitura por `decrypt()` — nunca pra criptografar de novo. Some depois que o job `reencrypt_secrets` reescrever tudo com a chave atual.
+  ENCRYPTION_KEY_PREVIOUS: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // Fase 2 — opcionais até a fase de mídia/transcrição

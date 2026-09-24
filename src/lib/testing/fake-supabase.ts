@@ -47,12 +47,22 @@ class FakeQuery implements PromiseLike<PgResult> {
     this.filters.push((row) => values.includes(row[field]));
     return this;
   }
-  /** Aproximação rasa do `@>` (jsonb) — só compara as chaves de `value` contra o objeto da coluna, suficiente pros usos de hoje (ex.: `properties @> { _import_id }`, 7.5). */
-  contains(field: string, value: Record<string, unknown>) {
+  /**
+   * Aproximação rasa do `@>` do Postgres — dois casos: coluna `uuid[]`/array
+   * (`value` também é array, ex.: `reminders.contact_ids @> ARRAY[id]`,
+   * 7.7 LGPD — checa que todo elemento de `value` está no array da linha) e
+   * coluna jsonb/objeto (`value` é um Record, ex.: `properties @> { _import_id }`,
+   * 7.5 — checa as chaves de `value` contra o objeto da coluna). Suficiente
+   * pros usos de hoje, não é um emulador de Postgrest de verdade.
+   */
+  contains(field: string, value: Record<string, unknown> | unknown[]) {
     this.filters.push((row) => {
-      const target = row[field] as Record<string, unknown> | null | undefined;
-      if (!target || typeof target !== "object") return false;
-      return Object.entries(value).every(([key, val]) => target[key] === val);
+      const target = row[field];
+      if (Array.isArray(value)) {
+        return Array.isArray(target) && value.every((item) => target.includes(item));
+      }
+      if (!target || typeof target !== "object" || Array.isArray(target)) return false;
+      return Object.entries(value).every(([key, val]) => (target as Record<string, unknown>)[key] === val);
     });
     return this;
   }

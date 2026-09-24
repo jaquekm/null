@@ -7,13 +7,22 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH_BYTES = 12;
 const KEY_LENGTH_BYTES = 32;
 
-/** `ENCRYPTION_KEY` decodificada uma vez por chamada — nunca guardada em módulo (evita ficar em memória além do necessário). */
-function getKey(): Buffer {
-  const key = Buffer.from(serverEnv.ENCRYPTION_KEY, "base64");
+function decodeKey(base64Key: string, varName: string): Buffer {
+  const key = Buffer.from(base64Key, "base64");
   if (key.length !== KEY_LENGTH_BYTES) {
-    throw new Error("ENCRYPTION_KEY precisa decodificar pra 32 bytes em base64 (ex.: `openssl rand -base64 32`).");
+    throw new Error(`${varName} precisa decodificar pra 32 bytes em base64 (ex.: \`openssl rand -base64 32\`).`);
   }
   return key;
+}
+
+/** `ENCRYPTION_KEY` decodificada uma vez por chamada — nunca guardada em módulo (evita ficar em memória além do necessário). */
+function getKey(): Buffer {
+  return decodeKey(serverEnv.ENCRYPTION_KEY, "ENCRYPTION_KEY");
+}
+
+/** `ENCRYPTION_KEY_PREVIOUS` (7.7, rotação sem downtime) — `null` quando não configurada. */
+function getPreviousKey(): Buffer | null {
+  return serverEnv.ENCRYPTION_KEY_PREVIOUS ? decodeKey(serverEnv.ENCRYPTION_KEY_PREVIOUS, "ENCRYPTION_KEY_PREVIOUS") : null;
 }
 
 /**
@@ -30,7 +39,20 @@ export function encrypt(plain: string): string {
   return `${iv.toString("base64")}.${authTag.toString("base64")}.${ciphertext.toString("base64")}`;
 }
 
-/** Lança se o payload estiver em formato inválido ou tiver sido adulterado (GCM falha a autenticação). */
+function decryptWithKey(key: Buffer, iv: Buffer, authTag: Buffer, ciphertext: Buffer): string {
+  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return plain.toString("utf8");
+}
+
+/**
+ * Lança se o payload estiver em formato inválido ou tiver sido adulterado
+ * (GCM falha a autenticação). Tenta `ENCRYPTION_KEY` (atual) primeiro; se
+ * falhar e `ENCRYPTION_KEY_PREVIOUS` estiver configurada (7.7, rotação sem
+ * downtime), tenta com ela antes de desistir — nunca o contrário, `encrypt()`
+ * sempre usa só a chave atual.
+ */
 export function decrypt(payload: string): string {
   const parts = payload.split(".");
   if (parts.length !== 3) throw new Error("Payload criptografado em formato inválido.");
@@ -40,10 +62,26 @@ export function decrypt(payload: string): string {
   const authTag = Buffer.from(authTagPart, "base64");
   const ciphertext = Buffer.from(ciphertextPart, "base64");
 
-  const decipher = createDecipheriv(ALGORITHM, getKey(), iv);
-  decipher.setAuthTag(authTag);
-  const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  return plain.toString("utf8");
+  try {
+    return decryptWithKey(getKey(), iv, authTag, ciphertext);
+  } catch (err) {
+    const previousKey = getPreviousKey();
+    if (!previousKey) throw err;
+    return decryptWithKey(previousKey, iv, authTag, ciphertext);
+  }
+}
+
+/** `true` quando o payload só decodifica com `ENCRYPTION_KEY_PREVIOUS` — usado pelo job `reencrypt_secrets` (7.7) pra saber o que ainda falta reescrever com a chave atual. */
+export function wasEncryptedWithPreviousKey(payload: string): boolean {
+  const parts = payload.split(".");
+  if (parts.length !== 3) return false;
+  const [ivPart, authTagPart, ciphertextPart] = parts as [string, string, string];
+  try {
+    decryptWithKey(getKey(), Buffer.from(ivPart, "base64"), Buffer.from(authTagPart, "base64"), Buffer.from(ciphertextPart, "base64"));
+    return false;
+  } catch {
+    return getPreviousKey() !== null;
+  }
 }
 
 /** Hash de conteúdo não-secreto que precisa ser comparável (ex.: `ip_hash` dos acessos a link compartilhado, 3.11). */

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ChangePasswordForm } from "./change-password-form";
 import { MfaSection } from "./mfa-section";
+import { ReencryptSecretsButton } from "./reencrypt-secrets-button";
 import { SignOutEverywhereButton } from "./sign-out-everywhere-button";
 
 export default async function SegurancaPage() {
@@ -20,6 +21,7 @@ export default async function SegurancaPage() {
       <MfaSection initialFactors={initialFactors} />
       <ChangePasswordForm />
       <SignOutEverywhereButton />
+      <ReencryptSecretsButton />
     </div>
   );
 }

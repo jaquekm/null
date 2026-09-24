@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
-    "jobs:dev": "node --env-file=.env.local scripts/jobs-dev.mjs"
+    "jobs:dev": "node --env-file=.env.local scripts/jobs-dev.mjs",
+    "security:check": "node --env-file=.env.local scripts/security-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

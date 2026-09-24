@@ -3441,6 +3441,28 @@ export type Database = {
           updated_at: string
         }[]
       }
+      security_check_anon_policies: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          policy_name: string
+          table_name: string
+        }[]
+      }
+      security_check_definer_functions: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          function_name: string
+          grants_anon: boolean
+          grants_authenticated: boolean
+          has_search_path: boolean
+        }[]
+      }
+      security_check_tables_without_rls: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

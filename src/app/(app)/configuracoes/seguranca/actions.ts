@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireOwner } from "@/lib/auth";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 import { fail, ok, type Result } from "@/lib/result";
 import { createClient } from "@/lib/supabase/server";
 
@@ -45,4 +47,11 @@ export async function signOutEverywhere() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "global" });
   redirect("/login");
+}
+
+/** Roda o job `reencrypt_secrets` (7.7) — pra depois de trocar `ENCRYPTION_KEY` e mover o valor antigo pra `ENCRYPTION_KEY_PREVIOUS` no ambiente. */
+export async function triggerReencryptSecrets(): Promise<Result<null>> {
+  const { user } = await requireOwner();
+  await enqueueJob({ ownerId: user.id, kind: "reencrypt_secrets" });
+  return ok(null);
 }
