@@ -53,6 +53,8 @@ const recordSchema = z.object({
   durationSeconds: z.number().positive().optional(),
   /** 2.10: o PDF combinado do "Escanear" não precisa de OCR automático — o texto de cada foto já foi extraído individualmente. */
   skipExtraction: z.boolean().optional(),
+  /** Miniatura já enviada ao Storage pelo cliente (7.9, `generateThumbnail`) — `undefined` quando não é imagem ou a geração falhou. */
+  thumbnailPath: z.string().min(1).optional(),
 });
 
 /** Enfileira `extract_attachment` (2.9) se o MIME for elegível — mesma checagem usada pro `extraction_status` inicial na linha. */
@@ -86,8 +88,9 @@ export async function recordAttachment(input: z.infer<typeof recordSchema>): Pro
       sha256: parsed.data.sha256,
       duration_seconds: parsed.data.durationSeconds ?? null,
       extraction_status: eligible ? "queued" : "none",
+      thumbnail_path: parsed.data.thumbnailPath ?? null,
     })
-    .select("id, file_name, mime_type, size_bytes, created_at, extraction_status")
+    .select("id, file_name, mime_type, size_bytes, created_at, extraction_status, thumbnail_path")
     .single();
 
   if (error || !data) return fail(GENERIC_ERROR);
@@ -102,6 +105,7 @@ export async function recordAttachment(input: z.infer<typeof recordSchema>): Pro
     sizeBytes: data.size_bytes,
     createdAt: data.created_at,
     extractionStatus: data.extraction_status,
+    thumbnailPath: data.thumbnail_path,
   });
 }
 
@@ -125,7 +129,7 @@ export async function reuseAttachment(
 
   const { data: existing, error: readError } = await supabase
     .from("attachments")
-    .select("storage_path, file_name, mime_type, size_bytes, sha256, extraction_status, extraction_method, extracted_text, page_count")
+    .select("storage_path, file_name, mime_type, size_bytes, sha256, extraction_status, extraction_method, extracted_text, page_count, thumbnail_path")
     .eq("id", existingAttachmentId)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -135,6 +139,14 @@ export async function reuseAttachment(
 
   const { error: copyError } = await supabase.storage.from("attachments").copy(existing.storage_path, newPath);
   if (copyError) return fail("Não foi possível reaproveitar o anexo.");
+
+  // Miniatura é melhor esforço (7.9) — se a cópia falhar, o anexo reaproveitado só fica sem miniatura, não sem o arquivo.
+  let newThumbnailPath: string | null = null;
+  if (existing.thumbnail_path) {
+    newThumbnailPath = `${newPath}.thumb.jpg`;
+    const { error: thumbCopyError } = await supabase.storage.from("attachments").copy(existing.thumbnail_path, newThumbnailPath);
+    if (thumbCopyError) newThumbnailPath = null;
+  }
 
   const extractionDone = existing.extraction_status === "done";
   const eligible = pickExtractionStrategy(existing.mime_type) !== null;
@@ -153,8 +165,9 @@ export async function reuseAttachment(
       extraction_method: extractionDone ? existing.extraction_method : null,
       extracted_text: extractionDone ? existing.extracted_text : null,
       page_count: extractionDone ? existing.page_count : null,
+      thumbnail_path: newThumbnailPath,
     })
-    .select("id, file_name, mime_type, size_bytes, created_at, extraction_status")
+    .select("id, file_name, mime_type, size_bytes, created_at, extraction_status, thumbnail_path")
     .single();
 
   if (error || !data) return fail(GENERIC_ERROR);
@@ -173,6 +186,7 @@ export async function reuseAttachment(
     sizeBytes: data.size_bytes,
     createdAt: data.created_at,
     extractionStatus: data.extraction_status,
+    thumbnailPath: data.thumbnail_path,
   });
 }
 
@@ -188,10 +202,11 @@ export async function removeItemAttachmentsFromStorage(
   supabase: SupabaseClient<Database>,
   itemId: string,
 ): Promise<void> {
-  const { data: attachments, error } = await supabase.from("attachments").select("storage_path").eq("item_id", itemId);
+  const { data: attachments, error } = await supabase.from("attachments").select("storage_path, thumbnail_path").eq("item_id", itemId);
   if (error || !attachments || attachments.length === 0) return;
 
-  await supabase.storage.from("attachments").remove(attachments.map((a) => a.storage_path));
+  const paths = attachments.flatMap((a) => (a.thumbnail_path ? [a.storage_path, a.thumbnail_path] : [a.storage_path]));
+  await supabase.storage.from("attachments").remove(paths);
 }
 
 export async function deleteAttachment(attachmentId: string, itemId: string): Promise<Result<null>> {
@@ -199,13 +214,14 @@ export async function deleteAttachment(attachmentId: string, itemId: string): Pr
 
   const { data: attachment, error: readError } = await supabase
     .from("attachments")
-    .select("storage_path")
+    .select("storage_path, thumbnail_path")
     .eq("id", attachmentId)
     .eq("owner_id", user.id)
     .maybeSingle();
   if (readError || !attachment) return fail("Anexo não encontrado.");
 
-  const { error: storageError } = await supabase.storage.from("attachments").remove([attachment.storage_path]);
+  const pathsToRemove = attachment.thumbnail_path ? [attachment.storage_path, attachment.thumbnail_path] : [attachment.storage_path];
+  const { error: storageError } = await supabase.storage.from("attachments").remove(pathsToRemove);
   if (storageError) return fail("Não foi possível remover o arquivo do Storage.");
 
   const { error } = await supabase.from("attachments").delete().eq("id", attachmentId).eq("owner_id", user.id);

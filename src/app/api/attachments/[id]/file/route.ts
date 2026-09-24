@@ -20,11 +20,14 @@ export async function GET(request: Request, ctx: RouteContext<"/api/attachments/
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }
 
-  const download = new URL(request.url).searchParams.get("download") === "1";
+  const params = new URL(request.url).searchParams;
+  const download = params.get("download") === "1";
+  const wantsThumbnail = params.get("variant") === "thumbnail";
+  const path = wantsThumbnail && attachment.thumbnailPath ? attachment.thumbnailPath : attachment.storagePath;
 
   const { data, error } = await supabase.storage
     .from("attachments")
-    .createSignedUrl(attachment.storagePath, SIGNED_URL_EXPIRES_IN_SECONDS, download ? { download: attachment.fileName } : undefined);
+    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS, download ? { download: attachment.fileName } : undefined);
 
   if (error || !data) {
     return NextResponse.json({ error: "Não foi possível gerar o link do anexo." }, { status: 500 });

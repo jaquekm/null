@@ -51,7 +51,7 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- URL vem de um redirect pra URL assinada; next/image não lida bem com isso */}
                 <img
-                  src={`/api/attachments/${attachment.id}/file`}
+                  src={`/api/attachments/${attachment.id}/file${attachment.thumbnailPath ? "?variant=thumbnail" : ""}`}
                   alt={attachment.fileName}
                   className="h-full w-full object-cover"
                 />

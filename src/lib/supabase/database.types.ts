@@ -138,6 +138,7 @@ export type Database = {
           sha256: string | null
           size_bytes: number
           storage_path: string
+          thumbnail_path: string | null
           width: number | null
         }
         Insert: {
@@ -156,6 +157,7 @@ export type Database = {
           sha256?: string | null
           size_bytes: number
           storage_path: string
+          thumbnail_path?: string | null
           width?: number | null
         }
         Update: {
@@ -174,6 +176,7 @@ export type Database = {
           sha256?: string | null
           size_bytes?: number
           storage_path?: string
+          thumbnail_path?: string | null
           width?: number | null
         }
         Relationships: [

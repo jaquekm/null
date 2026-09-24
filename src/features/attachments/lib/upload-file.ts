@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { findDuplicateAttachment, recordAttachment, reuseAttachment } from "../actions";
 import type { AttachmentRow } from "../queries";
 import { buildStoragePath } from "./build-storage-path";
+import { generateThumbnail } from "./generate-thumbnail";
 import { MAX_ATTACHMENT_SIZE_BYTES, RESUMABLE_UPLOAD_THRESHOLD_BYTES } from "./limits";
 import { sha256OfFile } from "./sha256";
 
@@ -66,6 +67,8 @@ export async function uploadAttachment(
     onProgress?.(1);
   }
 
+  const thumbnailPath = await uploadThumbnailIfImage(supabase, path, file);
+
   const recorded = await recordAttachment({
     itemId: itemId ?? undefined,
     storagePath: path,
@@ -75,10 +78,30 @@ export async function uploadAttachment(
     sha256,
     durationSeconds,
     skipExtraction,
+    thumbnailPath: thumbnailPath ?? undefined,
   });
   if (!recorded.ok) return recorded;
   if (!recorded.data) return fail("Não foi possível registrar o anexo.");
   return ok({ attachment: recorded.data, reused: false });
+}
+
+/**
+ * Gera e envia a miniatura (7.9) — melhor esforço: qualquer falha (formato
+ * não suportado pelo navegador, erro de rede) só deixa a miniatura de fora,
+ * nunca derruba o upload do arquivo original que já terminou.
+ */
+async function uploadThumbnailIfImage(supabase: ReturnType<typeof createClient>, originalPath: string, file: File): Promise<string | null> {
+  try {
+    const thumbnail = await generateThumbnail(file);
+    if (!thumbnail) return null;
+
+    const thumbnailPath = `${originalPath}.thumb.jpg`;
+    const { error } = await supabase.storage.from("attachments").upload(thumbnailPath, thumbnail, { contentType: "image/jpeg" });
+    if (error) return null;
+    return thumbnailPath;
+  } catch {
+    return null;
+  }
 }
 
 async function uploadViaTus(
