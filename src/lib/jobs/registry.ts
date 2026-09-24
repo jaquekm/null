@@ -7,6 +7,7 @@ import { checkReviewsDue } from "./handlers/check-reviews-due";
 import { closeCardStatements } from "./handlers/close-card-statements";
 import { dispatchReminders } from "./handlers/dispatch-reminders";
 import { evaluateTimeAutomations } from "./handlers/evaluate-time-automations";
+import { exportAll } from "./handlers/export-all";
 import { extractAttachment } from "./handlers/extract-attachment";
 import { generateBills } from "./handlers/generate-bills";
 import { generateReminders } from "./handlers/generate-reminders";
@@ -45,4 +46,5 @@ export const handlers: Record<string, JobHandler> = {
   index_item: indexItem,
   check_mcp_token_expiry: checkMcpTokenExpiry,
   remind_restore_test: remindRestoreTest,
+  export_all: exportAll,
 };

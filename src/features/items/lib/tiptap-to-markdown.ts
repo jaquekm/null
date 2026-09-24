@@ -7,10 +7,12 @@ import type { JSONContent } from "@tiptap/core";
  * `markdownToTiptapDoc` (parágrafo, `heading` 1-3, `bulletList`/`orderedList`/
  * `taskList`, `blockquote`, tabela, marcas `bold`/`italic`/`code`) — qualquer
  * atalho novo precisa ser adicionado nos dois sentidos. Blocos fora desse
- * subconjunto (`codeBlock`, `image`, `mention`, `details`, `highlight`) são
- * só de leitura aqui: viram texto simples ou uma aproximação em Markdown,
- * sem round-trip garantido (mesma limitação que `markdownToTiptapDoc` já
- * tem hoje só na direção contrária).
+ * subconjunto (`codeBlock`, `image`, `details`, `highlight`) são só de
+ * leitura aqui: viram texto simples ou uma aproximação em Markdown, sem
+ * round-trip garantido (mesma limitação que `markdownToTiptapDoc` já tem
+ * hoje só na direção contrária). `mention`/`contactMention` (menções de item
+ * e de contato, 1.7/3.3) viram `[[label]]` — wikilink estilo Obsidian,
+ * usado também pelo export completo (7.4).
  */
 
 function markText(text: string, marks: JSONContent["marks"]): string {
@@ -29,7 +31,11 @@ function inlineText(nodes: JSONContent[] | undefined): string {
     .map((node) => {
       if (node.type === "text") return markText(node.text ?? "", node.marks);
       if (node.type === "hardBreak") return "\n";
-      // Nó inline sem representação em Markdown (ex.: mention) — cai pro texto puro dos filhos.
+      if (node.type === "mention" || node.type === "contactMention") {
+        const label = typeof node.attrs?.label === "string" ? node.attrs.label : "";
+        return label ? `[[${label}]]` : "";
+      }
+      // Nó inline sem representação em Markdown — cai pro texto puro dos filhos.
       return inlineText(node.content);
     })
     .join("");
