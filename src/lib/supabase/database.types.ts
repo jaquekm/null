@@ -1784,6 +1784,39 @@ export type Database = {
         }
         Relationships: []
       }
+      hub_costs: {
+        Row: {
+          amount_cents: number
+          category: string
+          created_at: string
+          id: string
+          notes: string | null
+          owner_id: string
+          reference_month: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          category: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          owner_id?: string
+          reference_month: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          category?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          owner_id?: string
+          reference_month?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       import_batches: {
         Row: {
           created_at: string
@@ -3035,6 +3068,42 @@ export type Database = {
           owner_id?: string
           position?: number
           slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions_tracker: {
+        Row: {
+          canceled_at: string | null
+          created_at: string
+          id: string
+          monthly_cost_cents: number
+          name: string
+          notes: string | null
+          owner_id: string
+          replaced_in_phase: string | null
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          created_at?: string
+          id?: string
+          monthly_cost_cents: number
+          name: string
+          notes?: string | null
+          owner_id?: string
+          replaced_in_phase?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          created_at?: string
+          id?: string
+          monthly_cost_cents?: number
+          name?: string
+          notes?: string | null
+          owner_id?: string
+          replaced_in_phase?: string | null
           updated_at?: string
         }
         Relationships: []
