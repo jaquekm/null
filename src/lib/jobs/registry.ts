@@ -13,6 +13,7 @@ import { generateBills } from "./handlers/generate-bills";
 import { generateReminders } from "./handlers/generate-reminders";
 import { generateReport } from "./handlers/generate-report";
 import { indexItem } from "./handlers/index-item";
+import { opsDailyCheck } from "./handlers/ops-daily-check";
 import { pollTranscription } from "./handlers/poll-transcription";
 import { prepareMeetingNotes } from "./handlers/prepare-meeting-notes";
 import { purgeTrash } from "./handlers/purge-trash";
@@ -47,4 +48,5 @@ export const handlers: Record<string, JobHandler> = {
   check_mcp_token_expiry: checkMcpTokenExpiry,
   remind_restore_test: remindRestoreTest,
   export_all: exportAll,
+  ops_daily_check: opsDailyCheck,
 };

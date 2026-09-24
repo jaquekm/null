@@ -2339,6 +2339,21 @@ export type Database = {
           },
         ]
       }
+      ops_heartbeat: {
+        Row: {
+          last_tick_at: string
+          owner_id: string
+        }
+        Insert: {
+          last_tick_at?: string
+          owner_id: string
+        }
+        Update: {
+          last_tick_at?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
       packs_installed: {
         Row: {
           id: string

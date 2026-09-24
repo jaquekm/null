@@ -1,10 +1,12 @@
 import { Bell, CalendarClock, CircleDollarSign, DatabaseBackup, Download, FileScan, KeyRound, Keyboard, Link2, ListChecks, Package, Plug, Shapes, Shield, Smartphone, Sparkles, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react";
 import Link from "next/link";
 import { countFailedJobs } from "@/features/jobs/queries";
+import { ensureOpsDailyCheckSchedule } from "@/features/ops/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function ConfiguracoesPage() {
-  const { supabase } = await requireOwner();
+  const { supabase, user } = await requireOwner();
+  await ensureOpsDailyCheckSchedule(supabase, user.id);
   const failedJobs = await countFailedJobs(supabase);
 
   return (

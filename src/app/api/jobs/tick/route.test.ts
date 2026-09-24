@@ -8,11 +8,13 @@ vi.mock("@/lib/jobs/run-job", () => ({ runJob: runJobMock }));
 interface Config {
   schedules?: Record<string, unknown>[];
   jobsToClaim?: Record<string, unknown>[];
+  ownerId?: string | null;
 }
 
 function fakeSupabase(config: Config) {
   const insertedJobs: Record<string, unknown>[] = [];
   const scheduleUpdates: Record<string, unknown>[] = [];
+  const heartbeatUpserts: Record<string, unknown>[] = [];
   let claimCalls = 0;
 
   const client = {
@@ -34,6 +36,17 @@ function fakeSupabase(config: Config) {
           },
         };
       }
+      if (table === "user_settings") {
+        return { select: () => ({ limit: () => ({ maybeSingle: () => Promise.resolve({ data: config.ownerId ? { owner_id: config.ownerId } : null, error: null }) }) }) };
+      }
+      if (table === "ops_heartbeat") {
+        return {
+          upsert: (values: Record<string, unknown>) => {
+            heartbeatUpserts.push(values);
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
       throw new Error(`tabela inesperada: ${table}`);
     },
     rpc: (name: string) => {
@@ -42,7 +55,7 @@ function fakeSupabase(config: Config) {
       return Promise.resolve({ data: claimCalls === 1 ? (config.jobsToClaim ?? []) : [], error: null });
     },
   };
-  return { client, insertedJobs, scheduleUpdates };
+  return { client, insertedJobs, scheduleUpdates, heartbeatUpserts };
 }
 
 let clientForTest: ReturnType<typeof fakeSupabase>["client"] | null = null;
@@ -85,9 +98,10 @@ describe("POST /api/jobs/tick", () => {
       last_enqueued_at: new Date().toISOString(),
     };
     const claimedJob = { id: "job-1", kind: "purge_trash" };
-    const { client, insertedJobs, scheduleUpdates } = fakeSupabase({
+    const { client, insertedJobs, scheduleUpdates, heartbeatUpserts } = fakeSupabase({
       schedules: [dueSchedule, notDueSchedule],
       jobsToClaim: [claimedJob],
+      ownerId: "owner-1",
     });
     clientForTest = client;
 
@@ -103,5 +117,18 @@ describe("POST /api/jobs/tick", () => {
 
     expect(runJobMock).toHaveBeenCalledTimes(1);
     expect(runJobMock).toHaveBeenCalledWith(client, claimedJob);
+
+    expect(heartbeatUpserts).toHaveLength(1);
+    expect(heartbeatUpserts[0]).toMatchObject({ owner_id: "owner-1" });
+  });
+
+  it("sem dono configurado ainda: não quebra, só não carimba o heartbeat", async () => {
+    const { client, heartbeatUpserts } = fakeSupabase({ ownerId: null });
+    clientForTest = client;
+
+    const res = await POST(fakeRequest("Bearer cron-secret"));
+
+    expect(res.status).toBe(200);
+    expect(heartbeatUpserts).toHaveLength(0);
   });
 });
