@@ -1,0 +1,68 @@
+name: Backup de arquivos (Storage)
+
+# 7.2 — sincroniza o bucket `attachments` do Supabase Storage pro mesmo
+# destino de backup do banco (7.1, secrets BACKUP_S3_*), via `rclone sync`
+# contra o endpoint S3-compatível do Supabase Storage. Configuração extra
+# necessária além da já pedida na 7.1 (ver docs/PROGRESSO.md, 7.2):
+# secrets SUPABASE_STORAGE_S3_ENDPOINT, SUPABASE_STORAGE_S3_ACCESS_KEY_ID,
+# SUPABASE_STORAGE_S3_SECRET_ACCESS_KEY, SUPABASE_STORAGE_S3_REGION
+# (gerados no dashboard: Storage → Settings → S3 Connection).
+on:
+  schedule:
+    # Domingo, 04:00 em America/Sao_Paulo (UTC-3) = 07:00 UTC.
+    - cron: "0 7 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  storage-backup:
+    runs-on: ubuntu-latest
+    env:
+      RCLONE_CONFIG_SRC_TYPE: s3
+      RCLONE_CONFIG_SRC_PROVIDER: Other
+      RCLONE_CONFIG_SRC_ENDPOINT: ${{ secrets.SUPABASE_STORAGE_S3_ENDPOINT }}
+      RCLONE_CONFIG_SRC_ACCESS_KEY_ID: ${{ secrets.SUPABASE_STORAGE_S3_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_SRC_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_STORAGE_S3_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_SRC_REGION: ${{ secrets.SUPABASE_STORAGE_S3_REGION }}
+      RCLONE_CONFIG_DST_TYPE: s3
+      RCLONE_CONFIG_DST_PROVIDER: Other
+      RCLONE_CONFIG_DST_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      RCLONE_CONFIG_DST_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_DST_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      RCLONE_CONFIG_DST_REGION: ${{ secrets.BACKUP_S3_REGION }}
+    steps:
+      - name: Instalar rclone
+        run: sudo -v ; curl https://rclone.org/install.sh | sudo bash
+
+      - name: Sincronizar attachments → storage/ (só o que mudou)
+        id: sync
+        run: |
+          set -euo pipefail
+          rclone sync "src:attachments" "dst:${{ secrets.BACKUP_S3_BUCKET }}/storage" \
+            --s3-no-check-bucket --stats-one-line --log-level INFO 2>&1 | tee sync.log
+          echo "size=$(rclone size "dst:${{ secrets.BACKUP_S3_BUCKET }}/storage" --json | jq .bytes)" >> "$GITHUB_OUTPUT"
+
+      # Criptografia do lado do servidor: habilitada como configuração do
+      # próprio bucket de destino ([HUMANO], ver o enunciado da 7.2) — o
+      # mesmo bucket já usado pelo backup do banco (7.1). `rclone crypt`
+      # (camada extra, opcional) fica pra depois se algum dia fizer falta.
+
+      - name: Registrar sucesso
+        if: success()
+        env:
+          BACKUP_REPORT_SECRET: ${{ secrets.BACKUP_REPORT_SECRET }}
+        run: |
+          curl -fsS -X POST "${{ vars.APP_URL }}/api/ops/backup-report" \
+            -H "Authorization: Bearer $BACKUP_REPORT_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"kind\":\"storage\",\"status\":\"success\",\"sizeBytes\":${{ steps.sync.outputs.size }},\"location\":\"storage/\"}"
+
+      - name: Registrar falha
+        if: failure()
+        env:
+          BACKUP_REPORT_SECRET: ${{ secrets.BACKUP_REPORT_SECRET }}
+        run: |
+          curl -fsS -X POST "${{ vars.APP_URL }}/api/ops/backup-report" \
+            -H "Authorization: Bearer $BACKUP_REPORT_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"kind":"storage","status":"failed","detail":"Um dos passos do workflow storage-backup.yml falhou — ver o log do run no GitHub Actions."}' \
+          || true
