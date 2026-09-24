@@ -44,7 +44,7 @@ export const calendarPush: JobHandler = async (job, { supabase }) => {
     .eq("id", event.calendar_id)
     .maybeSingle();
   if (calendarError) return { status: "retry", error: calendarError.message };
-  if (!calendar) return { status: "failed", error: "Calendário do evento não encontrado." };
+  if (!calendar || !calendar.connection_id) return { status: "failed", error: "Calendário do evento não encontrado." };
 
   let accessToken: string;
   try {

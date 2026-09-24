@@ -131,6 +131,9 @@ importers:
       jsdom:
         specifier: ^30.1.0
         version: 30.1.0(@noble/hashes@1.8.0)
+      jszip:
+        specifier: ^3.10.2
+        version: 3.10.2
       libphonenumber-js:
         specifier: ^1.13.13
         version: 1.13.13
@@ -7460,7 +7463,7 @@ snapshots:
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
-      safe-buffer: 5.1.2
+      safe-buffer: 5.2.1
 
   ee-first@1.1.1: {}
 
@@ -8455,12 +8458,12 @@ snapshots:
     dependencies:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
-      safe-buffer: 5.1.2
+      safe-buffer: 5.2.1
 
   jws@4.0.1:
     dependencies:
       jwa: 2.0.1
-      safe-buffer: 5.1.2
+      safe-buffer: 5.2.1
 
   keyv@4.5.4:
     dependencies:

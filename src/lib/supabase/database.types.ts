@@ -363,7 +363,7 @@ export type Database = {
       calendars: {
         Row: {
           color: string | null
-          connection_id: string
+          connection_id: string | null
           created_at: string
           external_id: string
           id: string
@@ -378,7 +378,7 @@ export type Database = {
         }
         Insert: {
           color?: string | null
-          connection_id: string
+          connection_id?: string | null
           created_at?: string
           external_id: string
           id?: string
@@ -393,7 +393,7 @@ export type Database = {
         }
         Update: {
           color?: string | null
-          connection_id?: string
+          connection_id?: string | null
           created_at?: string
           external_id?: string
           id?: string
@@ -1781,6 +1781,39 @@ export type Database = {
           scopes?: string[]
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      import_batches: {
+        Row: {
+          created_at: string
+          detail: Json | null
+          id: string
+          items_created: number
+          items_skipped: number
+          owner_id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          items_created?: number
+          items_skipped?: number
+          owner_id?: string
+          source: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          items_created?: number
+          items_skipped?: number
+          owner_id?: string
+          source?: string
+          status?: string
         }
         Relationships: []
       }

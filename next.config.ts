@@ -33,6 +33,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Server action de upload da importação (7.5: .enex/.zip/.json) — maior que o padrão de 1MB.
+    serverActions: { bodySizeLimit: "8mb" },
+  },
   async headers() {
     return [
       {

@@ -1,7 +1,8 @@
 /**
  * Cliente Supabase falso, em memória, só com o subconjunto de operações que
- * este projeto usa (`select`/`eq`/`is`/`in`/`order`/`limit`/`insert`/
- * `update`/`delete`/`maybeSingle`/`single`, mais `count` no `select`).
+ * este projeto usa (`select`/`eq`/`is`/`in`/`contains`/`order`/`limit`/
+ * `insert`/`update`/`delete`/`maybeSingle`/`single`, mais `count` no
+ * `select`).
  * Nasceu pros testes de `features/packs` (5.2: `install.ts`/`uninstall.ts`/
  * `export.ts`) e é reaproveitado por qualquer feature que precise simular
  * várias tabelas encadeadas num teste de unidade — não é um emulador
@@ -44,6 +45,15 @@ class FakeQuery implements PromiseLike<PgResult> {
   }
   in(field: string, values: unknown[]) {
     this.filters.push((row) => values.includes(row[field]));
+    return this;
+  }
+  /** Aproximação rasa do `@>` (jsonb) — só compara as chaves de `value` contra o objeto da coluna, suficiente pros usos de hoje (ex.: `properties @> { _import_id }`, 7.5). */
+  contains(field: string, value: Record<string, unknown>) {
+    this.filters.push((row) => {
+      const target = row[field] as Record<string, unknown> | null | undefined;
+      if (!target || typeof target !== "object") return false;
+      return Object.entries(value).every(([key, val]) => target[key] === val);
+    });
     return this;
   }
   order(field: string, opts?: { ascending?: boolean }) {
