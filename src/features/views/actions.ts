@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { emitItemEvent } from "@/features/automations/lib/emit-item-event";
 import type { FieldDefinition } from "@/features/types/schemas";
@@ -62,6 +63,13 @@ export async function createView(input: {
 
   const { supabase, user } = await requireOwner();
 
+  let countQuery = supabase
+    .from("views")
+    .select("id", { count: "exact", head: true })
+    .eq("space_id", parsed.data.spaceId);
+  countQuery = parsed.data.typeId ? countQuery.eq("type_id", parsed.data.typeId) : countQuery.is("type_id", null);
+  const { count } = await countQuery;
+
   const { data, error } = await supabase
     .from("views")
     .insert({
@@ -71,11 +79,15 @@ export async function createView(input: {
       name: parsed.data.name,
       kind: parsed.data.kind,
       config: {} as unknown as Json,
+      position: count ?? 0,
     })
     .select("id, name, kind")
     .single();
   if (error || !data) return fail(GENERIC_ERROR);
 
+  // Rota do espaço é dinâmica (`/espacos/[slug]`) e essa action não tem o slug —
+  // revalida o layout inteiro, mesmo padrão usado em `features/spaces/actions.ts`.
+  revalidatePath("/", "layout");
   return ok({ id: data.id, name: data.name, kind: data.kind as ViewKind });
 }
 
@@ -87,6 +99,7 @@ export async function renameView(viewId: string, name: string): Promise<Result<n
   const { error } = await supabase.from("views").update({ name: trimmed }).eq("id", viewId).eq("owner_id", user.id);
   if (error) return fail(GENERIC_ERROR);
 
+  revalidatePath("/", "layout");
   return ok(null);
 }
 
@@ -115,6 +128,7 @@ export async function duplicateView(viewId: string): Promise<Result<CreatedView>
     .single();
   if (error || !data) return fail("Não foi possível duplicar a visão.");
 
+  revalidatePath("/", "layout");
   return ok({ id: data.id, name: data.name, kind: data.kind as ViewKind });
 }
 
@@ -122,6 +136,7 @@ export async function deleteView(viewId: string): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
   const { error } = await supabase.from("views").delete().eq("id", viewId).eq("owner_id", user.id);
   if (error) return fail("Não foi possível excluir a visão.");
+  revalidatePath("/", "layout");
   return ok(null);
 }
 
@@ -137,6 +152,7 @@ export async function setDefaultView(viewId: string, spaceId: string, typeId: st
   const { error } = await supabase.from("views").update({ is_default: true }).eq("id", viewId).eq("owner_id", user.id);
   if (error) return fail(GENERIC_ERROR);
 
+  revalidatePath("/", "layout");
   return ok(null);
 }
 

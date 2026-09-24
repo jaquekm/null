@@ -80,7 +80,12 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
         </nav>
       )}
 
-      <ViewSwitcher spaceId={space.id} typeId={typeId ?? null} initialViews={views} />
+      {/* `key` força remontar ao trocar de tab/tipo ou espaço — sem isso o Next.js
+          reaproveita a instância entre navegações na mesma rota (só o `tipo` muda),
+          e o estado interno (`views`/`activeId`) ficava preso na visão de antes
+          enquanto os itens já mostravam o novo tipo: parecia "grudar" numa visão
+          errada, sem forma de sair, e sumir ao recarregar noutra tab. */}
+      <ViewSwitcher key={`${space.id}:${typeId ?? "all"}`} spaceId={space.id} typeId={typeId ?? null} initialViews={views} />
 
       <SpaceSettingsForm
         space={{
