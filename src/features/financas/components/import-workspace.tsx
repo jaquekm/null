@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/money";
 import { confirmImport, fetchLastCsvMapping, previewImport, undoImport, type ImportPreviewRow } from "../actions";
@@ -111,37 +111,47 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
   }
 
   async function handleFile(file: File) {
-    const buffer = await file.arrayBuffer();
-    const text = decodeStatementText(new Uint8Array(buffer));
-    const fmt = detectStatementFormat(file.name, text);
+    try {
+      const buffer = await file.arrayBuffer();
+      const text = decodeStatementText(new Uint8Array(buffer));
+      const fmt = detectStatementFormat(file.name, text);
 
-    setFileName(file.name);
-    setFormat(fmt);
-    setRawText(text);
-    setInvertSigns(false);
+      setFileName(file.name);
+      setFormat(fmt);
+      setRawText(text);
+      setInvertSigns(false);
 
-    if (fmt === "ofx") {
-      const parsed = parseOfx(text);
-      setParsedRows(parsed);
-      setCsvMapping(null);
-      setStep("preview");
-      runPreview(parsed, false, null);
-      return;
+      if (fmt === "ofx") {
+        const parsed = parseOfx(text);
+        setParsedRows(parsed);
+        setCsvMapping(null);
+        setStep("preview");
+        runPreview(parsed, false, null);
+        return;
+      }
+
+      const lines = text.split(/\r\n|\r|\n/).filter((line) => line.trim() !== "");
+      if (lines.length === 0) {
+        toast.error("O arquivo está vazio.");
+        return;
+      }
+
+      const last = accountId ? await fetchLastCsvMapping(accountId) : null;
+      const skip = last?.headerRowsToSkip ?? 1;
+      const delim = last?.delimiter ?? ";";
+      const sampleLine = lines[skip] ?? lines[0] ?? "";
+      const detectedColumnCount = splitCsvLine(sampleLine, delim).length;
+
+      setDelimiter(delim);
+      setDecimalSeparator(last?.decimalSeparator ?? ",");
+      setDateFormat(last?.dateFormat ?? "dd/MM/yyyy");
+      setHeaderRowsToSkip(skip);
+      setColumnOverrides(last && last.columns.length === detectedColumnCount ? Object.fromEntries(last.columns.map((role, i) => [i, role])) : {});
+      setStep("mapping");
+    } catch (error) {
+      unstable_rethrow(error);
+      toast.error("Não foi possível ler este arquivo. Confira se é um .csv, .ofx ou .qfx válido.");
     }
-
-    const lines = text.split(/\r\n|\r|\n/).filter((line) => line.trim() !== "");
-    const last = accountId ? await fetchLastCsvMapping(accountId) : null;
-    const skip = last?.headerRowsToSkip ?? 1;
-    const delim = last?.delimiter ?? ";";
-    const sampleLine = lines[skip] ?? lines[0] ?? "";
-    const detectedColumnCount = splitCsvLine(sampleLine, delim).length;
-
-    setDelimiter(delim);
-    setDecimalSeparator(last?.decimalSeparator ?? ",");
-    setDateFormat(last?.dateFormat ?? "dd/MM/yyyy");
-    setHeaderRowsToSkip(skip);
-    setColumnOverrides(last && last.columns.length === detectedColumnCount ? Object.fromEntries(last.columns.map((role, i) => [i, role])) : {});
-    setStep("mapping");
   }
 
   function handleMappingContinue() {
