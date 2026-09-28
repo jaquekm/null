@@ -55,19 +55,35 @@ interface Config {
   attachment?: Record<string, unknown> | null;
   blob?: Blob | null;
   downloadError?: unknown;
+  /** Item dono do anexo (corpo vazio por padrão = recebe o texto do documento). */
+  item?: { content_text: string | null } | null;
 }
 
 function fakeSupabase(config: Config) {
   const updateCalls: Record<string, unknown>[] = [];
+  const itemUpdates: Record<string, unknown>[] = [];
   const rpcCalls: unknown[] = [];
+  const done = () => Promise.resolve({ error: null });
   const client = {
-    from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: config.attachment ?? null, error: null }) }) }),
-      update: (values: Record<string, unknown>) => {
-        updateCalls.push(values);
-        return { eq: () => Promise.resolve({ error: null }) };
-      },
-    }),
+    from: (table: string) => {
+      if (table === "items") {
+        const item = config.item === undefined ? { content_text: "" } : config.item;
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: item, error: null }) }) }) }),
+          update: (values: Record<string, unknown>) => {
+            itemUpdates.push(values);
+            return { eq: () => ({ eq: done }) };
+          },
+        };
+      }
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: config.attachment ?? null, error: null }) }) }),
+        update: (values: Record<string, unknown>) => {
+          updateCalls.push(values);
+          return { eq: done };
+        },
+      };
+    },
     storage: {
       from: () => ({
         download: () => Promise.resolve({ data: config.blob ?? null, error: config.downloadError ?? null }),
@@ -78,7 +94,7 @@ function fakeSupabase(config: Config) {
       return Promise.resolve({ error: null });
     },
   };
-  return { client: client as never, updateCalls, rpcCalls };
+  return { client: client as never, updateCalls, itemUpdates, rpcCalls };
 }
 
 const baseAttachment = { id: "a1", owner_id: "owner-1", item_id: "item-1", mime_type: "text/plain", storage_path: "p/a1.txt" };
@@ -286,5 +302,19 @@ describe("extractAttachment", () => {
     const { client } = fakeSupabase({ attachment: baseAttachment });
     const outcome = await extractAttachment(fakeJob({ payload: {} }), { supabase: client });
     expect(outcome).toMatchObject({ status: "failed" });
+  });
+
+  it("docx anexado a item vazio vira o corpo do item (texto editável); item com texto não é tocado", async () => {
+    convertToMarkdownMock.mockResolvedValue({ value: "# Treino A\n\n- Supino 4x10" });
+    const docx = { ...baseAttachment, mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", storage_path: "p/a1.docx" };
+
+    const empty = fakeSupabase({ attachment: docx, blob: new Blob(["x"]) });
+    expect(await extractAttachment(fakeJob(), { supabase: empty.client })).toEqual({ status: "done" });
+    expect(empty.itemUpdates).toHaveLength(1);
+    expect(empty.itemUpdates[0]!.content_text).toContain("Supino 4x10");
+
+    const written = fakeSupabase({ attachment: docx, blob: new Blob(["x"]), item: { content_text: "minhas anotações" } });
+    await extractAttachment(fakeJob(), { supabase: written.client });
+    expect(written.itemUpdates).toHaveLength(0);
   });
 });
