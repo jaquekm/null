@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { JSONContent } from "@tiptap/core";
+import { getUserTimezone } from "@/features/reminders/queries";
 import { requireOwner } from "@/lib/auth";
+import { wallClockToIso } from "@/lib/dates";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
@@ -76,8 +78,10 @@ export async function updateItemTitle(
   return ok({ updatedAt: data.updated_at });
 }
 
-function parseRawFieldValue(field: FieldDefinition, raw: FormDataEntryValue | null): unknown {
+function parseRawFieldValue(field: FieldDefinition, raw: FormDataEntryValue | null, timezone: string): unknown {
   switch (field.type) {
+    case "datetime":
+      return typeof raw === "string" && raw !== "" ? wallClockToIso(raw, timezone) : undefined;
     case "checkbox":
       return raw === "on" || raw === "true";
     case "number":
@@ -124,7 +128,7 @@ export async function updateItemProperty(
   const field = fields.find((f) => f.key === fieldKey);
   if (!field) return fail("Campo não encontrado neste tipo.");
 
-  const rawValue = parseRawFieldValue(field, formData.get("value"));
+  const rawValue = parseRawFieldValue(field, formData.get("value"), await getUserTimezone(supabase, user.id));
   const schema = buildPropertiesSchema([field]);
   const parsed = schema.safeParse({ [fieldKey]: rawValue });
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? GENERIC_ERROR);
@@ -227,14 +231,22 @@ export async function reorderItem(
   itemId: string,
   beforePosition: number | null,
   afterPosition: number | null,
-): Promise<Result<null>> {
+): Promise<Result<{ updatedAt: string }>> {
   const { supabase, user } = await requireOwner();
   const position = positionBetween(beforePosition, afterPosition);
 
-  const { error } = await supabase.from("items").update({ position }).eq("id", itemId).eq("owner_id", user.id);
-  if (error) return fail("Não foi possível reordenar os itens.");
+  // Devolve o `updated_at` novo (o trigger muda a cada update): sem ele, o
+  // próximo arraste do mesmo card no Kanban batia na checagem de conflito.
+  const { data, error } = await supabase
+    .from("items")
+    .update({ position })
+    .eq("id", itemId)
+    .eq("owner_id", user.id)
+    .select("updated_at")
+    .single();
+  if (error || !data) return fail("Não foi possível reordenar os itens.");
 
-  return ok(null);
+  return ok({ updatedAt: data.updated_at });
 }
 
 export async function changeItemType(itemId: string, typeId: string | null): Promise<Result<null>> {

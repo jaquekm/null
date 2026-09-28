@@ -1,4 +1,4 @@
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { listItemAttachments } from "@/features/attachments/queries";
 import { getDefaultPixKey } from "@/features/financas/queries";
@@ -13,7 +13,7 @@ import { getRequestIp } from "@/features/sharing/lib/get-request-ip";
 import { isShareLinkActive } from "@/features/sharing/lib/is-share-link-active";
 import { createRateLimiter } from "@/features/sharing/lib/rate-limit";
 import { registerShareLinkView } from "@/features/sharing/lib/register-share-link-view";
-import { shareAuthCookieName, verifyShareAuthCookie } from "@/features/sharing/lib/share-auth-cookie";
+import { isShareLinkUnlocked } from "@/features/sharing/lib/share-auth-cookie";
 import { hashShareToken } from "@/features/sharing/lib/share-token";
 import {
   findShareLinkByTokenHash,
@@ -69,11 +69,7 @@ export default async function SharePage(props: PageProps<"/p/[token]">) {
   const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
   if (!shareLink || !isShareLinkActive(shareLink)) return <InvalidLinkMessage />;
 
-  if (shareLink.passwordHash) {
-    const cookieStore = await cookies();
-    const authenticated = verifyShareAuthCookie(shareLink.id, cookieStore.get(shareAuthCookieName(shareLink.id))?.value);
-    if (!authenticated) return <PasswordGate token={token} />;
-  }
+  if (!(await isShareLinkUnlocked(shareLink))) return <PasswordGate token={token} />;
 
   if (shareLink.resourceType === "item") {
     const item = await getPublicItemResource(admin, shareLink.ownerId, shareLink.resourceId);

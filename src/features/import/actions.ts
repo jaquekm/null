@@ -11,6 +11,7 @@ import { markdownToTiptapDoc } from "@/features/items/lib/markdown-to-tiptap";
 import { listActiveSpaces, type SidebarSpace } from "@/features/spaces/queries";
 import { listSpaceObjectTypes, type SpaceTypeOption } from "@/features/spaces/queries";
 import { requireOwner } from "@/lib/auth";
+import { readFileText } from "@/lib/csv";
 import { fail, ok, type Result } from "@/lib/result";
 import { slugify } from "@/lib/slugify";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -20,7 +21,7 @@ import { parseDocumentFile } from "./lib/parse-document";
 import { parseEnex } from "./lib/parse-enex";
 import { parseIcsEvents, type ParsedIcsEvent } from "./lib/parse-ics";
 import { parseObsidianVault } from "./lib/parse-obsidian";
-import { parseSpreadsheetCsv, type SpreadsheetImportMapping } from "./lib/parse-spreadsheet";
+import { parseSpreadsheetCsv, SPREADSHEET_DELIMITERS, type SpreadsheetDelimiter, type SpreadsheetImportMapping } from "./lib/parse-spreadsheet";
 import { ensureSelectFieldWithOptions } from "./lib/resolve-select-field";
 import { resolveWikilinksInDoc } from "./lib/resolve-wikilinks";
 import { readZipAsText } from "./lib/unzip";
@@ -34,6 +35,7 @@ import {
   listExistingItemsInSpace,
   loadObjectTypeFields,
   saveImportBatch,
+  fingerprintImportedItems,
   saveObjectTypeFields,
   undoIcsImportBatch,
   undoItemImportBatch,
@@ -51,8 +53,8 @@ function spreadsheetMappingFromFormData(value: FormDataEntryValue | null): Sprea
     const parsed: unknown = JSON.parse(value);
     if (!parsed || typeof parsed !== "object") return null;
     const { delimiter, columns } = parsed as Record<string, unknown>;
-    if ((delimiter !== "," && delimiter !== ";") || !Array.isArray(columns)) return null;
-    return { delimiter, columns: columns as SpreadsheetImportMapping["columns"] };
+    if (!SPREADSHEET_DELIMITERS.includes(delimiter as SpreadsheetDelimiter) || !Array.isArray(columns)) return null;
+    return { delimiter: delimiter as SpreadsheetDelimiter, columns: columns as SpreadsheetImportMapping["columns"] };
   } catch {
     return null;
   }
@@ -62,7 +64,7 @@ async function parseUploadedFile(source: ImportSource, file: File, mapping: Spre
   if (source === "documento") return parseDocumentFile(file);
   if (source === "planilha") {
     if (!mapping) return { items: [], warnings: ["Mapeamento de colunas ausente."] };
-    return parseSpreadsheetCsv(await file.text(), mapping);
+    return parseSpreadsheetCsv(await readFileText(file), mapping);
   }
 
   const isZip = file.name.toLowerCase().endsWith(".zip");
@@ -331,13 +333,18 @@ export async function commitImport(formData: FormData): Promise<Result<ImportCom
   }
 
   const itemsSkipped = parsed.items.length - itemsToImport.length;
+  const fingerprints = await fingerprintImportedItems(
+    supabase,
+    user.id,
+    Array.from(createdByLocalId.values(), (created) => created.id),
+  );
   await saveImportBatch(supabase, {
     ownerId: user.id,
     id: importBatchId,
     source: source.data,
     itemsCreated: createdByLocalId.size,
     itemsSkipped,
-    detail: { warnings: parsed.warnings } as unknown as Json,
+    detail: { warnings: parsed.warnings, fingerprints } as unknown as Json,
   });
 
   revalidatePath("/configuracoes/importar");
@@ -350,9 +357,14 @@ export async function undoImportBatchAction(batchId: string): Promise<Result<{ r
   if (!batch) return fail("Lote de importação não encontrado.");
   if (batch.status === "undone") return fail("Este lote já foi desfeito.");
 
-  const result = await undoItemImportBatch(supabase, user.id, batchId, batch.createdAt);
-  revalidatePath("/configuracoes/importar");
-  return ok(result);
+  const detail = (batch.detail ?? {}) as { fingerprints?: Record<string, string> };
+  try {
+    const result = await undoItemImportBatch(supabase, user.id, batchId, batch.createdAt, detail.fingerprints ?? null);
+    revalidatePath("/configuracoes/importar");
+    return ok(result);
+  } catch {
+    return fail("Não foi possível desfazer a importação. Tente de novo.");
+  }
 }
 
 /** `.ics` (7.5, "somente leitura") — fluxo à parte: cria eventos, não itens, então não passa pelo motor de import genérico acima. */

@@ -1,8 +1,8 @@
 import "server-only";
-import { addDays, format } from "date-fns";
 import type { z } from "zod";
 import { computeCashProjection } from "@/features/financas/lib/cash-projection";
 import { listAccountBalances, listAccounts, listBills, type BillRow } from "@/features/financas/queries";
+import { addDaysToDateString, todayInTimezone } from "@/lib/dates";
 import { formatBRL, sumCents } from "@/lib/money";
 import type { ReportBlock } from "../lib/blocks";
 import { baseReportParamsSchema } from "../schemas";
@@ -39,8 +39,8 @@ export const billsForecastReport: ReportGenerator<BillsForecastParams, BillsFore
 
   async collect(ctx: ReportContext<BillsForecastParams>): Promise<BillsForecastData> {
     const { supabase, params } = ctx;
-    const today = format(new Date(), "yyyy-MM-dd");
-    const horizonEnd = format(addDays(new Date(), 90), "yyyy-MM-dd");
+    const today = todayInTimezone(ctx.timezone);
+    const horizonEnd = addDaysToDateString(today, 90);
 
     const [accounts, payableBills, receivableBills] = await Promise.all([
       listAccounts(supabase),
@@ -53,7 +53,7 @@ export const billsForecastReport: ReportGenerator<BillsForecastParams, BillsFore
     );
     const startingBalanceCents = sumCents(accounts.filter((a) => a.includeInTotals).map((a) => balances.get(a.id) ?? 0));
 
-    const days = Array.from({ length: 90 }, (_, i) => format(addDays(new Date(`${today}T12:00:00`), i), "yyyy-MM-dd"));
+    const days = Array.from({ length: 90 }, (_, i) => addDaysToDateString(today, i));
     const events = [...payableBills, ...receivableBills].map((b) => ({
       date: b.dueOn,
       amountCents: b.direction === "receivable" ? b.amountCents - b.paidCents : -(b.amountCents - b.paidCents),

@@ -92,6 +92,7 @@ export function KanbanView({
     const sourceValue = (activeRow.properties[groupField.key] as string | undefined) ?? null;
     const changedColumn = sourceValue !== targetValue;
 
+    const previousRows = rows;
     setRows((current) =>
       current.map((row) =>
         row.id === activeId
@@ -101,21 +102,31 @@ export function KanbanView({
     );
 
     startTransition(async () => {
+      // Qualquer falha desfaz o arraste — antes o card ficava na coluna errada até recarregar.
       if (changedColumn) {
         const formData = new FormData();
         formData.append("value", targetValue ?? "");
         const result = await updateItemProperty(activeId, groupField.key, activeRow.updatedAt, initialFieldState, formData);
         if (!result.ok) {
+          setRows(previousRows);
           toast.error(result.error);
           return;
         }
-        if (result.data) {
-          setRows((current) => current.map((row) => (row.id === activeId ? { ...row, updatedAt: result.data!.updatedAt } : row)));
+        const columnUpdatedAt = result.data?.updatedAt;
+        if (columnUpdatedAt) {
+          setRows((current) => current.map((row) => (row.id === activeId ? { ...row, updatedAt: columnUpdatedAt } : row)));
         }
       }
 
       const reorderResult = await reorderItem(activeId, before?.position ?? null, after?.position ?? null);
-      if (!reorderResult.ok) toast.error(reorderResult.error);
+      if (!reorderResult.ok) {
+        // A coluna já foi salva; só a posição volta à original.
+        setRows((current) => current.map((row) => (row.id === activeId ? { ...row, position: activeRow.position } : row)));
+        toast.error(reorderResult.error);
+        return;
+      }
+      const { updatedAt } = reorderResult.data;
+      setRows((current) => current.map((row) => (row.id === activeId ? { ...row, updatedAt } : row)));
     });
   }
 

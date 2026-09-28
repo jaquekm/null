@@ -64,6 +64,20 @@ function formatFloatingDtstart(instant: Date, timezone: string): string {
   return `${floating.getUTCFullYear()}${pad(floating.getUTCMonth() + 1)}${pad(floating.getUTCDate())}T${pad(floating.getUTCHours())}${pad(floating.getUTCMinutes())}${pad(floating.getUTCSeconds())}Z`;
 }
 
+/**
+ * `BYMONTHDAY=31` sozinho PULA os meses que não têm dia 31 (RFC 5545) — um
+ * aluguel "todo dia 30" sumia em fevereiro. Pra dias 29–31: candidatos 28..dia,
+ * e `BYSETPOS=-1` fica com o maior que existe no mês (dia 31 → 30/04, 28/02).
+ */
+function endOfMonthCandidates(day: number): string {
+  return Array.from({ length: day - 27 }, (_, i) => 28 + i).join(",");
+}
+
+function monthlyDayRulePart(day: number): string {
+  if (day < 29) return `FREQ=MONTHLY;BYMONTHDAY=${day}`;
+  return `FREQ=MONTHLY;BYMONTHDAY=${endOfMonthCandidates(day)};BYSETPOS=-1`;
+}
+
 /** Monta a string RRULE (com `DTSTART`) a partir de um preset da UI — `null` pra "uma vez". */
 export function buildRRuleString(preset: RecurrencePreset, dtstart: Date, timezone: string): string | null {
   if (preset.kind === "once") return null;
@@ -81,7 +95,7 @@ export function buildRRuleString(preset: RecurrencePreset, dtstart: Date, timezo
       rulePart = `FREQ=WEEKLY;BYDAY=${preset.days.join(",")}`;
       break;
     case "monthly_day":
-      rulePart = `FREQ=MONTHLY;BYMONTHDAY=${preset.day}`;
+      rulePart = monthlyDayRulePart(preset.day);
       break;
     case "monthly_last_weekday":
       rulePart = `FREQ=MONTHLY;BYDAY=-1${preset.day}`;
@@ -119,6 +133,11 @@ export function parseRecurrencePreset(rruleString: string | null): RecurrencePre
   if (freq === "WEEKLY" && byday && params.size === 2) return { kind: "weekly", days: byday.split(",") as Weekday[] };
   if (freq === "MONTHLY" && params.has("BYMONTHDAY") && params.size === 2) {
     return { kind: "monthly_day", day: Number(params.get("BYMONTHDAY")) };
+  }
+  if (freq === "MONTHLY" && params.get("BYSETPOS") === "-1" && params.size === 3) {
+    const bymonthday = params.get("BYMONTHDAY") ?? "";
+    const last = Number(bymonthday.split(",").at(-1));
+    if (last >= 29 && last <= 31 && bymonthday === endOfMonthCandidates(last)) return { kind: "monthly_day", day: last };
   }
   if (freq === "MONTHLY" && byday && /^-1[A-Z]{2}$/.test(byday) && params.size === 2) {
     return { kind: "monthly_last_weekday", day: byday.slice(2) as Weekday };

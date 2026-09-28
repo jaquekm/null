@@ -371,4 +371,37 @@ describe("installPack", () => {
     expect(item.content).toBeTruthy();
     expect(item.content_text).toContain("Leite");
   });
+
+  it("newSpace cria o espaço com o nome do método e instala tudo nele (tipos, visões, exemplos)", async () => {
+    const fake = newFake();
+
+    const result = await installPack(client(fake), USER_ID, buildPack(), { spaceId: null, newSpace: { name: "Vendas" }, withSamples: true });
+
+    expect(result.ok).toBe(true);
+    const spaces = fake.rowsOf("spaces");
+    expect(spaces).toHaveLength(1);
+    const spaceId = spaces[0]!.id;
+    expect(fake.rowsOf("object_types")[0]!.space_id).toBe(spaceId);
+    expect(fake.rowsOf("views")[0]!.space_id).toBe(spaceId);
+    expect(fake.rowsOf("items")[0]!.space_id).toBe(spaceId);
+    expect(fake.rowsOf("packs_installed")[0]!.space_id).toBe(spaceId);
+  });
+
+  it("recusa instalar num espaço quando o método já está em todos os espaços (e vice-versa), sem duplicar tipos", async () => {
+    const fake = newFake();
+
+    expect((await installPack(client(fake), USER_ID, buildPack(), { spaceId: null })).ok).toBe(true);
+    const inSpace = await installPack(client(fake), USER_ID, buildPack(), { spaceId: "space-1" });
+    expect(inSpace.ok).toBe(false);
+    expect(fake.rowsOf("object_types")).toHaveLength(1);
+
+    const other = newFake();
+    expect((await installPack(client(other), USER_ID, buildPack(), { spaceId: "space-1" })).ok).toBe(true);
+    const global = await installPack(client(other), USER_ID, buildPack(), { spaceId: null });
+    expect(global.ok).toBe(false);
+    expect(other.rowsOf("object_types")).toHaveLength(1);
+
+    // Atualizar a mesma instalação continua funcionando.
+    expect((await installPack(client(other), USER_ID, buildPack(), { spaceId: "space-1" })).ok).toBe(true);
+  });
 });

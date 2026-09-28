@@ -7,7 +7,9 @@ import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-f
 import { getSpaceBySlug, listDocumentsToReview, listOtherActiveSpaces, listSpaceObjectTypes } from "@/features/spaces/queries";
 import { ViewSwitcher } from "@/features/views/components/view-switcher";
 import { listViews } from "@/features/views/queries";
+import { getUserTimezone } from "@/features/reminders/queries";
 import { requireOwner } from "@/lib/auth";
+import { todayInTimezone } from "@/lib/dates";
 
 export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   const { slug } = await props.params;
@@ -18,7 +20,7 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   const space = await getSpaceBySlug(supabase, slug);
   if (!space) notFound();
 
-  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const todayDateStr = todayInTimezone(await getUserTimezone(supabase, user.id));
   const [types, otherSpaces, views, documentsToReview] = await Promise.all([
     listSpaceObjectTypes(supabase, space.id),
     listOtherActiveSpaces(supabase, space.id),

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isShareLinkActive } from "@/features/sharing/lib/is-share-link-active";
+import { isShareLinkUnlocked } from "@/features/sharing/lib/share-auth-cookie";
 import { hashShareToken } from "@/features/sharing/lib/share-token";
 import { findShareLinkByTokenHash, getPublicReportRunResource } from "@/features/sharing/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 10 * 60;
 
 /** PDF de um relatório atrás de um link público (6.4) — mesmo padrão de `/p/[token]/attachments/[attachmentId]`. */
-export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/report-pdf">) {
+export async function GET(request: Request, ctx: RouteContext<"/p/[token]/report-pdf">) {
   const { token } = await ctx.params;
   const admin = createAdminClient();
 
@@ -15,6 +16,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/repor
   if (!shareLink || !isShareLinkActive(shareLink) || shareLink.resourceType !== "report") {
     return NextResponse.json({ error: "Relatório não encontrado." }, { status: 404 });
   }
+  if (!(await isShareLinkUnlocked(shareLink))) return NextResponse.redirect(new URL(`/p/${token}`, request.url));
 
   const run = await getPublicReportRunResource(admin, shareLink.ownerId, shareLink.resourceId);
   if (!run?.pdfAttachmentId) {

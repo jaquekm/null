@@ -5,6 +5,7 @@ import { updateItemProperty } from "@/features/items/actions";
 import { formatPropertyValue } from "@/features/views/lib/format-property-value";
 import type { Result } from "@/lib/result";
 import type { FieldDefinition } from "@/features/types/schemas";
+import { isoToWallClock } from "@/lib/dates";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -182,7 +183,7 @@ function FieldValueInput({ field, value, pending }: { field: FieldDefinition; va
         <input
           type="datetime-local"
           name="value"
-          defaultValue={typeof value === "string" ? value.slice(0, 16) : ""}
+          defaultValue={typeof value === "string" ? isoToWallClock(value) : ""}
           disabled={pending}
           onChange={(e) => e.currentTarget.form?.requestSubmit()}
           className={inputClassName}

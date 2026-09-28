@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
 import { isShareLinkActive } from "@/features/sharing/lib/is-share-link-active";
+import { isShareLinkUnlocked } from "@/features/sharing/lib/share-auth-cookie";
 import { hashShareToken } from "@/features/sharing/lib/share-token";
 import { findShareLinkByTokenHash, getPublicBillResource, getPublicSplitShareResource } from "@/features/sharing/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SIGNED_URL_EXPIRES_IN_SECONDS = 10 * 60;
-const NOT_FOUND = NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
+
+// Função, não constante: o corpo de um `Response` só pode ser lido uma vez, então uma instância compartilhada quebra a partir do 2º 404.
+const notFound = () => NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
 
 /** Recibo/anexo único de uma divisão ou conta (4.10) — igual ao anexo de item (3.11), mas sem `attachmentId` na URL: só existe um por recurso. */
-export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/receipt">) {
+export async function GET(request: Request, ctx: RouteContext<"/p/[token]/receipt">) {
   const { token } = await ctx.params;
   const admin = createAdminClient();
 
   const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
-  if (!shareLink || !isShareLinkActive(shareLink) || !shareLink.includeAttachments) return NOT_FOUND;
+  if (!shareLink || !isShareLinkActive(shareLink) || !shareLink.includeAttachments) return notFound();
+  if (!(await isShareLinkUnlocked(shareLink))) return NextResponse.redirect(new URL(`/p/${token}`, request.url));
 
   let attachmentId: string | null = null;
   if (shareLink.resourceType === "split") {
@@ -23,7 +27,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/recei
     const resource = await getPublicBillResource(admin, shareLink.ownerId, shareLink.resourceId);
     attachmentId = resource?.attachmentId ?? null;
   }
-  if (!attachmentId) return NOT_FOUND;
+  if (!attachmentId) return notFound();
 
   const { data: attachment } = await admin
     .from("attachments")
@@ -31,7 +35,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/recei
     .eq("id", attachmentId)
     .eq("owner_id", shareLink.ownerId)
     .maybeSingle();
-  if (!attachment) return NOT_FOUND;
+  if (!attachment) return notFound();
 
   const { data, error } = await admin.storage
     .from("attachments")

@@ -22,6 +22,23 @@ describe("nextOccurrence", () => {
     expect(next?.toISOString()).toBe("2026-02-15T12:00:00.000Z");
   });
 
+  it("mensalmente no dia 31: cai no último dia dos meses mais curtos (não pula o mês)", () => {
+    const rrule = buildRRuleString({ kind: "monthly_day", day: 31 }, new Date("2026-01-31T12:00:00.000Z"), "America/Sao_Paulo")!;
+    const feb = nextOccurrence(rrule, "America/Sao_Paulo", new Date("2026-01-31T12:00:00.000Z"));
+    expect(feb?.toISOString()).toBe("2026-02-28T12:00:00.000Z");
+    const mar = nextOccurrence(rrule, "America/Sao_Paulo", feb!);
+    expect(mar?.toISOString()).toBe("2026-03-31T12:00:00.000Z");
+    const apr = nextOccurrence(rrule, "America/Sao_Paulo", mar!);
+    expect(apr?.toISOString()).toBe("2026-04-30T12:00:00.000Z");
+  });
+
+  it("mensalmente no dia 30: fevereiro vira dia 28 (29 em ano bissexto)", () => {
+    const rrule = buildRRuleString({ kind: "monthly_day", day: 30 }, new Date("2027-01-30T12:00:00.000Z"), "America/Sao_Paulo")!;
+    expect(nextOccurrence(rrule, "America/Sao_Paulo", new Date("2027-01-30T12:00:00.000Z"))?.toISOString()).toBe("2027-02-28T12:00:00.000Z");
+    const leap = buildRRuleString({ kind: "monthly_day", day: 30 }, new Date("2028-01-30T12:00:00.000Z"), "America/Sao_Paulo")!;
+    expect(nextOccurrence(leap, "America/Sao_Paulo", new Date("2028-01-30T12:00:00.000Z"))?.toISOString()).toBe("2028-02-29T12:00:00.000Z");
+  });
+
   it("mensalmente na última sexta-feira", () => {
     const rrule = buildRRuleString({ kind: "monthly_last_weekday", day: "FR" }, new Date("2026-01-30T12:00:00.000Z"), "America/Sao_Paulo")!; // 2026-01-30 é a última sexta de janeiro
     const next = nextOccurrence(rrule, "America/Sao_Paulo", new Date("2026-01-30T12:00:00.000Z"));
@@ -91,6 +108,8 @@ describe("parseRecurrencePreset", () => {
     { kind: "weekdays" },
     { kind: "weekly", days: ["MO", "WE", "FR"] },
     { kind: "monthly_day", day: 15 },
+    { kind: "monthly_day", day: 29 },
+    { kind: "monthly_day", day: 31 },
     { kind: "monthly_last_weekday", day: "FR" },
     { kind: "yearly" },
   ];

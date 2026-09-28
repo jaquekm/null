@@ -224,11 +224,13 @@ export function AudioRecorder({
       return;
     }
 
-    await requestTranscription(itemId, uploadResult.data.attachment.id, durationSeconds ?? undefined);
+    const transcription = await requestTranscription(itemId, uploadResult.data.attachment.id, durationSeconds ?? undefined);
     await clearRecording(recordingId);
 
     setStatus("done");
-    toast.success("Gravação enviada.");
+    // A gravação já está salva como anexo; só a transcrição falhou — avisa em vez de sumir calado.
+    if (transcription.ok) toast.success("Gravação enviada.");
+    else toast.warning(`Gravação salva, mas a transcrição não começou: ${transcription.error}`);
     onFinished?.();
   }
 

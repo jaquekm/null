@@ -17,7 +17,7 @@ interface Props {
 
 /** Card da galeria de packs (5.2, `/configuracoes/metodos`): descrição, prévia do que será criado, instalar/atualizar/desinstalar. */
 export function PackCard({ file, pack, spaces, installed, missingModules }: Props) {
-  const [installDialog, setInstallDialog] = useState<{ spaceId: string | null } | null>(null);
+  const [installDialog, setInstallDialog] = useState<{ spaceId?: string | null } | null>(null);
   const [uninstallingId, setUninstallingId] = useState<string | null>(null);
 
   return (
@@ -33,7 +33,7 @@ export function PackCard({ file, pack, spaces, installed, missingModules }: Prop
         </div>
         <button
           type="button"
-          onClick={() => setInstallDialog({ spaceId: null })}
+          onClick={() => setInstallDialog({})}
           className="bg-foreground text-background shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium"
         >
           Instalar

@@ -34,15 +34,18 @@ function fakeJob(overrides: Partial<Job> = {}): Job {
 /** Cliente Supabase falso que só grava o payload do último `.update()` — o suficiente pro que `runJob` faz. */
 function fakeSupabase() {
   let lastUpdate: Record<string, unknown> | null = null;
+  const updates: { table: string; values: Record<string, unknown> }[] = [];
   const client = {
-    from: () => ({
+    from: (table: string) => ({
       update: (values: Record<string, unknown>) => {
-        lastUpdate = values;
-        return { eq: () => Promise.resolve({ data: null, error: null }) };
+        updates.push({ table, values });
+        if (table === "jobs") lastUpdate = values;
+        const done = Promise.resolve({ data: null, error: null });
+        return { eq: () => Object.assign(done, { in: () => Promise.resolve({ data: null, error: null }) }) };
       },
     }),
   };
-  return { client: client as never, getLastUpdate: () => lastUpdate };
+  return { client: client as never, getLastUpdate: () => lastUpdate, updates };
 }
 
 describe("runJob", () => {
@@ -150,5 +153,21 @@ describe("runJob", () => {
     await runJob(client, fakeJob({ attempts: 5, max_attempts: 5 }), { test_kind: handler });
 
     expect(getLastUpdate()).toMatchObject({ status: "failed", last_error: "de novo" });
+  });
+
+  it("transcrição que esgota as tentativas sai de 'processando' (fica 'failed' na tela)", async () => {
+    const { client, updates } = fakeSupabase();
+    const handler: JobHandler = async () => ({ status: "failed", error: "Provedor fora" });
+    await runJob(client, fakeJob({ kind: "transcribe_audio", payload: { transcriptId: "t-1" } }), { transcribe_audio: handler });
+    expect(updates).toContainEqual({ table: "transcripts", values: { status: "failed", error: "Provedor fora" } });
+  });
+
+  it("extração que esgota as tentativas marca o anexo como 'failed'", async () => {
+    const { client, updates } = fakeSupabase();
+    const handler: JobHandler = async () => {
+      throw new Error("timeout");
+    };
+    await runJob(client, fakeJob({ kind: "extract_attachment", payload: { attachmentId: "a-1" }, attempts: 5 }), { extract_attachment: handler });
+    expect(updates).toContainEqual({ table: "attachments", values: { extraction_status: "failed" } });
   });
 });

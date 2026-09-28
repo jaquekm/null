@@ -41,4 +41,16 @@ describe("parseEnex", () => {
     expect(result.items).toEqual([]);
     expect(result.warnings).toEqual(["Nenhuma nota encontrada no arquivo .enex."]);
   });
+
+  it("nota com &nbsp; e &mdash; (entidades do DTD do ENML) importa com o texto — antes derrubava tudo", () => {
+    const enml = '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd"><en-note><div>Olá&nbsp;mundo &mdash; ok &amp; fim</div></en-note>';
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><en-export><note><title>T</title><content><![CDATA[${enml}]]></content></note></en-export>`;
+    const result = parseEnex(xml);
+    expect(result.items[0]!.bodyMarkdown).toBe("Olá\u00a0mundo \u2014 ok & fim");
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("arquivo que não é XML vira aviso, não exceção", () => {
+    expect(parseEnex("isto não é xml <<").warnings[0]).toMatch(/não é um .enex válido/);
+  });
 });

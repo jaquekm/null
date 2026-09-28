@@ -24,6 +24,7 @@ import {
 import { QuickExpenseDialog } from "./quick-expense-dialog";
 import { TransactionFormDialog } from "./transaction-form-dialog";
 import { TransactionsTable } from "./transactions-table";
+import { todayInTimezone } from "@/lib/dates";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -212,7 +213,7 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
     });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInTimezone();
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">

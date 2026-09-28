@@ -7,6 +7,30 @@ function parseXml(xml: string): Document {
   return new JSDOM(xml, { contentType: "text/xml" }).window.document;
 }
 
+/** Entidades de HTML que o ENML usa mas o XML puro não conhece (só `&amp; &lt; &gt; &quot; &apos;`). */
+const HTML_ENTITIES: Record<string, number> = {
+  nbsp: 160, ndash: 8211, mdash: 8212, hellip: 8230, lsquo: 8216, rsquo: 8217, ldquo: 8220, rdquo: 8221,
+  laquo: 171, raquo: 187, bull: 8226, middot: 183, copy: 169, reg: 174, trade: 8482, deg: 176, euro: 8364,
+  aacute: 225, eacute: 233, iacute: 237, oacute: 243, uacute: 250, agrave: 224, acirc: 226, ecirc: 234, ocirc: 244,
+  atilde: 227, otilde: 245, ccedil: 231, Aacute: 193, Eacute: 201, Iacute: 205, Oacute: 211, Uacute: 218,
+  Agrave: 192, Acirc: 194, Ecirc: 202, Ocirc: 212, Atilde: 195, Otilde: 213, Ccedil: 199, uuml: 252, Uuml: 220,
+};
+
+/**
+ * O corpo da nota declara o DTD do ENML, que define `&nbsp;` e afins; o
+ * parser de XML não baixa o DTD, então qualquer `&nbsp;` (quase toda nota do
+ * Evernote tem) derrubava a importação inteira com "undefined entity".
+ */
+export function normalizeEnmlEntities(enml: string): string {
+  return enml
+    .replace(/<!DOCTYPE[^>]*>/i, "")
+    .replace(/&([A-Za-z]+);/g, (match, name: string) => {
+      if (["amp", "lt", "gt", "quot", "apos"].includes(name)) return match;
+      const code = HTML_ENTITIES[name];
+      return code ? `&#${code};` : "";
+    });
+}
+
 function enmlDateToIso(value: string | null | undefined): string | null {
   if (!value) return null;
   const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(value.trim());
@@ -108,7 +132,12 @@ export function enmlToMarkdown(enNote: Element, mediaByHash: Map<string, string>
  * bytes (mesmo hash que o Evernote já usa pra essa referência).
  */
 export function parseEnex(xmlText: string): ParsedImportResult {
-  const doc = parseXml(xmlText);
+  let doc: Document;
+  try {
+    doc = parseXml(xmlText);
+  } catch {
+    return { items: [], warnings: ["O arquivo não é um .enex válido (exportação do Evernote)."] };
+  }
   const noteEls = Array.from(doc.getElementsByTagName("note"));
   const items: ParsedImportItem[] = [];
   const warnings: string[] = [];
@@ -137,7 +166,12 @@ export function parseEnex(xmlText: string): ParsedImportResult {
     const contentRaw = noteEl.getElementsByTagName("content")[0]?.textContent ?? "";
     let bodyMarkdown = "";
     if (contentRaw.trim()) {
-      const enNote = parseXml(contentRaw).getElementsByTagName("en-note")[0];
+      let enNote: Element | undefined;
+      try {
+        enNote = parseXml(normalizeEnmlEntities(contentRaw)).getElementsByTagName("en-note")[0];
+      } catch {
+        enNote = undefined; // uma nota malformada não derruba as outras
+      }
       if (enNote) bodyMarkdown = enmlToMarkdown(enNote, mediaByHash);
       else warnings.push(`Não consegui interpretar o conteúdo da nota "${title}" — importada sem corpo.`);
     }

@@ -9,6 +9,7 @@ import { formatBRL } from "@/lib/money";
 import { archiveAccount, createAccount } from "../actions";
 import type { AccountRow } from "../queries";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABELS, type AccountKind } from "../schemas";
+import { todayInTimezone } from "@/lib/dates";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -21,7 +22,7 @@ export function AccountSection({ accounts, spaces }: { accounts: AccountRow[]; s
   const [institution, setInstitution] = useState("");
   const [spaceId, setSpaceId] = useState("");
   const [openingBalance, setOpeningBalance] = useState("");
-  const [openingDate, setOpeningDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [openingDate, setOpeningDate] = useState(() => todayInTimezone());
   const [creditLimit, setCreditLimit] = useState("");
   const [closingDay, setClosingDay] = useState("");
   const [dueDay, setDueDay] = useState("");
@@ -36,7 +37,7 @@ export function AccountSection({ accounts, spaces }: { accounts: AccountRow[]; s
     setInstitution("");
     setSpaceId("");
     setOpeningBalance("");
-    setOpeningDate(new Date().toISOString().slice(0, 10));
+    setOpeningDate(todayInTimezone());
     setCreditLimit("");
     setClosingDay("");
     setDueDay("");

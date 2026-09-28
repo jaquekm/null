@@ -121,9 +121,16 @@ export async function sendReminderNow(id: string): Promise<Result<null>> {
     return fail("Esse lembrete já foi concluído ou cancelado.");
   }
 
-  await dispatchReminderOccurrence(supabase, user.id, { ...reminder, send_at: new Date().toISOString() }, { bypassQuietHours: true });
+  const result = await dispatchReminderOccurrence(supabase, user.id, { ...reminder, send_at: new Date().toISOString() }, { bypassQuietHours: true });
 
   revalidatePath(REMINDERS_PATH);
+  // Antes dizia "Lembrete enviado." mesmo quando nada saía (canal não
+  // configurado, contato sem opt-in) — o motivo fica na aba "Com falha".
+  if (result.sent === 0) {
+    if (result.failed > 0) return fail("Não foi enviado: o canal falhou ou não está configurado. Veja o motivo na aba “Com falha”.");
+    if (result.skipped > 0) return fail("Não foi enviado: destinatário sem opt-in, sem telefone/e-mail ou no limite diário. Veja o histórico de entregas.");
+    return fail("Nada foi enviado (lembrete sem destinatários, já enviado agora ou item arquivado).");
+  }
   return ok(null);
 }
 

@@ -1,10 +1,8 @@
+import { addDaysToDateString, dateInTimezone } from "@/lib/dates";
+
 const TODAY_OFFSET_REGEX = /^\{\{today([+-]\d+)d\}\}$/;
 const TODAY_FIELD_OFFSET_REGEX = /^\{\{today\+([a-zA-Z][a-zA-Z0-9_]*)d\}\}$/;
 const FIELD_TOKEN_REGEX = /\{\{([a-zA-Z0-9_]+)\}\}/g;
-
-function toDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 export interface TemplateItemContext {
   title: string;
@@ -23,14 +21,12 @@ export interface TemplateItemContext {
 export function resolveTemplateValue(value: unknown, context: { today: Date; item?: TemplateItemContext }): unknown {
   if (typeof value !== "string") return value;
 
-  if (value === "{{today}}") return toDateOnly(context.today);
+  const today = dateInTimezone(context.today);
+  if (value === "{{today}}") return today;
 
   const offsetMatch = TODAY_OFFSET_REGEX.exec(value);
   if (offsetMatch) {
-    const days = Number(offsetMatch[1]);
-    const shifted = new Date(context.today);
-    shifted.setDate(shifted.getDate() + days);
-    return toDateOnly(shifted);
+    return addDaysToDateString(today, Number(offsetMatch[1]));
   }
 
   const fieldOffsetMatch = TODAY_FIELD_OFFSET_REGEX.exec(value);
@@ -39,9 +35,7 @@ export function resolveTemplateValue(value: unknown, context: { today: Date; ite
     const rawDays = context.item?.properties[fieldKey];
     const days = typeof rawDays === "number" ? rawDays : Number(rawDays);
     if (!Number.isFinite(days)) return value;
-    const shifted = new Date(context.today);
-    shifted.setDate(shifted.getDate() + days);
-    return toDateOnly(shifted);
+    return addDaysToDateString(today, days);
   }
 
   if (!context.item) return value;

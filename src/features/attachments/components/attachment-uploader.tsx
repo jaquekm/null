@@ -57,7 +57,8 @@ export function AttachmentUploader({
     const shouldSummarize = summarize;
     setTranscribePrompt(null);
     startRequestingTranscription(async () => {
-      await requestTranscription(itemId, attachmentId, undefined, shouldSummarize);
+      const result = await requestTranscription(itemId, attachmentId, undefined, shouldSummarize);
+      if (!result.ok) setError(result.error);
     });
   }
 

@@ -7,6 +7,7 @@ import { getStatementTransactions } from "../actions";
 import { monthPeriod } from "../lib/period-range";
 import type { AccountRow, CardStatementRow, TransactionRow } from "../queries";
 import { PayStatementDialog } from "./pay-statement-dialog";
+import { todayInTimezone } from "@/lib/dates";
 
 const STATUS_LABELS: Record<CardStatementRow["status"], string> = { open: "Aberta", closed: "Fechada", paid: "Paga", partial: "Parcial" };
 const STATUS_CLASSES: Record<CardStatementRow["status"], string> = {
@@ -27,7 +28,7 @@ interface CardStatementWorkspaceProps {
 /** `/financas/cartoes/[accountId]` (4.7): fatura atual, próximas, anteriores; limite usado/disponível; pagar fatura. */
 export function CardStatementWorkspace({ account, otherAccounts, statements, statementTotals, balanceCents }: CardStatementWorkspaceProps) {
   const router = useRouter();
-  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const [today] = useState(() => todayInTimezone());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [transactionsByStatement, setTransactionsByStatement] = useState<Record<string, TransactionRow[]>>({});
   const [payingId, setPayingId] = useState<string | null>(null);

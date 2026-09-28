@@ -25,6 +25,8 @@ export interface GetViewItemsResult {
   fields: FieldDefinition[];
   rows: ViewItemRow[];
   total: number;
+  /** Filtro que o banco recusou — a visão mostra o aviso em vez de derrubar a página inteira. */
+  error?: string;
 }
 
 /**
@@ -35,8 +37,12 @@ export interface GetViewItemsResult {
 export async function getViewItems(params: GetViewItemsParams): Promise<GetViewItemsResult> {
   const { supabase } = await requireOwner();
   const fields = params.typeId ? await getTypeFields(supabase, params.typeId) : [];
-  const { rows, total } = await queryViewItems(supabase, { ...params, fields });
-  return { fields, rows, total };
+  try {
+    const { rows, total } = await queryViewItems(supabase, { ...params, fields });
+    return { fields, rows, total };
+  } catch {
+    return { fields, rows: [], total: 0, error: "Não foi possível aplicar esses filtros. Revise ou remova o último filtro." };
+  }
 }
 
 export interface CreatedView {

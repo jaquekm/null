@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatBRL } from "@/lib/money";
 import { registerSplitPayment } from "../actions";
 import type { AccountRow, SplitShareRow } from "../queries";
+import { todayInTimezone } from "@/lib/dates";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -23,7 +24,7 @@ interface RegisterSplitPaymentDialogProps {
 export function RegisterSplitPaymentDialog({ share, personName, accounts, onClose, onPaid }: RegisterSplitPaymentDialogProps) {
   const remainingCents = share.shareCents - share.settledCents;
   const [amount, setAmount] = useState(() => (remainingCents > 0 ? formatBRL(remainingCents) : ""));
-  const [occurredOn, setOccurredOn] = useState(() => new Date().toISOString().slice(0, 10));
+  const [occurredOn, setOccurredOn] = useState(() => todayInTimezone());
   const [accountId, setAccountId] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [pending, startTransition] = useTransition();

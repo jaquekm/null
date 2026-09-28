@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isShareLinkActive } from "@/features/sharing/lib/is-share-link-active";
+import { isShareLinkUnlocked } from "@/features/sharing/lib/share-auth-cookie";
 import { hashShareToken } from "@/features/sharing/lib/share-token";
 import { findShareLinkByTokenHash, getPublicAttachmentFile } from "@/features/sharing/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const SIGNED_URL_EXPIRES_IN_SECONDS = 10 * 60;
 
 /** Anexo de um link público (3.11) — URL assinada de 10 min, só se o link permitir anexos. */
-export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/attachments/[attachmentId]">) {
+export async function GET(request: Request, ctx: RouteContext<"/p/[token]/attachments/[attachmentId]">) {
   const { token, attachmentId } = await ctx.params;
   const admin = createAdminClient();
 
@@ -15,6 +16,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/p/[token]/attac
   if (!shareLink || !isShareLinkActive(shareLink) || shareLink.resourceType !== "item" || !shareLink.includeAttachments) {
     return NextResponse.json({ error: "Anexo não encontrado." }, { status: 404 });
   }
+  if (!(await isShareLinkUnlocked(shareLink))) return NextResponse.redirect(new URL(`/p/${token}`, request.url));
 
   const attachment = await getPublicAttachmentFile(admin, shareLink.ownerId, shareLink.resourceId, attachmentId);
   if (!attachment) {

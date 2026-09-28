@@ -1,4 +1,5 @@
 import type { FieldDefinition } from "@/features/types/schemas";
+import { DEFAULT_TIMEZONE } from "@/lib/dates";
 
 /** Valor de `properties[key]` em texto curto — Lista e card do Kanban (1.15). */
 export function formatPropertyValue(value: unknown, field: FieldDefinition): string {
@@ -38,7 +39,7 @@ export function formatPropertyValue(value: unknown, field: FieldDefinition): str
 
     case "datetime": {
       const date = new Date(String(value));
-      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("pt-BR");
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("pt-BR", { timeZone: DEFAULT_TIMEZONE });
     }
 
     default:

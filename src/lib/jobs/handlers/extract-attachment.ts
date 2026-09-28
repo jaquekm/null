@@ -135,7 +135,11 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
       }
     } else {
       const mediaType = toAnthropicImageMediaType(attachment.mime_type);
-      if (!mediaType) return { status: "failed", error: `Formato de imagem não suportado pela IA: ${attachment.mime_type}.` };
+      if (!mediaType) {
+        // Ex.: HEIC do iPhone — sem isto o anexo ficava em "Extraindo texto…" pra sempre.
+        await supabase.from("attachments").update({ extraction_status: "failed" }).eq("id", attachmentId);
+        return { status: "failed", error: `Formato de imagem não suportado pela IA: ${attachment.mime_type}.` };
+      }
 
       if (!manual && !(await isAutoOcrEnabled(supabase, attachment.owner_id))) {
         await supabase.from("attachments").update({ extraction_status: "skipped" }).eq("id", attachmentId);

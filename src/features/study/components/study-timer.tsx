@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { logStudySession } from "../actions";
 import { studySessionKinds } from "../schemas";
+import { todayInTimezone } from "@/lib/dates";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -123,7 +124,7 @@ export function StudyTimer({ itemId }: { itemId: string | null }) {
 }
 
 function ManualSessionForm({ itemId, onDone }: { itemId: string | null; onDone: () => void }) {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayInTimezone());
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [kind, setKind] = useState<(typeof studySessionKinds)[number]>("study");
   const [notes, setNotes] = useState("");

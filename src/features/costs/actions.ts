@@ -5,6 +5,7 @@ import { requireOwner } from "@/lib/auth";
 import { parseBRL } from "@/lib/money";
 import { fail, ok, type Result } from "@/lib/result";
 import { createHubCostSchema, createSubscriptionSchema, type CreateHubCostInput, type CreateSubscriptionInput } from "./schemas";
+import { todayInTimezone } from "@/lib/dates";
 
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
 const PATH = "/configuracoes/custos";
@@ -43,7 +44,7 @@ export async function cancelSubscription(id: string): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
   const { error } = await supabase
     .from("subscriptions_tracker")
-    .update({ canceled_at: new Date().toISOString().slice(0, 10) })
+    .update({ canceled_at: todayInTimezone() })
     .eq("id", id)
     .eq("owner_id", user.id);
   if (error) return fail(GENERIC_ERROR);
