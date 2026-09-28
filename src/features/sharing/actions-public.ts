@@ -13,22 +13,15 @@ import { fail, ok, type Result } from "@/lib/result";
 import { getRequestIp } from "./lib/get-request-ip";
 import { isShareLinkActive } from "./lib/is-share-link-active";
 import { createRateLimiter } from "./lib/rate-limit";
-import { SHARE_AUTH_COOKIE_MAX_AGE_SECONDS, shareAuthCookieName, signShareAuthCookie, verifyShareAuthCookie } from "./lib/share-auth-cookie";
+import { isShareLinkUnlocked, SHARE_AUTH_COOKIE_MAX_AGE_SECONDS, shareAuthCookieName, signShareAuthCookie } from "./lib/share-auth-cookie";
 import { verifySharePassword as checkPasswordHash } from "./lib/share-password";
 import { hashShareToken } from "./lib/share-token";
 import { toggleTaskAtPath, type JSONContentNode } from "./lib/toggle-task-at-path";
-import { findShareLinkByTokenHash, type ShareLinkAuthRow } from "./queries";
+import { findShareLinkByTokenHash } from "./queries";
 import { shareCommentSchema, sharePasswordFormSchema } from "./schemas";
 
 const GENERIC_INVALID = "Link inválido ou expirado.";
 const checkPasswordRateLimit = createRateLimiter(8, 5 * 60 * 1000);
-
-/** Autenticado por senha (sem senha nenhuma, sempre "sim") — usado pelas outras actions públicas antes de qualquer efeito. */
-async function isAuthenticatedForShareLink(shareLink: ShareLinkAuthRow): Promise<boolean> {
-  if (!shareLink.passwordHash) return true;
-  const cookieStore = await cookies();
-  return verifyShareAuthCookie(shareLink.id, cookieStore.get(shareAuthCookieName(shareLink.id))?.value);
-}
 
 /** Formulário de senha do link (3.11) — cookie httpOnly assinado, 12h, escopado ao caminho do próprio token. */
 export async function verifySharePassword(token: string, password: string): Promise<Result<null>> {
@@ -66,7 +59,7 @@ export async function toggleShareChecklistItem(token: string, path: string, chec
   const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
   if (!shareLink || !isShareLinkActive(shareLink)) return fail(GENERIC_INVALID);
   if (shareLink.permission !== "check" || shareLink.resourceType !== "item") return fail("Essa ação não é permitida por esse link.");
-  if (!(await isAuthenticatedForShareLink(shareLink))) return fail("Não autenticado.");
+  if (!(await isShareLinkUnlocked(shareLink))) return fail("Não autenticado.");
 
   const { data: item } = await admin.from("items").select("content").eq("id", shareLink.resourceId).eq("owner_id", shareLink.ownerId).maybeSingle();
   if (!item) return fail("Item não encontrado.");
@@ -95,7 +88,7 @@ export async function submitShareComment(token: string, input: { authorName: str
   const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
   if (!shareLink || !isShareLinkActive(shareLink)) return fail(GENERIC_INVALID);
   if (shareLink.permission !== "comment") return fail("Essa ação não é permitida por esse link.");
-  if (!(await isAuthenticatedForShareLink(shareLink))) return fail("Não autenticado.");
+  if (!(await isShareLinkUnlocked(shareLink))) return fail("Não autenticado.");
 
   const { error } = await admin.from("share_comments").insert({
     owner_id: shareLink.ownerId,
@@ -127,7 +120,7 @@ export async function claimSharePayment(token: string): Promise<Result<null>> {
   const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
   if (!shareLink || !isShareLinkActive(shareLink)) return fail(GENERIC_INVALID);
   if (shareLink.permission !== "settle") return fail("Essa ação não é permitida por esse link.");
-  if (!(await isAuthenticatedForShareLink(shareLink))) return fail("Não autenticado.");
+  if (!(await isShareLinkUnlocked(shareLink))) return fail("Não autenticado.");
 
   const claimedAt = new Date().toISOString();
 

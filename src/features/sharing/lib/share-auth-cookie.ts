@@ -1,4 +1,5 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { hmacSha256Hex, safeEqual } from "@/lib/crypto";
 import { serverEnv } from "@/lib/env";
 
@@ -18,4 +19,16 @@ export function signShareAuthCookie(shareLinkId: string): string {
 export function verifyShareAuthCookie(shareLinkId: string, cookieValue: string | undefined): boolean {
   if (!cookieValue) return false;
   return safeEqual(cookieValue, signShareAuthCookie(shareLinkId));
+}
+
+/**
+ * Link sem senha: liberado. Com senha: só com o cookie assinado que o
+ * `PasswordGate` grava. Tem que valer pra página E pras rotas de arquivo
+ * (anexo, recibo, PDF do relatório) — senão bastava acrescentar o caminho
+ * do arquivo à URL pra pular a senha.
+ */
+export async function isShareLinkUnlocked(shareLink: { id: string; passwordHash: string | null }): Promise<boolean> {
+  if (!shareLink.passwordHash) return true;
+  const cookieStore = await cookies();
+  return verifyShareAuthCookie(shareLink.id, cookieStore.get(shareAuthCookieName(shareLink.id))?.value);
 }
