@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { formatBRL } from "@/lib/money";
 import { confirmImport, fetchLastCsvMapping, previewImport, undoImport, type ImportPreviewRow } from "../actions";
 import { decodeStatementText } from "../lib/decode-statement-text";
+import { detectCsvMapping, isMappingUsable } from "../lib/detect-csv-mapping";
 import { detectStatementFormat } from "../lib/detect-statement-format";
 import { parseOfx } from "../lib/ofx";
 import {
@@ -89,6 +90,12 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
   const sampleRows = useMemo(() => dataLines.slice(headerRowsToSkip, headerRowsToSkip + 3).map((line) => splitCsvLine(line, delimiter)), [dataLines, headerRowsToSkip, delimiter]);
   const columnCount = useMemo(() => sampleRows.reduce((max, r) => Math.max(max, r.length), 0), [sampleRows]);
   const columns = useMemo(() => Array.from({ length: columnCount }, (_, i) => columnOverrides[i] ?? "ignore"), [columnCount, columnOverrides]);
+  const headerNames = useMemo(() => (headerRowsToSkip > 0 && dataLines[headerRowsToSkip - 1] ? splitCsvLine(dataLines[headerRowsToSkip - 1]!, delimiter) : []), [dataLines, headerRowsToSkip, delimiter]);
+  const missingRoles = [
+    !columns.includes("date") && "Data",
+    !columns.includes("description") && "Descrição",
+    !columns.includes("amount") && !columns.includes("debit") && !columns.includes("credit") && "Valor (ou Débito/Crédito)",
+  ].filter(Boolean);
 
   function resetForNewImport() {
     setStep("pick");
@@ -146,16 +153,14 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
       }
 
       const last = accountId ? await fetchLastCsvMapping(accountId) : null;
-      const skip = last?.headerRowsToSkip ?? 1;
-      const delim = last?.delimiter ?? ";";
-      const sampleLine = lines[skip] ?? lines[0] ?? "";
-      const detectedColumnCount = splitCsvLine(sampleLine, delim).length;
+      const detected = detectCsvMapping(text);
+      const mapping: CsvImportMapping | null = detected ? (last && isMappingUsable(last, detected) ? last : detected) : last;
 
-      setDelimiter(delim);
-      setDecimalSeparator(last?.decimalSeparator ?? ",");
-      setDateFormat(last?.dateFormat ?? "dd/MM/yyyy");
-      setHeaderRowsToSkip(skip);
-      setColumnOverrides(last && last.columns.length === detectedColumnCount ? Object.fromEntries(last.columns.map((role, i) => [i, role])) : {});
+      setDelimiter(mapping?.delimiter ?? ";");
+      setDecimalSeparator(mapping?.decimalSeparator ?? ",");
+      setDateFormat(mapping?.dateFormat ?? "dd/MM/yyyy");
+      setHeaderRowsToSkip(mapping?.headerRowsToSkip ?? 1);
+      setColumnOverrides(mapping ? Object.fromEntries(mapping.columns.map((role, i) => [i, role])) : {});
       setStep("mapping");
     } catch (error) {
       unstable_rethrow(error);
@@ -165,7 +170,8 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
 
   function handleMappingContinue() {
     const mapping: CsvImportMapping = { delimiter, decimalSeparator, dateFormat, headerRowsToSkip, columns };
-    const parsed = parseStatementCsv(rawText, mapping);
+    // Rodapé de extrato ("Filtro de resultados…", "Total", linhas `;;;;`) não tem data nem valor — não é lançamento com erro, é só texto do banco.
+    const parsed = parseStatementCsv(rawText, mapping).filter((row) => row.occurredOn !== null || row.amountCents !== null);
     setParsedRows(parsed);
     setCsvMapping(mapping);
     setStep("preview");
@@ -328,6 +334,9 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
           <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(columnCount, 1)}, minmax(120px, 1fr))` }}>
             {Array.from({ length: columnCount }).map((_, index) => (
               <div key={index} className="flex flex-col gap-1">
+                <span className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200" title={headerNames[index]?.trim() || `Coluna ${index + 1}`}>
+                  {headerNames[index]?.trim() || `Coluna ${index + 1}`}
+                </span>
                 <select
                   value={columns[index] ?? "ignore"}
                   onChange={(e) => setColumnOverrides((prev) => ({ ...prev, [index]: e.target.value as CsvColumnRole }))}
@@ -350,12 +359,7 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
             <button
               type="button"
               onClick={handleMappingContinue}
-              disabled={
-                pending ||
-                !columns.includes("date") ||
-                !columns.includes("description") ||
-                (!columns.includes("amount") && !columns.includes("debit") && !columns.includes("credit"))
-              }
+              disabled={pending || missingRoles.length > 0}
               className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
             >
               Continuar
@@ -364,6 +368,11 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
               Cancelar
             </button>
           </div>
+          {missingRoles.length > 0 && (
+            <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+              Pra continuar, escolha qual coluna é: {missingRoles.join(", ")}. Se as colunas aparecem todas juntas numa só, troque o separador.
+            </p>
+          )}
         </div>
       )}
 
