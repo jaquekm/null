@@ -34,7 +34,7 @@ export function buildEditorExtensions(spaceId: string | null, itemId: string) {
       },
     }),
     CodeBlockLowlight.configure({ lowlight }),
-    Placeholder.configure({ placeholder: "Digite / para comandos" }),
+    Placeholder.configure({ placeholder: "Escreva aqui… Digite / para título, lista, tabela, tarefa ou anexo" }),
     // Bloco recolhível (6.8, "Resumir": resumo inserido como bloco recolhível) — `persist: true`
     // grava o estado aberto/fechado no próprio documento, senão reabriria sempre ao recarregar.
     Details.configure({ persist: true }),

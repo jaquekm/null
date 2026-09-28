@@ -16,6 +16,8 @@ declare module "mammoth" {
   }
 
   export function convertToMarkdown(input: { buffer: Buffer }, options?: ConvertToMarkdownOptions): Promise<ConversionResult>;
+  /** HTML preserva as tabelas do Word (o Markdown do mammoth não tem tabela). */
+  export function convertToHtml(input: { buffer: Buffer }, options?: ConvertToMarkdownOptions): Promise<ConversionResult>;
 
   export const images: {
     imgElement: (fn: (element: unknown) => unknown | Promise<unknown>) => ConvertToMarkdownOptions["convertImage"];

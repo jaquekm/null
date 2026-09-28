@@ -293,7 +293,7 @@ export async function commitImport(formData: FormData): Promise<Result<ImportCom
 
   const createdByLocalId = new Map<string, { id: string; doc: JSONContent }>();
   for (const item of itemsToImport) {
-    const doc = markdownToTiptapDoc(item.bodyMarkdown);
+    const doc = item.bodyDoc ?? markdownToTiptapDoc(item.bodyMarkdown);
     const created = await createImportedItem(supabase, {
       ownerId: user.id,
       importBatchId,

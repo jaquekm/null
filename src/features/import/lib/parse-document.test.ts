@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const convertToMarkdownMock = vi.fn();
+const convertToHtmlMock = vi.fn();
 vi.mock("mammoth", () => ({
   default: {
     convertToMarkdown: convertToMarkdownMock,
+    convertToHtml: convertToHtmlMock,
     images: { imgElement: (fn: () => unknown) => fn },
   },
 }));
@@ -36,6 +38,8 @@ describe("sanitizeMammothMarkdown", () => {
 describe("parseDocumentFile", () => {
   beforeEach(() => {
     convertToMarkdownMock.mockReset();
+    convertToHtmlMock.mockReset();
+    convertToHtmlMock.mockResolvedValue({ value: "<p>Texto</p>", messages: [] });
   });
 
   it("um .docx vira um único item, com o título derivado do nome do arquivo", async () => {
@@ -66,9 +70,10 @@ describe("parseDocumentFile", () => {
   });
 
   it("documento sem texto (só imagens) não vira item — avisa que veio vazio", async () => {
-    convertToMarkdownMock.mockImplementation(async (_input, options) => {
+    convertToMarkdownMock.mockResolvedValue({ value: "   \n\n  ", messages: [] });
+    convertToHtmlMock.mockImplementation(async (_input, options) => {
       await options.convertImage({});
-      return { value: "   \n\n  ", messages: [] };
+      return { value: "", messages: [] };
     });
     const file = new File([new Uint8Array([1])], "fotos.docx", {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -81,10 +86,11 @@ describe("parseDocumentFile", () => {
   });
 
   it("avisa quantas imagens foram descartadas, mas ainda cria o item com o texto", async () => {
-    convertToMarkdownMock.mockImplementation(async (_input, options) => {
+    convertToMarkdownMock.mockResolvedValue({ value: "Texto do documento.", messages: [] });
+    convertToHtmlMock.mockImplementation(async (_input, options) => {
       await options.convertImage({});
       await options.convertImage({});
-      return { value: "Texto do documento.", messages: [] };
+      return { value: "<p>Texto do documento.</p>", messages: [] };
     });
     const file = new File([new Uint8Array([1])], "relatorio.docx", {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -94,5 +100,17 @@ describe("parseDocumentFile", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.warnings).toEqual(["2 imagem(ns) do documento não foram importadas — só o texto vira item."]);
+  });
+
+  it("tabela do Word chega como tabela no corpo do item (bodyDoc), não como parágrafos soltos", async () => {
+    convertToMarkdownMock.mockResolvedValue({ value: "Nível\n\nO que fazer", messages: [] });
+    convertToHtmlMock.mockResolvedValue({ value: "<table><tr><td><p>Nível</p></td><td><p>O que fazer</p></td></tr><tr><td><p>0–2</p></td><td><p>Continue</p></td></tr></table>", messages: [] });
+    const file = new File([new Uint8Array([1])], "treino.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    const result = await parseDocumentFile(file);
+
+    expect(result.items[0]!.bodyDoc!.content![0]!.type).toBe("table");
   });
 });

@@ -5,6 +5,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { updateItemContent } from "../../actions";
 import { buildEditorExtensions } from "./extensions";
+import { TableControls } from "./table-controls";
 import { ToolbarBubbleMenu } from "./toolbar-bubble-menu";
 
 const SAVE_DEBOUNCE_MS = 800;
@@ -111,6 +112,7 @@ export function ItemContentEditor({
   return (
     <div className="flex flex-col gap-1">
       <ToolbarBubbleMenu editor={editor} itemId={itemId} />
+      <TableControls editor={editor} />
       <EditorContent editor={editor} />
       <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
         <span>{statusLabel[status]}</span>
