@@ -105,8 +105,16 @@ export async function queryViewItems(supabase: Client, params: QueryViewItemsPar
   if (params.spaceId) query = query.eq("space_id", params.spaceId);
   if (params.typeId) query = query.eq("type_id", params.typeId);
 
+  // "Arquivar" tem que tirar o item das visões — só aparecem se o próprio filtro pedir pelo status (coluna comum, não um campo `status` do tipo).
+  const filtersByLifecycleStatus = params.filters.some((filter) => filter.field === "status" && !fieldByKey.has("status"));
+  if (!filtersByLifecycleStatus) query = query.neq("status", "archived");
+
   for (const filter of params.filters) {
     for (const resolved of resolveFilter(filter, fieldByKey.get(filter.field))) {
+      if (resolved.or) {
+        query = query.or(resolved.or);
+        continue;
+      }
       query = resolved.negate
         ? query.not(resolved.column, resolved.op, resolved.value)
         : query.filter(resolved.column, resolved.op, resolved.value);

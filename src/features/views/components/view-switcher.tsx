@@ -234,7 +234,8 @@ export function ViewSwitcher({
               Excluir
             </button>
           </div>
-          <ItemsView spaceId={spaceId} typeId={typeId ?? undefined} view={activeView} />
+          {/* `key`: ItemsView guarda a config da visão em estado local — sem remontar, trocar de visão manteria os filtros/ordenação da anterior. */}
+          <ItemsView key={`${activeView.id}:${typeId ?? ""}`} spaceId={spaceId} typeId={typeId ?? undefined} view={activeView} />
         </>
       )}
 

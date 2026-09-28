@@ -3,7 +3,7 @@
 import { Plus, X } from "lucide-react";
 import type { FieldDefinition } from "@/features/types/schemas";
 import { FILTER_OPERATOR_LABELS, type FilterOperator, type ViewFilter } from "../schemas";
-import { isCommonField, operatorsForCommonField, operatorsForFieldType } from "../lib/field-operators";
+import { defaultOperatorFor, operatorsForFilterField } from "../lib/field-operators";
 
 const STATUS_OPTIONS = [
   { id: "inbox", label: "Inbox" },
@@ -46,7 +46,8 @@ export function FilterBar({
   function addFilter() {
     const first = filterableFields[0];
     if (!first) return;
-    onChange([...filters, { field: first.key, op: "contains", value: "" }]);
+    const fieldDef = fields.find((field) => field.key === first.key);
+    onChange([...filters, { field: first.key, op: defaultOperatorFor(first.key, fieldDef), value: "" }]);
   }
 
   function removeFilter(index: number) {
@@ -90,17 +91,15 @@ function FilterRow({
   onRemove: () => void;
 }) {
   const fieldDef = fields.find((field) => field.key === filter.field);
-  const operators = isCommonField(filter.field)
-    ? operatorsForCommonField(filter.field)
-    : fieldDef
-      ? operatorsForFieldType(fieldDef.type)
-      : [];
+  const operators = operatorsForFilterField(filter.field, fieldDef);
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <select
         value={filter.field}
-        onChange={(e) => onChange({ field: e.target.value, op: "contains", value: "" })}
+        onChange={(e) =>
+          onChange({ field: e.target.value, op: defaultOperatorFor(e.target.value, fields.find((field) => field.key === e.target.value)), value: "" })
+        }
         className={inputClassName}
       >
         {filterableFields.map((field) => (

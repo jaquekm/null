@@ -44,7 +44,10 @@ export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?
 
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [rows, setRows] = useState<ViewItemRow[]>([]);
+  // Kanban/calendário/linha do tempo copiam `rows` pra estado local (atualização otimista ao arrastar) — sem remontar a cada busca, ignoravam filtros novos.
+  const [rowsVersion, setRowsVersion] = useState(0);
   const [total, setTotal] = useState(0);
+  const [queryError, setQueryError] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
   const [savePending, startSave] = useTransition();
 
@@ -55,7 +58,9 @@ export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?
       const result = await getViewItems({ spaceId, typeId, filters, sort, page, pageSize });
       setFields(result.fields);
       setRows(result.rows);
+      setRowsVersion((v) => v + 1);
       setTotal(result.total);
+      setQueryError(result.error ?? null);
     });
   }, [spaceId, typeId, filters, sort, page, pageSize]);
 
@@ -141,6 +146,11 @@ export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <FilterBar filters={filters} fields={fields} onChange={updateFilters} />
+        {queryError && (
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+            {queryError}
+          </p>
+        )}
         {dirty && (
           <button
             type="button"
@@ -248,17 +258,17 @@ export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?
           onItemSaved={handleItemSaved}
         />
       ) : view.kind === "kanban" && groupField && spaceId && typeId ? (
-        <KanbanView rows={rows} fields={fields} groupField={groupField} spaceId={spaceId} typeId={typeId} sumField={fields.find((f) => f.key === view.config.sumField)} />
+        <KanbanView key={rowsVersion} rows={rows} fields={fields} groupField={groupField} spaceId={spaceId} typeId={typeId} sumField={fields.find((f) => f.key === view.config.sumField)} />
       ) : view.kind === "kanban" ? (
         <p className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
           Escolha um campo de seleção pra agrupar as colunas.
         </p>
       ) : view.kind === "calendar" && dateFieldDef ? (
-        <CalendarView rows={rows} dateField={dateFieldDef} />
+        <CalendarView key={rowsVersion} rows={rows} dateField={dateFieldDef} />
       ) : view.kind === "calendar" ? (
         <p className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">Escolha um campo de data pra posicionar os itens.</p>
       ) : view.kind === "timeline" && startFieldDef && endFieldDef ? (
-        <TimelineView rows={rows} startField={startFieldDef} endField={endFieldDef} groupField={groupField} dependsOnField={dependsOnFieldDef} />
+        <TimelineView key={rowsVersion} rows={rows} startField={startFieldDef} endField={endFieldDef} groupField={groupField} dependsOnField={dependsOnFieldDef} />
       ) : view.kind === "timeline" ? (
         <p className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">Escolha os campos de início e fim.</p>
       ) : view.kind === "gallery" ? (

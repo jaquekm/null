@@ -46,6 +46,25 @@ export function isCommonField(key: string): key is CommonFieldKey {
   return (COMMON_FIELD_KEYS as readonly string[]).includes(key);
 }
 
+/**
+ * Operadores válidos pro campo de um filtro. Um campo próprio do tipo vence a
+ * coluna comum de mesmo nome (mesma regra de `resolveFilterColumn`: vários
+ * packs definem um `status` próprio).
+ */
+export function operatorsForFilterField(key: string, fieldDef?: { type: FieldType }): FilterOperator[] {
+  if (fieldDef) return operatorsForFieldType(fieldDef.type);
+  return isCommonField(key) ? operatorsForCommonField(key) : [];
+}
+
+/**
+ * Operador inicial ao adicionar um filtro ou trocar o campo. Fixar "contém"
+ * pra qualquer campo mandava `ilike` pra colunas de data (`created_at`) — erro
+ * no Postgres, e a página inteira caía em "Algo deu errado".
+ */
+export function defaultOperatorFor(key: string, fieldDef?: { type: FieldType }): FilterOperator {
+  return operatorsForFilterField(key, fieldDef)[0] ?? "eq";
+}
+
 export function operatorsForCommonField(key: CommonFieldKey): FilterOperator[] {
   switch (key) {
     case "title":

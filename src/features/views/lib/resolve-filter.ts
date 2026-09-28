@@ -3,13 +3,39 @@ import type { ViewFilter } from "../schemas";
 import { isCommonField } from "./field-operators";
 
 const NUMERIC_TYPES = new Set<FieldDefinition["type"]>(["number", "percent", "rating", "money", "duration"]);
+/** Tipos guardados como lista JSON em `properties` — "é um de" precisa de "contém", não de `in`. */
+const ARRAY_TYPES = new Set<FieldDefinition["type"]>(["multi_select", "relation", "contact", "file"]);
 
 export interface ResolvedFilter {
   column: string;
-  op: "ilike" | "eq" | "neq" | "gt" | "lt" | "gte" | "lte" | "in" | "is";
+  op: "ilike" | "eq" | "neq" | "gt" | "lt" | "gte" | "lte" | "in" | "is" | "cs";
   value: unknown;
   /** Quando true, a comparação vira uma negação (`.not(column, op, value)`). */
   negate?: boolean;
+  /** Quando presente, o filtro é um OU pronto pro PostgREST (`.or(...)`) e `column/op/value` são ignorados. */
+  or?: string;
+}
+
+/** Mesma regra do `.in()` do postgrest-js: valor com `,` `(` `)` vai entre aspas. */
+function quotePostgrestValue(value: string): string {
+  return /[,()]/.test(value) ? `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : value;
+}
+
+/**
+ * `.filter(col, "in", array)` do supabase-js vira `in.a,b` — sem parênteses,
+ * que o PostgREST rejeita (e a página caía). O `.filter` cru precisa receber
+ * `(a,b)` já montado.
+ */
+function postgrestInList(values: unknown[]): string {
+  return `(${[...new Set(values.map(String))].map(quotePostgrestValue).join(",")})`;
+}
+
+function anyOfArrayField(field: string, values: unknown[]): ResolvedFilter[] {
+  const column = `properties->${field}`;
+  const [only, ...rest] = values;
+  if (only === undefined) return [{ column: `properties->>${field}`, op: "in", value: "()" }];
+  if (rest.length === 0) return [{ column, op: "cs", value: JSON.stringify([only]) }];
+  return [{ column, op: "cs", value: null, or: values.map((v) => `${column}.cs.${quotePostgrestValue(JSON.stringify([v]))}`).join(",") }];
 }
 
 /**
@@ -66,8 +92,11 @@ export function resolveFilter(filter: ViewFilter, fieldDef?: FieldDefinition): R
       return [{ column, op: "is", value: null }];
     case "not_empty":
       return [{ column, op: "is", value: null, negate: true }];
-    case "any_of":
-      return [{ column, op: "in", value: Array.isArray(filter.value) ? filter.value : [] }];
+    case "any_of": {
+      const values = Array.isArray(filter.value) ? filter.value : [];
+      if (fieldDef && ARRAY_TYPES.has(fieldDef.type)) return anyOfArrayField(filter.field, values);
+      return [{ column, op: "in", value: postgrestInList(values) }];
+    }
     default: {
       const exhaustive: never = filter.op;
       throw new Error(`Operador de filtro desconhecido: ${String(exhaustive)}`);

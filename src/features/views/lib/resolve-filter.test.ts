@@ -68,16 +68,35 @@ describe("resolveFilter", () => {
     ]);
   });
 
-  it("any_of vira in com a lista de valores", () => {
+  it("any_of vira in com a lista já entre parênteses (o PostgREST rejeita in.a,b)", () => {
     expect(resolveFilter({ field: "status", op: "any_of", value: ["active", "archived"] })).toEqual([
-      { column: "status", op: "in", value: ["active", "archived"] },
+      { column: "status", op: "in", value: "(active,archived)" },
+    ]);
+  });
+
+  it("any_of: valor com vírgula ou parêntese vai entre aspas, repetido some", () => {
+    expect(resolveFilter({ field: "empresa", op: "any_of", value: ["A, B", "C", "C"] }, textField)).toEqual([
+      { column: "properties->>empresa", op: "in", value: '("A, B",C)' },
     ]);
   });
 
   it("any_of sem array vira lista vazia (não quebra, só não bate com nada)", () => {
     expect(resolveFilter({ field: "status", op: "any_of", value: "active" })).toEqual([
-      { column: "status", op: "in", value: [] },
+      { column: "status", op: "in", value: "()" },
     ]);
+  });
+
+  it("any_of em multi-seleção (lista JSON): um valor vira 'contém'", () => {
+    const multi: FieldDefinition = { key: "tags", label: "Tags", type: "multi_select", required: false };
+    expect(resolveFilter({ field: "tags", op: "any_of", value: ["opt-1"] }, multi)).toEqual([
+      { column: "properties->tags", op: "cs", value: '["opt-1"]' },
+    ]);
+  });
+
+  it("any_of em relação com vários valores vira um OU de 'contém'", () => {
+    const relation: FieldDefinition = { key: "projeto", label: "Projeto", type: "relation", required: false };
+    const [resolved] = resolveFilter({ field: "projeto", op: "any_of", value: ["a", "b"] }, relation);
+    expect(resolved!.or).toBe('properties->projeto.cs.["a"],properties->projeto.cs.["b"]');
   });
 
   it("data (date) usa a coluna sem cast", () => {
