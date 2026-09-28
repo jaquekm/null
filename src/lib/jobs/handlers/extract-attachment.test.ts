@@ -122,6 +122,19 @@ describe("extractAttachment", () => {
     expect(updateCalls.at(-1)).toMatchObject({ extracted_text: "# Título\n\ntexto", extraction_method: "docx" });
   });
 
+  it("docx: limpa o Markdown do mammoth (âncoras <a id>, pontuação escapada, __negrito__) antes de gravar", async () => {
+    convertToMarkdownMock.mockResolvedValue({ value: '### <a id="_x"></a>__Tópico__\n\n- Vale a pena\\. Sim\\-não', messages: [] });
+    const blob = new Blob([new Uint8Array([1, 2, 3])]);
+    const { client, updateCalls } = fakeSupabase({
+      attachment: { ...baseAttachment, mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+      blob,
+    });
+
+    await extractAttachment(fakeJob(), { supabase: client });
+
+    expect(updateCalls.at(-1)).toMatchObject({ extracted_text: "### **Tópico**\n\n- Vale a pena. Sim-não", extraction_method: "docx" });
+  });
+
   it("pdf com camada de texto suficiente: usa o texto direto, sem OCR", async () => {
     extractPdfTextMock.mockResolvedValue({ totalPages: 2, text: "a".repeat(300) }); // 150/página
     const blob = new Blob([new Uint8Array([1, 2, 3])]);

@@ -7,6 +7,7 @@ import { toAnthropicImageMediaType } from "@/features/attachments/lib/anthropic-
 import { chunkPageIndices } from "@/features/attachments/lib/chunk-page-indices";
 import { hasSufficientTextLayer } from "@/features/attachments/lib/pdf-text-layer";
 import { pickExtractionStrategy } from "@/features/attachments/lib/pick-extraction-method";
+import { sanitizeMammothMarkdown } from "@/features/import/lib/parse-document";
 import { isAutoOcrEnabled } from "@/features/settings/queries";
 import { AiBudgetExceededError, AiDisabledError, callClaude } from "@/lib/ai/claude";
 import type { JobHandler } from "../types";
@@ -113,7 +114,7 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
     } else if (strategy === "docx") {
       const buffer = Buffer.from(await fileBlob.arrayBuffer());
       const converted = await mammoth.convertToMarkdown({ buffer });
-      text = converted.value;
+      text = sanitizeMammothMarkdown(converted.value);
       method = "docx";
     } else if (strategy === "pdf") {
       const bytes = new Uint8Array(await fileBlob.arrayBuffer());
