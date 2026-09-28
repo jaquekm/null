@@ -1,3 +1,5 @@
+import type { JSONContent } from "@tiptap/core";
+
 /** Um anexo já resolvido de um item importado — usado só na hora de montar o `.md`/attachments, nunca persistido cru. */
 export interface ParsedImportAttachment {
   fileName: string;
@@ -11,6 +13,8 @@ export interface ParsedImportItem {
   localId: string;
   title: string;
   bodyMarkdown: string;
+  /** Corpo já no formato do editor, quando a origem tem estrutura que o Markdown perderia (tabelas do Word). Tem prioridade sobre `bodyMarkdown`. */
+  bodyDoc?: JSONContent;
   tags: string[];
   /** ISO 8601, quando a origem informa; `null` quando não dá pra saber (a data de criação vira `now()` na hora de gravar). */
   createdAt: string | null;

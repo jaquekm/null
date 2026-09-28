@@ -1,5 +1,7 @@
+import type { JSONContent } from "@tiptap/core";
 import mammoth from "mammoth";
 import type { ParsedImportItem, ParsedImportResult } from "../types";
+import { htmlToTiptapDoc } from "./html-to-tiptap";
 
 const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const BACKSLASH_PLACEHOLDER = "\u0000BACKSLASH\u0000";
@@ -29,7 +31,31 @@ export function sanitizeMammothMarkdown(markdown: string): string {
     .replace(/__([^_]+)__/g, "**$1**");
 }
 
-function buildDocumentImportItem(fileName: string, rawMarkdown: string, imageCount: number): { item: ParsedImportItem | null; warnings: string[] } {
+/** Descarta imagens embutidas (só conta, pra avisar) em vez de viraram base64 gigante no corpo. */
+function discardImages(onImage: () => void) {
+  return mammoth.images.imgElement(() => {
+    onImage();
+    return {};
+  });
+}
+
+/**
+ * `.docx` → documento do editor preservando títulos, listas, negrito,
+ * links e **tabelas** (via HTML). O Markdown do mammoth não tem tabela:
+ * cada célula virava um parágrafo solto.
+ */
+export async function docxToTiptapDoc(buffer: Buffer): Promise<{ doc: JSONContent; imageCount: number }> {
+  let imageCount = 0;
+  const converted = await mammoth.convertToHtml({ buffer }, { convertImage: discardImages(() => imageCount++) });
+  return { doc: htmlToTiptapDoc(converted.value), imageCount };
+}
+
+function buildDocumentImportItem(
+  fileName: string,
+  rawMarkdown: string,
+  imageCount: number,
+  bodyDoc?: JSONContent,
+): { item: ParsedImportItem | null; warnings: string[] } {
   const bodyMarkdown = sanitizeMammothMarkdown(rawMarkdown).trim();
   const warnings: string[] = [];
   if (imageCount > 0) warnings.push(`${imageCount} imagem(ns) do documento não foram importadas — só o texto vira item.`);
@@ -41,7 +67,7 @@ function buildDocumentImportItem(fileName: string, rawMarkdown: string, imageCou
   const tags = [...new Set([...bodyMarkdown.matchAll(/(?:^|\s)#([a-zA-Z0-9_/-]+)/g)].map((m) => m[1]!.toLowerCase()))];
 
   return {
-    item: { localId: "documento-0", title: titleFromFileName(fileName), bodyMarkdown, tags, createdAt: null, updatedAt: null, attachments: [] },
+    item: { localId: "documento-0", title: titleFromFileName(fileName), bodyMarkdown, bodyDoc, tags, createdAt: null, updatedAt: null, attachments: [] },
     warnings,
   };
 }
@@ -59,18 +85,11 @@ export async function parseDocumentFile(file: File): Promise<ParsedImportResult>
     return { items: [], warnings: ["Só arquivos .docx são aceitos nesta origem."] };
   }
 
-  let imageCount = 0;
   const buffer = Buffer.from(await file.arrayBuffer());
-  const converted = await mammoth.convertToMarkdown(
-    { buffer },
-    {
-      convertImage: mammoth.images.imgElement(() => {
-        imageCount++;
-        return {};
-      }),
-    },
-  );
+  // Markdown continua servindo à busca/pré-visualização; o corpo do item vem do HTML (tabelas preservadas).
+  const converted = await mammoth.convertToMarkdown({ buffer }, { convertImage: discardImages(() => {}) });
+  const { doc, imageCount } = await docxToTiptapDoc(buffer);
 
-  const { item, warnings } = buildDocumentImportItem(file.name, converted.value, imageCount);
+  const { item, warnings } = buildDocumentImportItem(file.name, converted.value, imageCount, doc);
   return { items: item ? [item] : [], warnings };
 }

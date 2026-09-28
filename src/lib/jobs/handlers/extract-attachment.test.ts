@@ -17,7 +17,14 @@ const enqueueIndexItemMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/features/ai/lib/enqueue-index", () => ({ enqueueIndexItem: enqueueIndexItemMock }));
 
 const convertToMarkdownMock = vi.fn();
-vi.mock("mammoth", () => ({ default: { convertToMarkdown: convertToMarkdownMock } }));
+const convertToHtmlMock = vi.fn().mockResolvedValue({ value: "<p>texto</p>", messages: [] });
+vi.mock("mammoth", () => ({
+  default: {
+    convertToMarkdown: convertToMarkdownMock,
+    convertToHtml: convertToHtmlMock,
+    images: { imgElement: (fn: () => unknown) => fn },
+  },
+}));
 
 const extractPdfTextMock = vi.fn();
 const getDocumentProxyMock = vi.fn().mockResolvedValue({});
@@ -306,12 +313,16 @@ describe("extractAttachment", () => {
 
   it("docx anexado a item vazio vira o corpo do item (texto editável); item com texto não é tocado", async () => {
     convertToMarkdownMock.mockResolvedValue({ value: "# Treino A\n\n- Supino 4x10" });
+    convertToHtmlMock.mockResolvedValue({ value: "<h1>Treino A</h1><table><tr><td>Exercício</td><td>Séries</td></tr><tr><td>Supino</td><td>4x10</td></tr></table>", messages: [] });
     const docx = { ...baseAttachment, mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", storage_path: "p/a1.docx" };
 
     const empty = fakeSupabase({ attachment: docx, blob: new Blob(["x"]) });
     expect(await extractAttachment(fakeJob(), { supabase: empty.client })).toEqual({ status: "done" });
     expect(empty.itemUpdates).toHaveLength(1);
-    expect(empty.itemUpdates[0]!.content_text).toContain("Supino 4x10");
+    expect(empty.itemUpdates[0]!.content_text).toContain("Supino");
+    // Tabela do Word vira tabela de verdade no corpo, não parágrafos soltos.
+    const content = (empty.itemUpdates[0]!.content as { content: { type: string }[] }).content;
+    expect(content.map((block) => block.type)).toEqual(["heading", "table"]);
 
     const written = fakeSupabase({ attachment: docx, blob: new Blob(["x"]), item: { content_text: "minhas anotações" } });
     await extractAttachment(fakeJob(), { supabase: written.client });

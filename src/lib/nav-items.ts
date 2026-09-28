@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Dumbbell,
   Bell,
   Calendar,
   CalendarCheck,
@@ -45,6 +46,11 @@ const ESTUDOS: NavItem = {
   label: "Estudos",
   icon: GraduationCap,
 };
+const TREINOS: NavItem = {
+  href: "/treinos",
+  label: "Treinos",
+  icon: Dumbbell,
+};
 const CONFIGURACOES: NavItem = {
   href: "/configuracoes",
   label: "Configurações",
@@ -72,6 +78,7 @@ export const NAV_ITEMS: NavItem[] = [
   PERGUNTAR,
   RELATORIOS,
   ESTUDOS,
+  TREINOS,
   REVISAO_SEMANAL,
   ZETTELKASTEN,
   CONFIGURACOES,

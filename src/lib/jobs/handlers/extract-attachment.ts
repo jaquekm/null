@@ -7,13 +7,14 @@ import { toAnthropicImageMediaType } from "@/features/attachments/lib/anthropic-
 import { chunkPageIndices } from "@/features/attachments/lib/chunk-page-indices";
 import { hasSufficientTextLayer } from "@/features/attachments/lib/pdf-text-layer";
 import { pickExtractionStrategy } from "@/features/attachments/lib/pick-extraction-method";
-import { sanitizeMammothMarkdown } from "@/features/import/lib/parse-document";
+import { docxToTiptapDoc, sanitizeMammothMarkdown } from "@/features/import/lib/parse-document";
 import { isAutoOcrEnabled } from "@/features/settings/queries";
 import { AiBudgetExceededError, AiDisabledError, callClaude } from "@/lib/ai/claude";
 import type { JobHandler } from "../types";
 import { markdownToTiptapDoc } from "@/features/items/lib/markdown-to-tiptap";
 import { extractText } from "@/features/items/lib/extract-text";
 import type { Json } from "@/lib/supabase/database.types";
+import type { JSONContent } from "@tiptap/core";
 
 const payloadSchema = z.object({
   attachmentId: z.string().uuid(),
@@ -109,6 +110,8 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
     let text: string;
     let method: "plain" | "docx" | "pdf_text" | "ai_ocr";
     let pageCount: number | null = null;
+    /** Corpo pronto pro editor (docx: com tabelas); quando ausente, vem do texto extraído. */
+    let bodyDoc: JSONContent | undefined;
 
     if (strategy === "plain") {
       const raw = await fileBlob.text();
@@ -119,6 +122,7 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
       const converted = await mammoth.convertToMarkdown({ buffer });
       text = sanitizeMammothMarkdown(converted.value);
       method = "docx";
+      bodyDoc = (await docxToTiptapDoc(buffer)).doc;
     } else if (strategy === "pdf") {
       const bytes = new Uint8Array(await fileBlob.arrayBuffer());
       const pdf = await getDocumentProxy(bytes);
@@ -183,7 +187,7 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
 
     // Anexo avulso (4.8: boleto sem item) — não tem `content_text` de item pra recompor.
     if (attachment.item_id) {
-      if (method === "docx" || method === "plain") await fillEmptyItemBody(supabase, attachment.owner_id, attachment.item_id, text);
+      if (method === "docx" || method === "plain") await fillEmptyItemBody(supabase, attachment.owner_id, attachment.item_id, text, bodyDoc);
       await supabase.rpc("refresh_item_extra_text", { p_item_id: attachment.item_id });
       await enqueueIndexItem(attachment.owner_id, attachment.item_id);
     }
@@ -212,12 +216,18 @@ export const extractAttachment: JobHandler = async (job, { supabase }) => {
  * mexer sem abrir o arquivo. Item que já tem texto não é tocado (o dono
  * escreveu algo; o documento continua como anexo).
  */
-async function fillEmptyItemBody(supabase: Parameters<JobHandler>[1]["supabase"], ownerId: string, itemId: string, text: string): Promise<void> {
+async function fillEmptyItemBody(
+  supabase: Parameters<JobHandler>[1]["supabase"],
+  ownerId: string,
+  itemId: string,
+  text: string,
+  bodyDoc?: JSONContent,
+): Promise<void> {
   if (!text.trim()) return;
   const { data: item } = await supabase.from("items").select("content_text").eq("id", itemId).eq("owner_id", ownerId).maybeSingle();
   if (!item || (item.content_text ?? "").trim()) return;
 
-  const doc = markdownToTiptapDoc(text);
+  const doc = bodyDoc ?? markdownToTiptapDoc(text);
   await supabase
     .from("items")
     .update({ content: doc as unknown as Json, content_text: extractText(doc) })
