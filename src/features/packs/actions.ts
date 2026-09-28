@@ -29,6 +29,7 @@ const typeOverrideSchema = z.object({
 const installInputSchema = z.object({
   file: z.string().min(1),
   spaceId: z.string().uuid().nullable(),
+  newSpaceName: z.string().trim().min(1).max(80).optional(),
   withSamples: z.boolean().default(false),
   typeOverrides: z.record(z.string(), typeOverrideSchema).optional(),
 });
@@ -45,6 +46,7 @@ export async function installPackAction(input: unknown): Promise<Result<InstallP
   const { supabase, user } = await requireOwner();
   const options: InstallPackOptions = {
     spaceId: parsed.data.spaceId,
+    newSpace: parsed.data.newSpaceName ? { name: parsed.data.newSpaceName, icon: entry.pack.icon } : undefined,
     withSamples: parsed.data.withSamples,
     typeOverrides: parsed.data.typeOverrides,
   };
@@ -52,6 +54,8 @@ export async function installPackAction(input: unknown): Promise<Result<InstallP
   if (result.ok) {
     revalidatePath("/configuracoes/metodos");
     revalidatePath("/configuracoes/tipos");
+    // Espaço novo e tipos aparecem na barra lateral e nas abas de todo espaço.
+    revalidatePath("/", "layout");
   }
   return result;
 }

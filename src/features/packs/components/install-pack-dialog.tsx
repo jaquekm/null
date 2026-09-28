@@ -7,6 +7,9 @@ import { installPackAction } from "../actions";
 import type { InstallPackTypeOverride } from "../lib/install";
 import type { Pack } from "../schemas";
 
+const NEW_SPACE = "__novo__";
+const ALL_SPACES = "__todos__";
+
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
 
@@ -24,7 +27,11 @@ export function InstallPackDialog({ file, pack, spaces, missingModules, defaultS
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [spaceId, setSpaceId] = useState(defaultSpaceId ?? "");
+  // Padrão: um espaço novo com o nome do método. "Todos os espaços" era o
+  // padrão e espalhava os tipos por todo espaço (abas repetidas, visões sumidas).
+  const isUpdate = defaultSpaceId !== undefined;
+  const [spaceId, setSpaceId] = useState(isUpdate ? (defaultSpaceId ?? ALL_SPACES) : NEW_SPACE);
+  const [newSpaceName, setNewSpaceName] = useState(pack.name);
   const [withSamples, setWithSamples] = useState(pack.sampleItems.length > 0);
   const [customize, setCustomize] = useState(false);
   const [typeOverrides, setTypeOverrides] = useState<Record<string, InstallPackTypeOverride>>({});
@@ -48,7 +55,8 @@ export function InstallPackDialog({ file, pack, spaces, missingModules, defaultS
     startTransition(async () => {
       const result = await installPackAction({
         file,
-        spaceId: spaceId || null,
+        spaceId: spaceId === NEW_SPACE || spaceId === ALL_SPACES ? null : spaceId,
+        newSpaceName: spaceId === NEW_SPACE ? newSpaceName.trim() : undefined,
         withSamples,
         typeOverrides: customize ? typeOverrides : undefined,
       });
@@ -76,16 +84,29 @@ export function InstallPackDialog({ file, pack, spaces, missingModules, defaultS
 
         <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-200">
           Espaço
-          <select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} className={inputClassName}>
-            <option value="">Todos os espaços</option>
+          <select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} disabled={isUpdate} className={inputClassName}>
+            {!isUpdate && <option value={NEW_SPACE}>Criar espaço novo</option>}
             {spaces.map((space) => (
               <option key={space.id} value={space.id}>
                 {space.icon ? `${space.icon} ` : ""}
                 {space.name}
               </option>
             ))}
+            <option value={ALL_SPACES}>Todos os espaços (tipos aparecem em todos)</option>
           </select>
         </label>
+
+        {spaceId === NEW_SPACE && (
+          <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-200">
+            Nome do espaço
+            <input value={newSpaceName} onChange={(event) => setNewSpaceName(event.target.value)} maxLength={80} className={inputClassName} />
+          </label>
+        )}
+        {spaceId === ALL_SPACES && !isUpdate && (
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            Os tipos deste método vão aparecer como abas em todos os espaços. Se quer só num lugar, escolha um espaço.
+          </p>
+        )}
 
         {pack.sampleItems.length > 0 && (
           <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
@@ -152,7 +173,7 @@ export function InstallPackDialog({ file, pack, spaces, missingModules, defaultS
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={pending || blocked}
+            disabled={pending || blocked || (spaceId === NEW_SPACE && !newSpaceName.trim())}
             className="bg-foreground text-background rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
           >
             {pending ? "Instalando..." : "Instalar"}

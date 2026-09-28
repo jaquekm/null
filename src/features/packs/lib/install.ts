@@ -34,6 +34,8 @@ export interface InstallPackTypeOverride {
 
 export interface InstallPackOptions {
   spaceId: string | null;
+  /** Cria (ou reaproveita, por slug) um espaço com este nome e instala nele — ignora `spaceId`. */
+  newSpace?: { name: string; icon?: string };
   withSamples?: boolean;
   typeOverrides?: Record<string, InstallPackTypeOverride>;
 }
@@ -133,6 +135,11 @@ async function ensureSpace(supabase: Client, userId: string, packSpace: PackSpac
     if (error && error.code !== UNIQUE_VIOLATION) return null;
   }
   return null;
+}
+
+async function nextSpacePositionFor(supabase: Client, userId: string): Promise<number> {
+  const { data } = await supabase.from("spaces").select("position").eq("owner_id", userId).order("position", { ascending: false }).limit(1).maybeSingle();
+  return (data?.position ?? -1) + 1;
 }
 
 function resolveField(
@@ -328,9 +335,25 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
     return fail(`Ative primeiro em Configurações: ${missing.join(", ")}.`);
   }
 
-  let existingQuery = supabase.from("packs_installed").select("id, mapping, version").eq("owner_id", userId).eq("pack_key", pack.key);
-  existingQuery = options.spaceId ? existingQuery.eq("space_id", options.spaceId) : existingQuery.is("space_id", null);
-  const { data: existingRow } = await existingQuery.maybeSingle();
+  let targetSpaceId = options.spaceId;
+  if (options.newSpace) {
+    const space = await ensureSpace(supabase, userId, { ref: "destino", name: options.newSpace.name, icon: options.newSpace.icon }, undefined, await nextSpacePositionFor(supabase, userId));
+    if (!space) return fail(`Não foi possível criar o espaço "${options.newSpace.name}".`);
+    targetSpaceId = space.id;
+  }
+
+  const { data: installs } = await supabase.from("packs_installed").select("id, mapping, version, space_id").eq("owner_id", userId).eq("pack_key", pack.key);
+  const existingRow = (installs ?? []).find((row) => row.space_id === targetSpaceId) ?? null;
+  // Global + por espaço ao mesmo tempo duplicava todos os tipos (os globais
+  // aparecem em todo espaço, ao lado dos do espaço, com o mesmo nome).
+  const conflicting = (installs ?? []).find((row) => row !== existingRow && (row.space_id === null || targetSpaceId === null));
+  if (conflicting) {
+    return fail(
+      conflicting.space_id === null
+        ? "Este método já está instalado em todos os espaços. Desinstale essa instalação antes de instalar num espaço específico."
+        : "Este método já está instalado num espaço. Desinstale lá antes de instalar em todos os espaços, ou escolha um espaço.",
+    );
+  }
 
   const mapping: PackMapping = (existingRow?.mapping as unknown as PackMapping | null) ?? emptyPackMapping();
   // Compatibilidade com instalações gravadas antes de `spaces` existir no mapeamento (5.11).
@@ -353,7 +376,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
       userId,
       packType,
       pack.key,
-      options.spaceId,
+      targetSpaceId,
       mapping.types[packType.ref],
       options.typeOverrides?.[packType.ref],
       nextPosition,
@@ -381,8 +404,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
 
   let spacesCreated = 0;
   const spaceIdByRef: Record<string, string> = {};
-  const { data: lastSpace } = await supabase.from("spaces").select("position").eq("owner_id", userId).order("position", { ascending: false }).limit(1).maybeSingle();
-  let nextSpacePosition = (lastSpace?.position ?? -1) + 1;
+  let nextSpacePosition = await nextSpacePositionFor(supabase, userId);
   for (const packSpace of pack.spaces) {
     const result = await ensureSpace(supabase, userId, packSpace, mapping.spaces[packSpace.ref], nextSpacePosition);
     if (!result) return fail(`Não foi possível criar o espaço "${packSpace.name}".`);
@@ -396,7 +418,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
 
   let viewsCreated = 0;
   for (const packView of pack.views) {
-    const result = await ensureView(supabase, userId, packView, options.spaceId, typeIdByRef, mapping.views[packView.ref]);
+    const result = await ensureView(supabase, userId, packView, targetSpaceId, typeIdByRef, mapping.views[packView.ref]);
     if (result) {
       mapping.views[packView.ref] = result.id;
       if (result.created) viewsCreated += 1;
@@ -406,7 +428,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
   let automationsCreated = 0;
   for (const [index, automation] of pack.automations.entries()) {
     const ref = automation.ref ?? (fieldKeyFromLabel(automation.name) || `automacao_${index}`);
-    const result = await ensureAutomation(supabase, userId, pack.key, automation, options.spaceId, typeIdByRef, spaceIdByRef, mapping.automations[ref]);
+    const result = await ensureAutomation(supabase, userId, pack.key, automation, targetSpaceId, typeIdByRef, spaceIdByRef, mapping.automations[ref]);
     if (result) {
       mapping.automations[ref] = result.id;
       if (result.created) automationsCreated += 1;
@@ -423,7 +445,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
     }
   }
 
-  const sampleItemsCreated = options.withSamples ? await createSampleItems(supabase, userId, options.spaceId, pack.sampleItems, typeIdByRef) : 0;
+  const sampleItemsCreated = options.withSamples ? await createSampleItems(supabase, userId, targetSpaceId, pack.sampleItems, typeIdByRef) : 0;
 
   if (existingRow) {
     const { error } = await supabase
@@ -437,7 +459,7 @@ export async function installPack(supabase: Client, userId: string, pack: Pack, 
       owner_id: userId,
       pack_key: pack.key,
       version: pack.version,
-      space_id: options.spaceId,
+      space_id: targetSpaceId,
       mapping: mapping as unknown as Json,
     });
     if (error) return fail("Pack instalado, mas não foi possível salvar o registro de instalação.");
