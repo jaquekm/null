@@ -85,4 +85,11 @@ describe("emitTagAddedEvent", () => {
       payload: { event: { type: "tag_added", tag: "urgente" }, itemId: "item-1" },
     });
   });
+
+  it("evento de campo preenchido pela 1ª vez (sem valor anterior) passa na validação do job", async () => {
+    const { runAutomationsPayloadSchema } = await import("../schemas");
+    // Como o payload chega do banco: `from: undefined` some no JSON.
+    const payload = JSON.parse(JSON.stringify({ depth: 0, event: { type: "property_changed", field: "status", to: "revisao", from: undefined }, itemId: "i", chainId: "c" }));
+    expect(runAutomationsPayloadSchema.safeParse(payload).success).toBe(true);
+  });
 });

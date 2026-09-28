@@ -106,7 +106,7 @@ export type AutomationInput = z.infer<typeof automationInputSchema>;
  */
 export const automationEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("item_created") }),
-  z.object({ type: z.literal("property_changed"), field: z.string(), to: z.unknown(), from: z.unknown() }),
+  z.object({ type: z.literal("property_changed"), field: z.string(), to: z.unknown().optional(), from: z.unknown().optional() }),
   z.object({ type: z.literal("status_changed"), to: z.string() }),
   z.object({ type: z.literal("tag_added"), tag: z.string() }),
 ]);
