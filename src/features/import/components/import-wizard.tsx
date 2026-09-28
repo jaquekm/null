@@ -27,6 +27,7 @@ type WizardSource = ImportSource | "ics";
 type Step = "source" | "file" | "destination" | "review" | "done";
 
 const SOURCE_OPTIONS: { source: WizardSource; label: string; hint: string; accept: string }[] = [
+  { source: "documento", label: "Documento (.docx)", hint: "um arquivo do Word — vira um item editável com o texto dele", accept: ".docx" },
   { source: "evernote", label: "Evernote", hint: "arquivo .enex exportado do Evernote", accept: ".enex" },
   { source: "obsidian", label: "Obsidian / Markdown", hint: "uma nota .md, ou um .zip com o vault inteiro", accept: ".md,.zip" },
   { source: "google_keep", label: "Google Keep", hint: "Google Takeout — um .json ou o .zip do Takeout", accept: ".json,.zip" },

@@ -23,4 +23,4 @@ export interface ParsedImportResult {
   warnings: string[];
 }
 
-export type ImportSource = "evernote" | "obsidian" | "google_keep";
+export type ImportSource = "evernote" | "obsidian" | "google_keep" | "documento";
