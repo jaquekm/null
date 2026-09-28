@@ -47,6 +47,7 @@ export async function runJob(
     .eq("id", job.id);
 
   if (transition.status === "failed") {
+    await releaseLinkedRecord(supabase, job, transition.lastError ?? "Falhou.");
     const preferences = await getOwnerNotificationPreferences(supabase, job.owner_id);
     if (preferences.jobFailures) {
       await notifyOwner(job.owner_id, {
@@ -54,5 +55,29 @@ export async function runJob(
         text: `"${job.kind}" esgotou as tentativas: ${transition.lastError ?? "erro desconhecido"}.`,
       });
     }
+  }
+}
+
+/**
+ * Job que desistiu de vez não pode deixar o registro que ele ia resolver
+ * preso em "processando" na tela (transcrição, extração de texto) — o
+ * handler só marca isso nos caminhos que ele próprio prevê; exceção,
+ * tempo esgotado e tentativas esgotadas caem aqui.
+ */
+async function releaseLinkedRecord(supabase: SupabaseClient<Database>, job: Job, error: string): Promise<void> {
+  const payload = (job.payload ?? {}) as Record<string, unknown>;
+  if ((job.kind === "transcribe_audio" || job.kind === "poll_transcription") && typeof payload.transcriptId === "string") {
+    await supabase
+      .from("transcripts")
+      .update({ status: "failed", error })
+      .eq("id", payload.transcriptId)
+      .in("status", ["queued", "processing"]);
+  }
+  if (job.kind === "extract_attachment" && typeof payload.attachmentId === "string") {
+    await supabase
+      .from("attachments")
+      .update({ extraction_status: "failed" })
+      .eq("id", payload.attachmentId)
+      .in("extraction_status", ["queued", "processing"]);
   }
 }

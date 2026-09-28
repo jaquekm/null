@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tables } from "@/lib/supabase/database.types";
 
 vi.mock("@/lib/env", () => ({ serverEnv: { OWNER_EMAIL: "dono@example.com" } }));
@@ -40,7 +40,20 @@ interface FakeState {
   contacts?: Record<string, unknown>[];
   deliveriesLast24h?: number;
   insertError?: { code: string } | null;
+  item?: { status: string; deleted_at: string | null } | null;
 }
+
+const optedInContact = {
+  id: "contact-1",
+  name: "Beatriz Souza",
+  nickname: "Bia",
+  phone_e164: "+5511999998888",
+  email: null,
+  preferred_channel: "whatsapp",
+  whatsapp_opt_in: true,
+  email_opt_in: false,
+  opted_out_at: null,
+};
 
 function fakeSupabase(state: FakeState = {}) {
   const inserted: Record<string, unknown>[] = [];
@@ -49,6 +62,9 @@ function fakeSupabase(state: FakeState = {}) {
 
   const client = {
     from: (table: string) => {
+      if (table === "items") {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: state.item ?? null }) }) }) };
+      }
       if (table === "contacts") {
         return { select: () => ({ eq: () => ({ in: () => Promise.resolve({ data: state.contacts ?? [] }) }) }) };
       }
@@ -98,6 +114,13 @@ describe("dispatchReminderOccurrence", () => {
   beforeEach(() => {
     getMessageChannelMock.mockReset();
     getMessageChannelMock.mockReturnValue(null);
+    // O job roda logo depois da ocorrência padrão (`send_at` do fakeReminder).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T15:00:30.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("contato com opt-in e telefone: entrega pendente, depois 'failed' (canal ainda não configurado, 3.9)", async () => {
@@ -277,8 +300,8 @@ describe("dispatchReminderOccurrence", () => {
     expect(inserted[0]).toMatchObject({ destination: "dono@example.com" });
   });
 
-  it("horário silencioso: entrega 'skipped' com motivo quiet_hours", async () => {
-    const { client, inserted } = fakeSupabase({
+  it("horário silencioso na hora do envio: adia a ocorrência pras 8h, sem registrar entrega", async () => {
+    const { client, inserted, reminderUpdates } = fakeSupabase({
       contacts: [
         {
           id: "contact-1",
@@ -294,8 +317,53 @@ describe("dispatchReminderOccurrence", () => {
       ],
     });
 
-    await dispatchReminderOccurrence(client, "owner-1", fakeReminder({ send_at: "2026-01-16T01:00:00.000Z" })); // 22:00 local
-    expect(inserted[0]).toMatchObject({ skip_reason: "quiet_hours" });
+    vi.setSystemTime(new Date("2026-01-16T01:00:30.000Z")); // 22:00 local
+    const result = await dispatchReminderOccurrence(client, "owner-1", fakeReminder({ send_at: "2026-01-16T01:00:00.000Z" }));
+    expect(result).toEqual({ sent: 0, failed: 0, skipped: 0 });
+    expect(inserted).toHaveLength(0);
+    expect(reminderUpdates[0]).toEqual({ send_at: "2026-01-16T11:00:00.000Z" }); // 8:00 local do dia seguinte
+  });
+
+  it("job atrasado: ocorrência às 20h processada às 23h também é adiada (antes ia às 23h)", async () => {
+    const { client, inserted, reminderUpdates } = fakeSupabase({ contacts: [optedInContact] });
+    vi.setSystemTime(new Date("2026-01-16T02:00:00.000Z")); // 23:00 local
+    await dispatchReminderOccurrence(client, "owner-1", fakeReminder({ send_at: "2026-01-15T23:00:00.000Z" })); // 20:00 local
+    expect(inserted).toHaveLength(0);
+    expect(reminderUpdates[0]).toEqual({ send_at: "2026-01-16T11:00:00.000Z" });
+  });
+
+  it("contato com ocorrência atrasada mais de 24h: não envia (too_late), e o recorrente pula pro futuro", async () => {
+    const { client, inserted, reminderUpdates } = fakeSupabase({ contacts: [optedInContact] });
+    vi.setSystemTime(new Date("2026-01-20T15:30:00.000Z")); // 5 dias depois, 12:30 local
+    const result = await dispatchReminderOccurrence(
+      client,
+      "owner-1",
+      fakeReminder({ rrule: "DTSTART:20260115T120000Z\nRRULE:FREQ=DAILY" }),
+    );
+    expect(result).toEqual({ sent: 0, failed: 0, skipped: 1 });
+    expect(inserted[0]).toMatchObject({ status: "skipped", skip_reason: "too_late" });
+    expect(reminderUpdates[0]).toMatchObject({ send_at: "2026-01-21T15:00:00.000Z" });
+  });
+
+  it("dono com lembrete diário atrasado 10 dias: envia uma vez e a próxima é amanhã (sem rajada de 10)", async () => {
+    getMessageChannelMock.mockReturnValue({ send: vi.fn().mockResolvedValue({ providerMessageId: "push-1" }) });
+    const { client, reminderUpdates } = fakeSupabase();
+    vi.setSystemTime(new Date("2026-01-25T16:00:00.000Z"));
+    const result = await dispatchReminderOccurrence(
+      client,
+      "owner-1",
+      fakeReminder({ recipient_type: "me", contact_ids: [], channel: "push", rrule: "DTSTART:20260115T120000Z\nRRULE:FREQ=DAILY" }),
+    );
+    expect(result.sent).toBe(1);
+    expect(reminderUpdates[0]).toMatchObject({ send_at: "2026-01-26T15:00:00.000Z" });
+  });
+
+  it("lembrete de item arquivado ou na lixeira: cancela sem enviar", async () => {
+    const { client, inserted, reminderUpdates } = fakeSupabase({ contacts: [optedInContact], item: { status: "archived", deleted_at: null } });
+    const result = await dispatchReminderOccurrence(client, "owner-1", fakeReminder({ item_id: "item-1" }));
+    expect(result).toEqual({ sent: 0, failed: 0, skipped: 0 });
+    expect(inserted).toHaveLength(0);
+    expect(reminderUpdates[0]).toEqual({ status: "canceled" });
   });
 
   it("limite diário (3 nas últimas 24h): entrega 'skipped' com motivo rate_limit", async () => {

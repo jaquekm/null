@@ -60,4 +60,17 @@ describe("decideDelivery", () => {
   it("limite diário não se aplica ao dono", () => {
     expect(decideDelivery(baseInput({ deliveriesLast24h: 10, isThirdParty: false }))).toEqual({ allowed: true });
   });
+
+  it("horário silencioso vale na hora real do envio (sendAt), não na da ocorrência", () => {
+    const occurrenceAt = new Date("2026-01-15T23:00:00.000Z"); // 20:00 local
+    const sendAt = new Date("2026-01-16T01:30:00.000Z"); // 22:30 local
+    expect(decideDelivery(baseInput({ occurrenceAt, sendAt }))).toEqual({ allowed: false, reason: "quiet_hours" });
+  });
+
+  it("terceiro com mais de 24h de atraso: too_late; o dono ainda recebe", () => {
+    const occurrenceAt = new Date("2026-01-15T15:00:00.000Z");
+    const sendAt = new Date("2026-01-16T15:00:01.000Z");
+    expect(decideDelivery(baseInput({ occurrenceAt, sendAt }))).toEqual({ allowed: false, reason: "too_late" });
+    expect(decideDelivery(baseInput({ occurrenceAt, sendAt, isThirdParty: false }))).toEqual({ allowed: true });
+  });
 });

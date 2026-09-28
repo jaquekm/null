@@ -26,6 +26,7 @@ const SKIP_REASON_LABELS: Record<string, string> = {
   quiet_hours: "Horário silencioso",
   no_destination: "Sem destino cadastrado",
   rate_limit: "Limite diário atingido",
+  too_late: "Atrasado mais de 24h — não enviado",
 };
 
 function formatDateTime(iso: string, timezone: string): string {

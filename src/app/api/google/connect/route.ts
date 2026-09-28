@@ -11,20 +11,32 @@ import { OAUTH_STATE_COOKIE, OAUTH_STATE_MAX_AGE_SECONDS, signOAuthStateCookie }
  * Google. `access_type=offline` + `prompt=consent` (em `buildAuthorizationUrl`)
  * garantem um `refresh_token` mesmo se o dono já tiver autorizado antes.
  */
-export async function GET() {
+export async function GET(request: Request) {
   await requireOwner();
 
-  const state = generateState();
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = computeCodeChallengeS256(codeVerifier);
+  // Sem GOOGLE_CLIENT_ID/SECRET (ou chave de assinatura) configurados, isto
+  // estourava e a tela mostrava um erro 500 genérico.
+  let authorizationUrl: string;
+  let stateCookie: string;
+
+  try {
+    const state = generateState();
+    const codeVerifier = generateCodeVerifier();
+    authorizationUrl = buildAuthorizationUrl({ state, codeChallenge: computeCodeChallengeS256(codeVerifier) });
+    stateCookie = signOAuthStateCookie({ state, codeVerifier });
+  } catch {
+    const url = new URL("/configuracoes/integracoes", request.url);
+    url.searchParams.set("erro", "A integração com o Google ainda não está configurada no servidor (faltam GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET na Vercel).");
+    return NextResponse.redirect(url);
+  }
 
   const cookieStore = await cookies();
-  cookieStore.set(OAUTH_STATE_COOKIE, signOAuthStateCookie({ state, codeVerifier }), {
+  cookieStore.set(OAUTH_STATE_COOKIE, stateCookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: OAUTH_STATE_MAX_AGE_SECONDS,
   });
 
-  return NextResponse.redirect(buildAuthorizationUrl({ state, codeChallenge }));
+  return NextResponse.redirect(authorizationUrl);
 }

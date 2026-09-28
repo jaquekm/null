@@ -3,9 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { serverEnv } from "@/lib/env";
 import { getMessageChannel, type MessageChannelKind } from "@/lib/messaging";
 import type { Database, Tables } from "@/lib/supabase/database.types";
-import { decideDelivery } from "./delivery-rules";
+import { decideDelivery, MAX_LATENESS_THIRD_PARTY_MS } from "./delivery-rules";
 import { nextOccurrence } from "./recurrence";
-import { applyQuietHours } from "./quiet-hours";
+import { formatInTimeZone } from "date-fns-tz";
+import { applyQuietHours, isWithinQuietHours } from "./quiet-hours";
 import { buildTemplateVars, renderTemplate } from "./render-template";
 
 type Client = SupabaseClient<Database>;
@@ -66,6 +67,8 @@ async function countDeliveriesLast24h(supabase: Client, ownerId: string, contact
 export interface DispatchOccurrenceOptions {
   /** "Enviar agora" (manual): ignora o horário silencioso, mas mantém opt-out/destino/limite diário. */
   bypassQuietHours?: boolean;
+  /** Relógio (testes). */
+  now?: Date;
 }
 
 export interface DispatchOccurrenceResult {
@@ -91,7 +94,31 @@ export async function dispatchReminderOccurrence(
   options: DispatchOccurrenceOptions = {},
 ): Promise<DispatchOccurrenceResult> {
   const occurrenceAt = new Date(reminder.send_at);
+  const now = options.now ?? new Date();
   const isThirdParty = reminder.recipient_type === "contacts";
+  const empty: DispatchOccurrenceResult = { sent: 0, failed: 0, skipped: 0 };
+
+  // Lembrete de um item que foi pra lixeira ou arquivado não dispara mais.
+  if (reminder.item_id) {
+    const { data: item } = await supabase.from("items").select("status, deleted_at").eq("id", reminder.item_id).maybeSingle();
+    if (item && (item.deleted_at || item.status === "archived")) {
+      await supabase.from("reminders").update({ status: "canceled" }).eq("id", reminder.id);
+      return empty;
+    }
+  }
+
+  // Pra contatos, o horário silencioso vale na hora real do envio: se o job
+  // chegou atrasado e já é noite, adia a mesma ocorrência pras 8h em vez de
+  // mandar às 23h (ou descartar de vez, como antes).
+  if (isThirdParty && !options.bypassQuietHours && now >= occurrenceAt) {
+    const hourNow = Number(formatInTimeZone(now, reminder.timezone, "H"));
+    const tooLate = now.getTime() - occurrenceAt.getTime() > MAX_LATENESS_THIRD_PARTY_MS;
+    if (!tooLate && isWithinQuietHours(hourNow)) {
+      const postponed = applyQuietHours(now, reminder.timezone);
+      await supabase.from("reminders").update({ send_at: postponed.toISOString() }).eq("id", reminder.id);
+      return empty;
+    }
+  }
 
   let recipients: Recipient[];
   if (isThirdParty) {
@@ -128,6 +155,7 @@ export async function dispatchReminderOccurrence(
       channelOptIn,
       destination,
       occurrenceAt,
+      sendAt: now,
       timezone: reminder.timezone,
       deliveriesLast24h,
       bypassQuietHours: options.bypassQuietHours,
@@ -194,15 +222,19 @@ export async function dispatchReminderOccurrence(
     }
   }
 
-  let next = reminder.rrule ? nextOccurrence(reminder.rrule, reminder.timezone, occurrenceAt) : null;
+  // A próxima ocorrência é a primeira depois de AGORA, não depois da que acabou
+  // de ser processada: com o cron parado por dias, um lembrete diário
+  // mandava uma mensagem por minuto até alcançar o presente.
+  const nextAfter = now > occurrenceAt ? now : occurrenceAt;
+  let next = reminder.rrule ? nextOccurrence(reminder.rrule, reminder.timezone, nextAfter) : null;
   if (next && isThirdParty) next = applyQuietHours(next, reminder.timezone);
   if (next && reminder.ends_at && next > new Date(reminder.ends_at)) next = null;
 
-  const now = new Date().toISOString();
+  const sentAt = now.toISOString();
   if (next) {
-    await supabase.from("reminders").update({ send_at: next.toISOString(), last_sent_at: now }).eq("id", reminder.id);
+    await supabase.from("reminders").update({ send_at: next.toISOString(), last_sent_at: sentAt }).eq("id", reminder.id);
   } else {
-    await supabase.from("reminders").update({ status: "completed", last_sent_at: now }).eq("id", reminder.id);
+    await supabase.from("reminders").update({ status: "completed", last_sent_at: sentAt }).eq("id", reminder.id);
   }
 
   return result;
