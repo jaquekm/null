@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { importCsvContacts, type ImportSummary } from "../actions";
+import { readFileText } from "@/lib/csv";
 import { parseCsv, type ParsedCsv } from "../lib/parse-csv";
 import { CSV_COLUMN_LABELS, csvColumnKeys, type CsvColumnKey } from "../schemas";
 
@@ -16,7 +17,7 @@ export function ImportCsvDialog({ spaces, onClose, onImported }: { spaces: Sideb
   const [pending, startTransition] = useTransition();
 
   async function handleFile(file: File) {
-    const text = await file.text();
+    const text = await readFileText(file);
     const result = parseCsv(text);
     setParsed(result);
     // tenta adivinhar o mapeamento pelo nome do cabeçalho, senão "ignorar".

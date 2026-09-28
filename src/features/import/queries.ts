@@ -1,4 +1,5 @@
 import "server-only";
+import { importFingerprint } from "./lib/import-fingerprint";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -155,16 +156,26 @@ export async function getImportBatch(supabase: Client, ownerId: string, id: stri
  * dono mexeu nele depois — e a segunda passada de `[[wikilinks]]` também
  * grava um `update` a mais durante o próprio commit, antes do lote existir.
  */
-export async function undoItemImportBatch(supabase: Client, ownerId: string, batchId: string, batchCreatedAt: string): Promise<{ removed: number; kept: number }> {
+export async function undoItemImportBatch(
+  supabase: Client,
+  ownerId: string,
+  batchId: string,
+  batchCreatedAt: string,
+  fingerprints: Record<string, string> | null = null,
+): Promise<{ removed: number; kept: number }> {
   const { data: items, error } = await supabase
     .from("items")
-    .select("id, updated_at")
+    .select("id, updated_at, title, content_text, properties, space_id, type_id, status")
     .eq("owner_id", ownerId)
     .is("deleted_at", null)
     .contains("properties", { _import_id: batchId });
   if (error) throw error;
 
-  const untouched = (items ?? []).filter((item) => item.updated_at <= batchCreatedAt).map((item) => item.id);
+  // Lotes novos guardam a impressão digital de cada item (ver `importFingerprint`);
+  // lotes antigos caem no critério de `updated_at`.
+  const isUntouched = (item: NonNullable<typeof items>[number]) =>
+    fingerprints ? fingerprints[item.id] === importFingerprint(item) : item.updated_at <= batchCreatedAt;
+  const untouched = (items ?? []).filter(isUntouched).map((item) => item.id);
   const kept = (items ?? []).length - untouched.length;
 
   if (untouched.length > 0) {
@@ -172,7 +183,8 @@ export async function undoItemImportBatch(supabase: Client, ownerId: string, bat
     if (deleteError) throw deleteError;
   }
 
-  await supabase.from("import_batches").update({ status: "undone" }).eq("owner_id", ownerId).eq("id", batchId);
+  const { error: batchError } = await supabase.from("import_batches").update({ status: "undone" }).eq("owner_id", ownerId).eq("id", batchId);
+  if (batchError) throw batchError;
 
   return { removed: untouched.length, kept };
 }
@@ -242,4 +254,16 @@ export async function undoIcsImportBatch(supabase: Client, ownerId: string, batc
 
   await supabase.from("import_batches").update({ status: "undone" }).eq("owner_id", ownerId).eq("id", batch.id);
   return count ?? eventIds.length;
+}
+
+/** Impressão digital de cada item do lote, lida do banco depois de gravar tudo (mesma normalização de jsonb que o "desfazer" vai ver). */
+export async function fingerprintImportedItems(supabase: Client, ownerId: string, itemIds: string[]): Promise<Record<string, string>> {
+  if (itemIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, title, content_text, properties, space_id, type_id, status")
+    .eq("owner_id", ownerId)
+    .in("id", itemIds);
+  if (error) throw error;
+  return Object.fromEntries((data ?? []).map((item) => [item.id, importFingerprint(item)]));
 }

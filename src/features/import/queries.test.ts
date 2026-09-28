@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FakeSupabase } from "@/lib/testing/fake-supabase";
-import { bulkUpsertTags, ensureImportedCalendar, getImportBatch, saveImportBatch, undoIcsImportBatch, undoItemImportBatch } from "./queries";
+import { bulkUpsertTags, ensureImportedCalendar, fingerprintImportedItems, getImportBatch, saveImportBatch, undoIcsImportBatch, undoItemImportBatch } from "./queries";
 
 const OWNER_ID = "owner-1";
 const BATCH_ID = "batch-1";
@@ -45,6 +45,33 @@ describe("undoItemImportBatch", () => {
 
     const result = await undoItemImportBatch(fake as never, OWNER_ID, BATCH_ID, "2026-01-10T00:00:00.000Z");
     expect(result).toEqual({ removed: 1, kept: 0 });
+  });
+
+  it("com impressão digital: job do sistema que só mexeu em updated_at não impede remover; edição do dono sim", async () => {
+    const fake = new FakeSupabase();
+    const row = (id: string) => ({
+      id,
+      owner_id: OWNER_ID,
+      deleted_at: null,
+      updated_at: "2026-01-10T00:00:00.000Z",
+      title: "Nota",
+      content_text: "texto",
+      properties: { _import_id: BATCH_ID },
+      space_id: "s1",
+      type_id: null,
+      status: "active",
+    });
+    fake.seed("items", [row("item-ocr"), row("item-edited")]);
+    const fingerprints = await fingerprintImportedItems(fake as never, OWNER_ID, ["item-ocr", "item-edited"]);
+    await saveImportBatch(fake as never, { ownerId: OWNER_ID, id: BATCH_ID, source: "documento", itemsCreated: 2, itemsSkipped: 0 });
+
+    // extração de texto do anexo rodou depois (só updated_at mudou); o dono editou o título do outro.
+    fake.rowsOf("items").find((i) => i.id === "item-ocr")!.updated_at = "2026-01-10T00:05:00.000Z";
+    Object.assign(fake.rowsOf("items").find((i) => i.id === "item-edited")!, { title: "Nota editada", updated_at: "2026-01-11T00:00:00.000Z" });
+
+    const result = await undoItemImportBatch(fake as never, OWNER_ID, BATCH_ID, "2026-01-10T00:00:00.000Z", fingerprints);
+    expect(result).toEqual({ removed: 1, kept: 1 });
+    expect(fake.rowsOf("items").find((i) => i.id === "item-ocr")!.deleted_at).not.toBeNull();
   });
 });
 

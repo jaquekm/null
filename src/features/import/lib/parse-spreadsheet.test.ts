@@ -67,4 +67,10 @@ describe("parseSpreadsheetCsv", () => {
     const result = parseSpreadsheetCsv(text, { delimiter: ";", columns: ["title", "category"] });
     expect(result.items[0]).toMatchObject({ title: "Caixas", categoryLabel: "Embalagem" });
   });
+
+  it("célula com Enter (entre aspas) continua na mesma linha da planilha", () => {
+    const result = parseSpreadsheetCsv('Item;Obs\n"Caixas";"comprar 20\nno mercado"\nFita;', { delimiter: ";", columns: ["title", "body"] });
+    expect(result.items.map((item) => item.title)).toEqual(["Caixas", "Fita"]);
+    expect(result.items[0]!.bodyMarkdown).toBe("Obs: comprar 20\nno mercado");
+  });
 });

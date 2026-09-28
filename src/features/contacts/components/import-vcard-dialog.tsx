@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { importVCardContacts, type ImportSummary } from "../actions";
+import { readFileText } from "@/lib/csv";
 
 /** Diálogo "Importar vCard" (3.3) — exportação do Google Contatos/iPhone (`.vcf`). */
 export function ImportVCardDialog({ spaces, onClose, onImported }: { spaces: SidebarSpace[]; onClose: () => void; onImported: () => void }) {
@@ -14,7 +15,7 @@ export function ImportVCardDialog({ spaces, onClose, onImported }: { spaces: Sid
 
   function handleFile(file: File) {
     startTransition(async () => {
-      const text = await file.text();
+      const text = await readFileText(file);
       const result = await importVCardContacts(text, spaceId || null);
       if (!result.ok) {
         toast.error(result.error);

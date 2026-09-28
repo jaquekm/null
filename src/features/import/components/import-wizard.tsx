@@ -18,6 +18,7 @@ import {
 import { readSpreadsheetHeaders, SPREADSHEET_COLUMN_ROLES, SPREADSHEET_DELIMITERS, type SpreadsheetColumnRole, type SpreadsheetDelimiter } from "../lib/parse-spreadsheet";
 import type { ParsedIcsEvent } from "../lib/parse-ics";
 import type { ImportSource } from "../types";
+import { detectCsvDelimiter, readFileText } from "@/lib/csv";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -44,7 +45,10 @@ const SPREADSHEET_COLUMN_ROLE_LABELS: Record<SpreadsheetColumnRole, string> = {
   body: "Incluir no corpo",
 };
 
-const SPREADSHEET_DELIMITER_LABELS: Record<SpreadsheetDelimiter, string> = { ",": "Vírgula ( , )", ";": "Ponto e vírgula ( ; )" };
+/** Limite de corpo de requisição da Vercel é 4,5 MB; sobra folga pro resto do FormData. */
+const MAX_IMPORT_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+const SPREADSHEET_DELIMITER_LABELS: Record<SpreadsheetDelimiter, string> = { ",": "Vírgula ( , )", ";": "Ponto e vírgula ( ; )", "\t": "Tabulação" };
 
 interface Props {
   spaces: SidebarSpace[];
@@ -100,14 +104,26 @@ export function ImportWizard({ spaces }: Props) {
   }
 
   function handleFileChange(picked: File | null) {
+    // A Vercel recusa corpo acima de ~4,5 MB antes de chegar no app — o erro
+    // que voltava era genérico ("resposta inesperada do servidor").
+    if (picked && picked.size > MAX_IMPORT_UPLOAD_BYTES) {
+      setFile(null);
+      toast.error(
+        `Arquivo grande demais (${(picked.size / 1024 / 1024).toFixed(1)} MB). O limite é 4 MB — divida a exportação em partes menores (ex.: um caderno do Evernote por vez) ou tire as imagens do documento.`,
+      );
+      return;
+    }
     setFile(picked);
     if (!picked || !source) return;
 
     if (source === "planilha") {
       startTransition(async () => {
-        const text = await picked.text();
+        // Acentos de planilha salva pelo Excel no Windows + separador detectado (Excel em português usa ";").
+        const text = await readFileText(picked);
+        const delimiter = detectCsvDelimiter(text);
         setSpreadsheetText(text);
-        const headerCount = readSpreadsheetHeaders(text, spreadsheetDelimiter).length;
+        setSpreadsheetDelimiter(delimiter);
+        const headerCount = readSpreadsheetHeaders(text, delimiter).length;
         setSpreadsheetColumns(Array.from({ length: headerCount }, () => "ignore"));
         setStep("mapping");
       });
@@ -138,6 +154,7 @@ export function ImportWizard({ spaces }: Props) {
       setPreview(result.data);
       setExcludedLocalIds(new Set());
       setStep("destination");
+      await loadTypesForPreselectedSpace();
     });
   }
 
@@ -157,7 +174,13 @@ export function ImportWizard({ spaces }: Props) {
       setPreview(result.data);
       setExcludedLocalIds(new Set());
       setStep("destination");
+      await loadTypesForPreselectedSpace();
     });
+  }
+
+  // O espaço já vem pré-selecionado, mas os tipos só eram buscados ao trocar de espaço — a lista ficava vazia.
+  async function loadTypesForPreselectedSpace() {
+    if (spaceId && types.length === 0) setTypes(await listImportSpaceTypes(spaceId));
   }
 
   function handlePickSpace(nextSpaceId: string) {
@@ -227,7 +250,13 @@ export function ImportWizard({ spaces }: Props) {
         toast.error(result.error);
         return;
       }
-      toast.success("Importação desfeita.");
+      // Antes dizia "desfeita" mesmo quando nada saía; itens que o dono editou ficam de propósito.
+      const kept = "kept" in result.data && typeof result.data.kept === "number" ? result.data.kept : 0;
+      toast.success(
+        kept > 0
+          ? `Importação desfeita: ${result.data.removed} item(ns) removido(s). ${kept} ficou(aram) porque você editou depois.`
+          : `Importação desfeita: ${result.data.removed} item(ns) removido(s).`,
+      );
       setUndone(true);
     });
   }
@@ -294,7 +323,12 @@ export function ImportWizard({ spaces }: Props) {
           Separador
           <select
             value={spreadsheetDelimiter}
-            onChange={(e) => setSpreadsheetDelimiter(e.target.value as SpreadsheetDelimiter)}
+            onChange={(e) => {
+              const delimiter = e.target.value as SpreadsheetDelimiter;
+              setSpreadsheetDelimiter(delimiter);
+              // Outro separador = outras colunas; o mapeamento antigo apontaria pras colunas erradas.
+              setSpreadsheetColumns(Array.from({ length: readSpreadsheetHeaders(spreadsheetText, delimiter).length }, () => "ignore"));
+            }}
             className={inputClassName}
           >
             {SPREADSHEET_DELIMITERS.map((d) => (
