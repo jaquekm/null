@@ -15,6 +15,7 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { findDuplicateCandidates } from "./lib/detect-duplicates";
 import { parseGoogleKeepExport } from "./lib/parse-google-keep";
+import { parseDocumentFile } from "./lib/parse-document";
 import { parseEnex } from "./lib/parse-enex";
 import { parseIcsEvents, type ParsedIcsEvent } from "./lib/parse-ics";
 import { parseObsidianVault } from "./lib/parse-obsidian";
@@ -37,9 +38,11 @@ import type { ImportSource, ParsedImportAttachment, ParsedImportResult } from ".
 
 type Client = SupabaseClient<Database>;
 
-const sourceSchema = z.enum(["evernote", "obsidian", "google_keep"]);
+const sourceSchema = z.enum(["evernote", "obsidian", "google_keep", "documento"]);
 
 async function parseUploadedFile(source: ImportSource, file: File): Promise<ParsedImportResult> {
+  if (source === "documento") return parseDocumentFile(file);
+
   const isZip = file.name.toLowerCase().endsWith(".zip");
 
   if (source === "evernote") return parseEnex(await file.text());
