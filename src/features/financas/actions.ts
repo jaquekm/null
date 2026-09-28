@@ -730,6 +730,7 @@ export async function createQuickExpense(input: QuickExpenseInput): Promise<Resu
       amount_cents: -amountCents,
       occurred_on: parsed.data.occurredOn,
       kind: "normal",
+      statement_id: await cardStatementIdFor(supabase, user.id, account, parsed.data.occurredOn),
     })
     .select("id")
     .single();
@@ -896,6 +897,24 @@ async function findOrCreateCardStatements(
     if (id) result.set(date, id);
   }
   return result;
+}
+
+/**
+ * Fatura (`statement_id`) de um lançamento avulso numa conta de cartão —
+ * `null` se a conta não é cartão ou ainda não tem dia de fechamento/vencimento.
+ * Todo lançamento `normal` num cartão precisa disso: sem `statement_id` ele
+ * reduzia o limite mas não aparecia na fatura nem entrava no total dela
+ * (acontecia com gasto rápido, conta paga no cartão e divisões).
+ */
+async function cardStatementIdFor(
+  supabase: Client,
+  ownerId: string,
+  account: { id: string; kind: string; closingDay: number | null; dueDay: number | null },
+  occurredOn: string,
+): Promise<string | null> {
+  if (account.kind !== "credit_card" || account.closingDay == null || account.dueDay == null) return null;
+  const byDate = await findOrCreateCardStatements(supabase, ownerId, account.id, account.closingDay, account.dueDay, [occurredOn]);
+  return byDate.get(occurredOn) ?? null;
 }
 
 /**
@@ -1246,15 +1265,42 @@ export async function payCardStatement(input: PayStatementInput): Promise<Result
   if (amountCents === 0) return fail("Dados inválidos.", { amount: ["O valor não pode ser zero."] });
 
   const { supabase, user } = await requireOwner();
+  const result = await recordCardStatementPayment(supabase, user.id, {
+    statementId: data.statementId,
+    paymentAccountId: data.paymentAccountId,
+    amountCents,
+    occurredOn: data.occurredOn,
+  });
+  if (!result.ok) return result;
 
-  const statement = await getCardStatement(supabase, data.statementId);
+  revalidatePath(`/financas/cartoes/${result.data.cardAccountId}`);
+  revalidatePath(LANCAMENTOS_PATH);
+  revalidatePath(CONTAS_PATH);
+  return ok(null);
+}
+
+/**
+ * Núcleo do pagamento de fatura — usado por "Pagar fatura" e também por
+ * "Marcar como paga" numa conta a pagar gerada por fatura (antes, esse
+ * segundo caminho criava uma despesa `normal`: o gasto era contado duas
+ * vezes — as compras já são despesa — e o saldo do cartão nunca voltava).
+ */
+async function recordCardStatementPayment(
+  supabase: Client,
+  ownerId: string,
+  input: { statementId: string; paymentAccountId: string; amountCents: number; occurredOn: string },
+): Promise<Result<{ cardAccountId: string }>> {
+  const { amountCents, occurredOn } = input;
+
+  const statement = await getCardStatement(supabase, input.statementId);
   if (!statement) return fail("Fatura não encontrada.");
 
   const accounts = await listAccounts(supabase);
-  const paymentAccount = accounts.find((a) => a.id === data.paymentAccountId);
+  const paymentAccount = accounts.find((a) => a.id === input.paymentAccountId);
   if (!paymentAccount) return fail("Conta inválida.");
   const cardAccount = accounts.find((a) => a.id === statement.accountId);
   if (!cardAccount) return fail("Conta do cartão não encontrada.");
+  if (paymentAccount.id === cardAccount.id) return fail("Escolha a conta de onde saiu o dinheiro — não o próprio cartão.");
 
   const { data: linkedBill } = await supabase.from("fin_bills").select("id").eq("statement_id", statement.id).maybeSingle();
 
@@ -1263,23 +1309,23 @@ export async function payCardStatement(input: PayStatementInput): Promise<Result
 
   const { error: insertError } = await supabase.from("fin_transactions").insert([
     {
-      owner_id: user.id,
+      owner_id: ownerId,
       account_id: paymentAccount.id,
       space_id: paymentAccount.spaceId,
       description,
       amount_cents: -amountCents,
-      occurred_on: data.occurredOn,
+      occurred_on: occurredOn,
       kind: "card_payment" as const,
       transfer_group_id: transferGroupId,
       bill_id: linkedBill?.id ?? null,
     },
     {
-      owner_id: user.id,
+      owner_id: ownerId,
       account_id: cardAccount.id,
       space_id: cardAccount.spaceId,
       description,
       amount_cents: amountCents,
-      occurred_on: data.occurredOn,
+      occurred_on: occurredOn,
       kind: "card_payment" as const,
       transfer_group_id: transferGroupId,
     },
@@ -1295,9 +1341,7 @@ export async function payCardStatement(input: PayStatementInput): Promise<Result
 
   if (linkedBill) await adjustBillPayment(supabase, linkedBill.id, amountCents);
 
-  revalidatePath(`/financas/cartoes/${cardAccount.id}`);
-  revalidatePath(LANCAMENTOS_PATH);
-  return ok(null);
+  return ok({ cardAccountId: cardAccount.id });
 }
 
 /** Lançamentos de uma fatura, buscados só ao expandir (mesmo padrão de "sob demanda" já usado em outras abas do projeto, ex.: texto extraído da 2.9) — leitura, não `Result`. */
@@ -1541,6 +1585,20 @@ export async function markBillPaid(input: MarkBillPaidInput): Promise<Result<nul
   if (!bill) return fail("Conta não encontrada.");
   if (bill.status === "canceled") return fail("Esta conta está cancelada.");
 
+  if (bill.statementId) {
+    const result = await recordCardStatementPayment(supabase, user.id, {
+      statementId: bill.statementId,
+      paymentAccountId: data.accountId,
+      amountCents,
+      occurredOn: data.paidOn,
+    });
+    if (!result.ok) return result;
+    revalidatePath(`/financas/cartoes/${result.data.cardAccountId}`);
+    revalidatePath(CONTAS_PATH);
+    revalidatePath(LANCAMENTOS_PATH);
+    return ok(null);
+  }
+
   const accounts = await listAccounts(supabase);
   const account = accounts.find((a) => a.id === data.accountId);
   if (!account) return fail("Conta inválida.");
@@ -1558,6 +1616,7 @@ export async function markBillPaid(input: MarkBillPaidInput): Promise<Result<nul
     occurred_on: data.paidOn,
     kind: "normal",
     bill_id: bill.id,
+    statement_id: await cardStatementIdFor(supabase, user.id, account, data.paidOn),
   });
   if (insertError) return fail(GENERIC_ERROR);
 
@@ -1850,6 +1909,7 @@ export async function createSplit(input: CreateSplitInput): Promise<Result<{ id:
         amount_cents: -totalCents,
         occurred_on: data.occurredOn,
         kind: "normal",
+        statement_id: await cardStatementIdFor(supabase, user.id, account, data.occurredOn),
       })
       .select("id")
       .single();
@@ -1958,6 +2018,7 @@ export async function registerSplitPayment(input: RegisterSplitPaymentInput): Pr
       amount_cents: signedAmount,
       occurred_on: data.occurredOn,
       kind: "normal",
+      statement_id: await cardStatementIdFor(supabase, user.id, account, data.occurredOn),
     })
     .select("id")
     .single();
