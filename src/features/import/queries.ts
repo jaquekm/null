@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { FieldDefinition } from "@/features/types/schemas";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { ExistingItemForDuplicateCheck } from "./lib/detect-duplicates";
 import type { ImportSource } from "./types";
@@ -50,6 +51,8 @@ export interface CreateImportedItemInput {
   content: Json;
   contentText: string;
   createdAt: string | null;
+  /** Valores de campos do tipo de destino (ex.: `{ categoria: "<option-id>" }`) — só a origem "Planilha" preenche isto hoje. */
+  properties?: Record<string, Json>;
 }
 
 /** Cria um item importado — `properties._import_id` é o que permite desfazer o lote depois (7.5). `source: "import"` já é um valor aceito pela coluna desde a fundação. */
@@ -63,7 +66,7 @@ export async function createImportedItem(supabase: Client, input: CreateImported
       title: input.title || "Sem título",
       content: input.content,
       content_text: input.contentText,
-      properties: { _import_id: input.importBatchId } as Json,
+      properties: { ...input.properties, _import_id: input.importBatchId } as Json,
       status: "active",
       source: "import",
       created_at: input.createdAt ?? undefined,
@@ -76,6 +79,22 @@ export async function createImportedItem(supabase: Client, input: CreateImported
 
 export async function updateImportedItemContent(supabase: Client, itemId: string, content: Json, contentText: string): Promise<void> {
   const { error } = await supabase.from("items").update({ content, content_text: contentText }).eq("id", itemId);
+  if (error) throw error;
+}
+
+/** Origem "Planilha": campos de verdade do tipo de destino, pra `ensureSelectFieldWithOptions` achar/criar "Categoria"/"Subcategoria" em cima deles. */
+export async function loadObjectTypeFields(supabase: Client, typeId: string): Promise<FieldDefinition[]> {
+  const { data, error } = await supabase.from("object_types").select("fields").eq("id", typeId).maybeSingle();
+  if (error) throw error;
+  return (data?.fields as unknown as FieldDefinition[] | null) ?? [];
+}
+
+export async function saveObjectTypeFields(supabase: Client, ownerId: string, typeId: string, fields: FieldDefinition[]): Promise<void> {
+  const { error } = await supabase
+    .from("object_types")
+    .update({ fields: fields as unknown as Json })
+    .eq("id", typeId)
+    .eq("owner_id", ownerId);
   if (error) throw error;
 }
 

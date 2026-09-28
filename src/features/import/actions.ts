@@ -12,6 +12,7 @@ import { listActiveSpaces, type SidebarSpace } from "@/features/spaces/queries";
 import { listSpaceObjectTypes, type SpaceTypeOption } from "@/features/spaces/queries";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
+import { slugify } from "@/lib/slugify";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { findDuplicateCandidates } from "./lib/detect-duplicates";
 import { parseGoogleKeepExport } from "./lib/parse-google-keep";
@@ -19,6 +20,8 @@ import { parseDocumentFile } from "./lib/parse-document";
 import { parseEnex } from "./lib/parse-enex";
 import { parseIcsEvents, type ParsedIcsEvent } from "./lib/parse-ics";
 import { parseObsidianVault } from "./lib/parse-obsidian";
+import { parseSpreadsheetCsv, type SpreadsheetImportMapping } from "./lib/parse-spreadsheet";
+import { ensureSelectFieldWithOptions } from "./lib/resolve-select-field";
 import { resolveWikilinksInDoc } from "./lib/resolve-wikilinks";
 import { readZipAsText } from "./lib/unzip";
 import {
@@ -29,19 +32,38 @@ import {
   insertIcsEvents,
   linkTagsToItems,
   listExistingItemsInSpace,
+  loadObjectTypeFields,
   saveImportBatch,
+  saveObjectTypeFields,
   undoIcsImportBatch,
   undoItemImportBatch,
   updateImportedItemContent,
 } from "./queries";
-import type { ImportSource, ParsedImportAttachment, ParsedImportResult } from "./types";
+import type { ImportSource, ParsedImportAttachment, ParsedImportItem, ParsedImportResult } from "./types";
 
 type Client = SupabaseClient<Database>;
 
-const sourceSchema = z.enum(["evernote", "obsidian", "google_keep", "documento"]);
+const sourceSchema = z.enum(["evernote", "obsidian", "google_keep", "documento", "planilha"]);
 
-async function parseUploadedFile(source: ImportSource, file: File): Promise<ParsedImportResult> {
+function spreadsheetMappingFromFormData(value: FormDataEntryValue | null): SpreadsheetImportMapping | null {
+  if (typeof value !== "string" || !value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object") return null;
+    const { delimiter, columns } = parsed as Record<string, unknown>;
+    if ((delimiter !== "," && delimiter !== ";") || !Array.isArray(columns)) return null;
+    return { delimiter, columns: columns as SpreadsheetImportMapping["columns"] };
+  } catch {
+    return null;
+  }
+}
+
+async function parseUploadedFile(source: ImportSource, file: File, mapping: SpreadsheetImportMapping | null): Promise<ParsedImportResult> {
   if (source === "documento") return parseDocumentFile(file);
+  if (source === "planilha") {
+    if (!mapping) return { items: [], warnings: ["Mapeamento de colunas ausente."] };
+    return parseSpreadsheetCsv(await file.text(), mapping);
+  }
 
   const isZip = file.name.toLowerCase().endsWith(".zip");
 
@@ -108,10 +130,11 @@ export async function previewImport(formData: FormData): Promise<Result<ImportPr
   if (!source.success) return fail("Origem inválida.");
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return fail("Selecione um arquivo.");
+  const mapping = spreadsheetMappingFromFormData(formData.get("mapping"));
 
   let parsed: ParsedImportResult;
   try {
-    parsed = await parseUploadedFile(source.data, file);
+    parsed = await parseUploadedFile(source.data, file, mapping);
   } catch {
     return fail("Não consegui ler esse arquivo — confira se o formato bate com a origem escolhida.");
   }
@@ -149,6 +172,72 @@ async function uploadImportedAttachment(supabase: Client, ownerId: string, itemI
   });
 }
 
+/**
+ * Origem "Planilha": resolve `categoryLabel`/`subcategoryLabel` de cada item
+ * contra campos `select` de verdade no tipo de destino (criando o campo e as
+ * opções que faltarem, uma vez só pro lote inteiro) — ou, sem tipo escolhido
+ * (Inbox, onde não existe campo de tipo nenhum), devolve tags equivalentes
+ * (`categoria-<valor>`) pra não perder a informação da planilha.
+ */
+async function resolveSpreadsheetFields(
+  supabase: Client,
+  ownerId: string,
+  typeId: string | null,
+  items: ParsedImportItem[],
+): Promise<{ propertiesByLocalId: Map<string, Record<string, Json>>; extraTagsByLocalId: Map<string, string[]> }> {
+  const propertiesByLocalId = new Map<string, Record<string, Json>>();
+  const extraTagsByLocalId = new Map<string, string[]>();
+
+  const categoryLabels = items.map((i) => i.categoryLabel).filter((l): l is string => Boolean(l));
+  const subcategoryLabels = items.map((i) => i.subcategoryLabel).filter((l): l is string => Boolean(l));
+  if (categoryLabels.length === 0 && subcategoryLabels.length === 0) return { propertiesByLocalId, extraTagsByLocalId };
+
+  if (!typeId) {
+    for (const item of items) {
+      const tags: string[] = [];
+      if (item.categoryLabel) tags.push(`categoria-${slugify(item.categoryLabel)}`);
+      if (item.subcategoryLabel) tags.push(`subcategoria-${slugify(item.subcategoryLabel)}`);
+      if (tags.length > 0) extraTagsByLocalId.set(item.localId, tags);
+    }
+    return { propertiesByLocalId, extraTagsByLocalId };
+  }
+
+  let fields = await loadObjectTypeFields(supabase, typeId);
+  let categoryFieldKey: string | null = null;
+  let categoryOptionIdByLabel = new Map<string, string>();
+  let subcategoryFieldKey: string | null = null;
+  let subcategoryOptionIdByLabel = new Map<string, string>();
+
+  if (categoryLabels.length > 0) {
+    const resolved = ensureSelectFieldWithOptions(fields, "Categoria", categoryLabels);
+    fields = resolved.fields;
+    categoryFieldKey = resolved.fieldKey;
+    categoryOptionIdByLabel = resolved.optionIdByLabel;
+  }
+  if (subcategoryLabels.length > 0) {
+    const resolved = ensureSelectFieldWithOptions(fields, "Subcategoria", subcategoryLabels);
+    fields = resolved.fields;
+    subcategoryFieldKey = resolved.fieldKey;
+    subcategoryOptionIdByLabel = resolved.optionIdByLabel;
+  }
+  await saveObjectTypeFields(supabase, ownerId, typeId, fields);
+
+  for (const item of items) {
+    const properties: Record<string, Json> = {};
+    if (categoryFieldKey && item.categoryLabel) {
+      const optionId = categoryOptionIdByLabel.get(item.categoryLabel.trim().toLowerCase());
+      if (optionId) properties[categoryFieldKey] = optionId;
+    }
+    if (subcategoryFieldKey && item.subcategoryLabel) {
+      const optionId = subcategoryOptionIdByLabel.get(item.subcategoryLabel.trim().toLowerCase());
+      if (optionId) properties[subcategoryFieldKey] = optionId;
+    }
+    if (Object.keys(properties).length > 0) propertiesByLocalId.set(item.localId, properties);
+  }
+
+  return { propertiesByLocalId, extraTagsByLocalId };
+}
+
 export interface ImportCommitResult {
   batchId: string;
   itemsCreated: number;
@@ -174,10 +263,11 @@ export async function commitImport(formData: FormData): Promise<Result<ImportCom
   const typeId = (formData.get("typeId") as string | null) || null;
   const tagRename = jsonRecordFromFormData(formData.get("tagRename"));
   const excludeLocalIds = new Set(jsonArrayFromFormData(formData.get("excludeLocalIds")));
+  const mapping = spreadsheetMappingFromFormData(formData.get("mapping"));
 
   let parsed: ParsedImportResult;
   try {
-    parsed = await parseUploadedFile(source.data, file);
+    parsed = await parseUploadedFile(source.data, file, mapping);
   } catch {
     return fail("Não consegui ler esse arquivo — confira se o formato bate com a origem escolhida.");
   }
@@ -188,7 +278,15 @@ export async function commitImport(formData: FormData): Promise<Result<ImportCom
   const importBatchId = randomUUID();
   const renamedTagOf = (tag: string) => tagRename[tag] ?? tag;
 
-  const allTagNames = itemsToImport.flatMap((i) => i.tags.map(renamedTagOf));
+  /**
+   * Origem "Planilha": categoria/subcategoria só existem como campo `select`
+   * quando há um tipo de destino escolhido (campos pertencem a um tipo). Sem
+   * tipo (Inbox), caem como tag em vez de se perder — mesma ideia de
+   * `#categoria-x` que o dono já usa em qualquer outro lugar do Hub.
+   */
+  const { propertiesByLocalId, extraTagsByLocalId } = await resolveSpreadsheetFields(supabase, user.id, typeId, itemsToImport);
+
+  const allTagNames = itemsToImport.flatMap((i) => [...i.tags.map(renamedTagOf), ...(extraTagsByLocalId.get(i.localId) ?? [])]);
   const tagIdByName = await bulkUpsertTags(supabase, user.id, allTagNames);
 
   const createdByLocalId = new Map<string, { id: string; doc: JSONContent }>();
@@ -203,11 +301,11 @@ export async function commitImport(formData: FormData): Promise<Result<ImportCom
       content: doc as unknown as Json,
       contentText: extractText(doc),
       createdAt: item.createdAt,
+      properties: propertiesByLocalId.get(item.localId),
     });
     createdByLocalId.set(item.localId, { id: created.id, doc });
 
-    const tagLinks = item.tags
-      .map(renamedTagOf)
+    const tagLinks = [...item.tags.map(renamedTagOf), ...(extraTagsByLocalId.get(item.localId) ?? [])]
       .map((name) => tagIdByName.get(name))
       .filter((id): id is string => Boolean(id))
       .map((tagId) => ({ itemId: created.id, tagId }));

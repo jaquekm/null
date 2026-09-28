@@ -15,6 +15,7 @@ import {
   type ImportCommitResult,
   type ImportPreviewResult,
 } from "../actions";
+import { readSpreadsheetHeaders, SPREADSHEET_COLUMN_ROLES, SPREADSHEET_DELIMITERS, type SpreadsheetColumnRole, type SpreadsheetDelimiter } from "../lib/parse-spreadsheet";
 import type { ParsedIcsEvent } from "../lib/parse-ics";
 import type { ImportSource } from "../types";
 
@@ -24,15 +25,26 @@ const buttonClassName = "rounded-full bg-black px-4 py-2 text-sm font-medium tex
 const secondaryButtonClassName = "rounded-full border border-black/[.12] px-4 py-2 text-sm dark:border-white/[.16]";
 
 type WizardSource = ImportSource | "ics";
-type Step = "source" | "file" | "destination" | "review" | "done";
+type Step = "source" | "file" | "mapping" | "destination" | "review" | "done";
 
 const SOURCE_OPTIONS: { source: WizardSource; label: string; hint: string; accept: string }[] = [
+  { source: "planilha", label: "Planilha (.csv)", hint: "cada linha vira um item — você escolhe qual coluna é título, categoria e subcategoria", accept: ".csv" },
   { source: "documento", label: "Documento (.docx)", hint: "um arquivo do Word — vira um item editável com o texto dele", accept: ".docx" },
   { source: "evernote", label: "Evernote", hint: "arquivo .enex exportado do Evernote", accept: ".enex" },
   { source: "obsidian", label: "Obsidian / Markdown", hint: "uma nota .md, ou um .zip com o vault inteiro", accept: ".md,.zip" },
   { source: "google_keep", label: "Google Keep", hint: "Google Takeout — um .json ou o .zip do Takeout", accept: ".json,.zip" },
   { source: "ics", label: "Calendário (.ics)", hint: "eventos antigos, só leitura, num calendário local \"Importado\"", accept: ".ics" },
 ];
+
+const SPREADSHEET_COLUMN_ROLE_LABELS: Record<SpreadsheetColumnRole, string> = {
+  ignore: "Ignorar",
+  title: "Título",
+  category: "Categoria",
+  subcategory: "Subcategoria",
+  body: "Incluir no corpo",
+};
+
+const SPREADSHEET_DELIMITER_LABELS: Record<SpreadsheetDelimiter, string> = { ",": "Vírgula ( , )", ";": "Ponto e vírgula ( ; )" };
 
 interface Props {
   spaces: SidebarSpace[];
@@ -46,6 +58,11 @@ export function ImportWizard({ spaces }: Props) {
 
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
   const [icsPreview, setIcsPreview] = useState<{ events: ParsedIcsEvent[]; warnings: string[] } | null>(null);
+
+  const [spreadsheetText, setSpreadsheetText] = useState("");
+  const [spreadsheetDelimiter, setSpreadsheetDelimiter] = useState<SpreadsheetDelimiter>(",");
+  const [spreadsheetColumns, setSpreadsheetColumns] = useState<SpreadsheetColumnRole[]>([]);
+  const spreadsheetHeaders = spreadsheetText ? readSpreadsheetHeaders(spreadsheetText, spreadsheetDelimiter) : [];
 
   const [spaceId, setSpaceId] = useState<string>(spaces[0]?.id ?? "");
   const [types, setTypes] = useState<SpaceTypeOption[]>([]);
@@ -64,6 +81,8 @@ export function ImportWizard({ spaces }: Props) {
     setFile(null);
     setPreview(null);
     setIcsPreview(null);
+    setSpreadsheetText("");
+    setSpreadsheetColumns([]);
     setTagRename({});
     setDuplicateLocalIds(new Set());
     setExcludedLocalIds(new Set());
@@ -76,9 +95,24 @@ export function ImportWizard({ spaces }: Props) {
     setStep("file");
   }
 
+  function spreadsheetMappingFormValue() {
+    return JSON.stringify({ delimiter: spreadsheetDelimiter, columns: spreadsheetColumns });
+  }
+
   function handleFileChange(picked: File | null) {
     setFile(picked);
     if (!picked || !source) return;
+
+    if (source === "planilha") {
+      startTransition(async () => {
+        const text = await picked.text();
+        setSpreadsheetText(text);
+        const headerCount = readSpreadsheetHeaders(text, spreadsheetDelimiter).length;
+        setSpreadsheetColumns(Array.from({ length: headerCount }, () => "ignore"));
+        setStep("mapping");
+      });
+      return;
+    }
 
     startTransition(async () => {
       const formData = new FormData();
@@ -95,6 +129,25 @@ export function ImportWizard({ spaces }: Props) {
         setStep("review");
         return;
       }
+
+      const result = await previewImport(formData);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setPreview(result.data);
+      setExcludedLocalIds(new Set());
+      setStep("destination");
+    });
+  }
+
+  function handleMappingContinue() {
+    if (!file || !source) return;
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("source", source);
+      formData.set("file", file);
+      formData.set("mapping", spreadsheetMappingFormValue());
 
       const result = await previewImport(formData);
       if (!result.ok) {
@@ -154,6 +207,7 @@ export function ImportWizard({ spaces }: Props) {
       formData.set("typeId", typeId);
       formData.set("tagRename", JSON.stringify(tagRename));
       formData.set("excludeLocalIds", JSON.stringify([...excludedLocalIds]));
+      if (source === "planilha") formData.set("mapping", spreadsheetMappingFormValue());
 
       const result = await commitImport(formData);
       if (!result.ok) {
@@ -224,6 +278,72 @@ export function ImportWizard({ spaces }: Props) {
         <button type="button" onClick={reset} className={secondaryButtonClassName + " w-fit"}>
           Voltar
         </button>
+      </div>
+    );
+  }
+
+  if (step === "mapping" && source === "planilha") {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          Escolha o que cada coluna vira. <strong>Título</strong> é obrigatório — linhas sem valor nessa coluna são ignoradas. Categoria/Subcategoria viram campos do
+          tipo que você escolher no próximo passo (ou tags, se ficar sem tipo/no Inbox).
+        </p>
+
+        <label className="flex flex-col gap-1 text-sm">
+          Separador
+          <select
+            value={spreadsheetDelimiter}
+            onChange={(e) => setSpreadsheetDelimiter(e.target.value as SpreadsheetDelimiter)}
+            className={inputClassName}
+          >
+            {SPREADSHEET_DELIMITERS.map((d) => (
+              <option key={d} value={d}>
+                {SPREADSHEET_DELIMITER_LABELS[d]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex flex-col gap-2">
+          {spreadsheetHeaders.map((header, index) => (
+            <label key={index} className="flex items-center gap-2 text-sm">
+              <span className="w-40 shrink-0 truncate text-zinc-700 dark:text-zinc-200">{header || `Coluna ${index + 1}`}</span>
+              <select
+                value={spreadsheetColumns[index] ?? "ignore"}
+                onChange={(e) =>
+                  setSpreadsheetColumns((prev) => {
+                    const next = [...prev];
+                    next[index] = e.target.value as SpreadsheetColumnRole;
+                    return next;
+                  })
+                }
+                className={inputClassName + " flex-1"}
+              >
+                {SPREADSHEET_COLUMN_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {SPREADSHEET_COLUMN_ROLE_LABELS[role]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <button type="button" onClick={reset} className={secondaryButtonClassName}>
+            Voltar
+          </button>
+          <button
+            type="button"
+            onClick={handleMappingContinue}
+            disabled={pending || !spreadsheetColumns.includes("title")}
+            className={buttonClassName}
+          >
+            {pending ? "Lendo…" : "Continuar"}
+          </button>
+        </div>
+        {!spreadsheetColumns.includes("title") && <p className="text-xs text-amber-600 dark:text-amber-400">Escolha qual coluna é o Título pra continuar.</p>}
       </div>
     );
   }

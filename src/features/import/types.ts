@@ -16,6 +16,14 @@ export interface ParsedImportItem {
   createdAt: string | null;
   updatedAt: string | null;
   attachments: ParsedImportAttachment[];
+  /**
+   * Rótulo bruto de categoria/subcategoria, só preenchido pela origem
+   * "Planilha" (o dono escolhe a coluna na hora de mapear). Resolvido pra um
+   * campo `select` de verdade (criando o campo/as opções que faltarem) só no
+   * `commitImport` — antes disso o tipo de destino ainda não foi escolhido.
+   */
+  categoryLabel?: string | null;
+  subcategoryLabel?: string | null;
 }
 
 export interface ParsedImportResult {
@@ -23,4 +31,4 @@ export interface ParsedImportResult {
   warnings: string[];
 }
 
-export type ImportSource = "evernote" | "obsidian" | "google_keep" | "documento";
+export type ImportSource = "evernote" | "obsidian" | "google_keep" | "documento" | "planilha";
