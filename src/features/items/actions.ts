@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { JSONContent } from "@tiptap/core";
+import { getUserTimezone } from "@/features/reminders/queries";
 import { requireOwner } from "@/lib/auth";
+import { wallClockToIso } from "@/lib/dates";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { buildPropertiesSchema, type FieldDefinition } from "@/features/types/schemas";
@@ -76,8 +78,10 @@ export async function updateItemTitle(
   return ok({ updatedAt: data.updated_at });
 }
 
-function parseRawFieldValue(field: FieldDefinition, raw: FormDataEntryValue | null): unknown {
+function parseRawFieldValue(field: FieldDefinition, raw: FormDataEntryValue | null, timezone: string): unknown {
   switch (field.type) {
+    case "datetime":
+      return typeof raw === "string" && raw !== "" ? wallClockToIso(raw, timezone) : undefined;
     case "checkbox":
       return raw === "on" || raw === "true";
     case "number":
@@ -124,7 +128,7 @@ export async function updateItemProperty(
   const field = fields.find((f) => f.key === fieldKey);
   if (!field) return fail("Campo não encontrado neste tipo.");
 
-  const rawValue = parseRawFieldValue(field, formData.get("value"));
+  const rawValue = parseRawFieldValue(field, formData.get("value"), await getUserTimezone(supabase, user.id));
   const schema = buildPropertiesSchema([field]);
   const parsed = schema.safeParse({ [fieldKey]: rawValue });
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? GENERIC_ERROR);

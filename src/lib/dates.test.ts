@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysToDateString, dateInTimezone, todayInTimezone } from "./dates";
+import { addDaysToDateString, dateInTimezone, isoToWallClock, todayInTimezone, wallClockToIso } from "./dates";
 
 describe("todayInTimezone", () => {
   it("22h em Brasília ainda é o mesmo dia (em UTC já seria amanhã)", () => {
@@ -10,6 +10,22 @@ describe("todayInTimezone", () => {
 
   it("usa America/Sao_Paulo por padrão", () => {
     expect(dateInTimezone(new Date("2026-01-01T02:30:00Z"))).toBe("2025-12-31");
+  });
+});
+
+describe("wallClockToIso / isoToWallClock (campo data+hora)", () => {
+  it("14:00 em Brasília vira 17:00Z, e volta pra 14:00 no campo", () => {
+    const iso = wallClockToIso("2026-09-28T14:00", "America/Sao_Paulo");
+    expect(iso).toBe("2026-09-28T17:00:00.000Z");
+    expect(isoToWallClock(iso, "America/Sao_Paulo")).toBe("2026-09-28T14:00");
+  });
+
+  it("valor que já é ISO com fuso passa intacto", () => {
+    expect(wallClockToIso("2026-09-28T17:00:00.000Z")).toBe("2026-09-28T17:00:00.000Z");
+  });
+
+  it("ISO inválido vira campo vazio", () => {
+    expect(isoToWallClock("não é data")).toBe("");
   });
 });
 
