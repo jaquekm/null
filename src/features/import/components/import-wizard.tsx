@@ -218,7 +218,7 @@ export function ImportWizard({ spaces }: Props) {
           accept={SOURCE_OPTIONS.find((o) => o.source === source)!.accept}
           onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
           disabled={pending}
-          className="text-sm"
+          className="text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-black/[.12] file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-black/[.04] disabled:opacity-60 disabled:file:cursor-not-allowed dark:file:border-white/[.16] dark:file:text-zinc-200 dark:hover:file:bg-white/[.06]"
         />
         {pending && <p className="text-xs text-zinc-500 dark:text-zinc-400">Lendo o arquivo…</p>}
         <button type="button" onClick={reset} className={secondaryButtonClassName + " w-fit"}>

@@ -29,6 +29,15 @@ import { CSV_COLUMN_ROLE_LABELS, CSV_DECIMAL_LABELS, CSV_DELIMITER_LABELS, type 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
 const labelClassName = "flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400";
+/**
+ * O preflight do Tailwind v4 zera o botão nativo do `<input type="file">`
+ * (`::file-selector-button`: `background-color: transparent`, sem borda) —
+ * sem isto ele vira texto sem nenhuma aparência de botão, indistinguível do
+ * resto da tela (achado revisando o relato "não tem nada que eu consiga
+ * clicar" nesta tela).
+ */
+const fileInputClassName =
+  "text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-black/[.12] file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-black/[.04] disabled:opacity-60 disabled:file:cursor-not-allowed dark:file:border-white/[.16] dark:file:text-zinc-200 dark:hover:file:bg-white/[.06]";
 
 type Step = "pick" | "mapping" | "preview" | "done";
 
@@ -259,6 +268,7 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
                     const file = e.target.files?.[0];
                     if (file) void handleFile(file);
                   }}
+                  className={fileInputClassName}
                 />
               </label>
             </>

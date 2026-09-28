@@ -97,7 +97,7 @@ export function ImportAnkiDialog({ spaceId }: { spaceId: string | null }) {
                   const file = e.target.files?.[0];
                   if (file) handleFile(file);
                 }}
-                className="text-sm"
+                className="text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-black/[.12] file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-black/[.04] dark:file:border-white/[.16] dark:file:text-zinc-200 dark:hover:file:bg-white/[.06]"
               />
               <label className={labelClassName}>
                 Conteúdo
