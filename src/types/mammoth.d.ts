@@ -19,6 +19,9 @@ declare module "mammoth" {
   /** HTML preserva as tabelas do Word (o Markdown do mammoth não tem tabela). */
   export function convertToHtml(input: { buffer: Buffer }, options?: ConvertToMarkdownOptions): Promise<ConversionResult>;
 
+  /** Só o texto, um parágrafo por linha (células de tabela também). */
+  export function extractRawText(input: { buffer: Buffer }): Promise<ConversionResult>;
+
   export const images: {
     imgElement: (fn: (element: unknown) => unknown | Promise<unknown>) => ConvertToMarkdownOptions["convertImage"];
   };

@@ -18,6 +18,8 @@
   --chart-expense: #dc2626;
   --chart-grid: rgba(0, 0, 0, 0.08);
   --chart-muted: #71717a;
+  /* Série única (Treinos) — slot 1 da paleta validada (scripts/validate_palette.js, fundo #ffffff). */
+  --chart-series-1: #2a78d6;
 }
 
 .dark {
@@ -30,6 +32,7 @@
   --chart-expense: #ef4444;
   --chart-grid: rgba(255, 255, 255, 0.08);
   --chart-muted: #a1a1aa;
+  --chart-series-1: #3a8ae6;
 }
 
 @theme inline {

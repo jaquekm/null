@@ -3399,6 +3399,144 @@ export type Database = {
           },
         ]
       }
+      workout_programs: {
+        Row: {
+          active: boolean
+          created_at: string
+          definition: Json
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          definition: Json
+          id?: string
+          name: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          definition?: Json
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workout_sessions: {
+        Row: {
+          back_pain_after: number | null
+          back_pain_before: number
+          back_pain_morning: number | null
+          created_at: string
+          duration_min: number | null
+          energy: number
+          exercises: Json
+          id: string
+          knee_pain_after: number | null
+          knee_pain_before: number
+          knee_pain_morning: number | null
+          notes: string | null
+          owner_id: string
+          program_id: string | null
+          program_week: number
+          session_date: string
+          sick: boolean
+          sleep_hours: number | null
+          swelling: boolean
+          traffic_light: string
+          updated_at: string
+          workout: string
+        }
+        Insert: {
+          back_pain_after?: number | null
+          back_pain_before?: number
+          back_pain_morning?: number | null
+          created_at?: string
+          duration_min?: number | null
+          energy: number
+          exercises?: Json
+          id?: string
+          knee_pain_after?: number | null
+          knee_pain_before?: number
+          knee_pain_morning?: number | null
+          notes?: string | null
+          owner_id?: string
+          program_id?: string | null
+          program_week: number
+          session_date: string
+          sick?: boolean
+          sleep_hours?: number | null
+          swelling?: boolean
+          traffic_light: string
+          updated_at?: string
+          workout: string
+        }
+        Update: {
+          back_pain_after?: number | null
+          back_pain_before?: number
+          back_pain_morning?: number | null
+          created_at?: string
+          duration_min?: number | null
+          energy?: number
+          exercises?: Json
+          id?: string
+          knee_pain_after?: number | null
+          knee_pain_before?: number
+          knee_pain_morning?: number | null
+          notes?: string | null
+          owner_id?: string
+          program_id?: string | null
+          program_week?: number
+          session_date?: string
+          sick?: boolean
+          sleep_hours?: number | null
+          swelling?: boolean
+          traffic_light?: string
+          updated_at?: string
+          workout?: string
+        }
+        Relationships: []
+      }
+      workout_weekly: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          steps_avg: number | null
+          updated_at: string
+          waist_cm: number | null
+          week_start: string
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          steps_avg?: number | null
+          updated_at?: string
+          waist_cm?: number | null
+          week_start: string
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          steps_avg?: number | null
+          updated_at?: string
+          waist_cm?: number | null
+          week_start?: string
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       fin_account_balances: {

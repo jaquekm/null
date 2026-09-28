@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest";
 import { MOBILE_PRIMARY_ITEMS, NAV_ITEMS } from "./nav-items";
 
 describe("nav-items", () => {
-  it("tem 12 itens na sidebar, todos com href e label únicos", () => {
-    expect(NAV_ITEMS).toHaveLength(12);
+  it("tem 13 itens na sidebar, todos com href e label únicos", () => {
+    expect(NAV_ITEMS).toHaveLength(13);
     expect(new Set(NAV_ITEMS.map((item) => item.href)).size).toBe(
       NAV_ITEMS.length,
     );
     expect(new Set(NAV_ITEMS.map((item) => item.label)).size).toBe(
       NAV_ITEMS.length,
     );
+  });
+
+  it("inclui Treinos (módulo próprio)", () => {
+    expect(NAV_ITEMS.some((item) => item.href === "/treinos")).toBe(true);
   });
 
   it("inclui Configurações, exigido pela tarefa 0.8", () => {
