@@ -37,6 +37,7 @@ import { recordBackupRun } from "@/features/ops/queries";
 import type { JSONContent } from "@tiptap/core";
 import type { Segment } from "@/lib/transcription/types";
 import type { JobHandler } from "../types";
+import { dateInTimezone } from "@/lib/dates";
 
 const SIGNED_URL_SECONDS = 24 * 60 * 60;
 
@@ -58,7 +59,7 @@ function folderSlug(name: string | null, fallback: string): string {
 export const exportAll: JobHandler = async (job, { supabase }) => {
   const ownerId = job.owner_id;
   const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10);
+  const dateStr = dateInTimezone(today);
   const rootFolder = `hub-export-${dateStr}`;
 
   const tmpDir = await mkdtemp(path.join(tmpdir(), "hub-export-"));

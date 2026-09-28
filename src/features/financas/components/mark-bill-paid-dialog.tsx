@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatBRL } from "@/lib/money";
 import { markBillPaid } from "../actions";
 import type { AccountRow, BillRow } from "../queries";
+import { todayInTimezone } from "@/lib/dates";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -21,7 +22,7 @@ interface MarkBillPaidDialogProps {
 export function MarkBillPaidDialog({ bill, accounts, onClose, onPaid }: MarkBillPaidDialogProps) {
   const remainingCents = bill.amountCents - bill.paidCents;
   const [amount, setAmount] = useState(() => (remainingCents > 0 ? formatBRL(remainingCents) : ""));
-  const [paidOn, setPaidOn] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paidOn, setPaidOn] = useState(() => todayInTimezone());
   const [accountId, setAccountId] = useState(bill.accountId ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [pending, startTransition] = useTransition();

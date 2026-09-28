@@ -3,6 +3,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { extractText } from "@/features/items/lib/extract-text";
 import { getUserTimezone } from "@/features/reminders/queries";
+import { addDaysToDateString, todayInTimezone } from "@/lib/dates";
 import { hmacSha256Hex } from "@/lib/crypto";
 import { serverEnv } from "@/lib/env";
 import { notifyOwner } from "@/lib/messaging/notify-owner";
@@ -213,8 +214,7 @@ export async function executeAction(action: AutomationAction, ctx: ExecuteAction
       const amountCents = typeof amountRaw === "number" ? Math.round(amountRaw) : NaN;
       if (!Number.isFinite(amountCents) || amountCents <= 0) return fail(`Campo "${action.amountField}" não tem um valor válido pra criar a conta.`);
 
-      const dueOn = new Date();
-      dueOn.setDate(dueOn.getDate() + action.dueInDays);
+      const dueOn = addDaysToDateString(todayInTimezone(await getUserTimezone(supabase, ownerId)), action.dueInDays);
       const contactIds = await contactIdsFromField(item, action.contactField);
       const description = resolveTemplateValue(action.description, { today: new Date(), item: { title: item.title, properties: item.properties } }) as string;
 
@@ -223,12 +223,12 @@ export async function executeAction(action: AutomationAction, ctx: ExecuteAction
         direction: action.direction,
         description,
         amount_cents: amountCents,
-        due_on: dueOn.toISOString().slice(0, 10),
+        due_on: dueOn,
         contact_id: contactIds[0] ?? null,
         item_id: item.id,
       });
       if (error) return fail(error.message);
-      return ok({ amountCents, dueOn: dueOn.toISOString().slice(0, 10) });
+      return ok({ amountCents, dueOn });
     }
 
     case "create_review_cards": {

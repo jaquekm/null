@@ -7,6 +7,7 @@ import { getExtractedText } from "@/features/attachments/actions";
 import { buildRRuleString, nextOccurrence } from "@/features/reminders/lib/recurrence";
 import { AiBudgetExceededError, AiDisabledError, callClaudeJson } from "@/lib/ai/claude";
 import { requireOwner } from "@/lib/auth";
+import { dateInTimezone } from "@/lib/dates";
 import { formatBRL, parseBRL } from "@/lib/money";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -1210,7 +1211,7 @@ export async function testRule(input: RuleInput): Promise<Result<{ count: number
 
   const since = new Date();
   since.setDate(since.getDate() - 90);
-  const transactions = await listTransactionsForRuleTest(supabase, since.toISOString().slice(0, 10));
+  const transactions = await listTransactionsForRuleTest(supabase, dateInTimezone(since));
 
   const count = transactions.filter((transaction) => ruleMatchesTransaction(candidateRule, transaction)).length;
   return ok({ count });
@@ -1787,7 +1788,7 @@ export async function searchLinkableTransactions(): Promise<LinkableTransactionR
   const { supabase } = await requireOwner();
   const since = new Date();
   since.setDate(since.getDate() - 90);
-  return listUnlinkedExpenseTransactions(supabase, since.toISOString().slice(0, 10));
+  return listUnlinkedExpenseTransactions(supabase, dateInTimezone(since));
 }
 
 /**

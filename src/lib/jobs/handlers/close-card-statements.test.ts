@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Job } from "../types";
+
+vi.mock("@/features/reminders/queries", () => ({ getUserTimezone: async () => "America/Sao_Paulo" }));
 import { closeCardStatements } from "./close-card-statements";
 
 function fakeJob(overrides: Partial<Job> = {}): Job {

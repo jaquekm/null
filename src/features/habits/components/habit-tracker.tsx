@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { dateInTimezone } from "@/lib/dates";
 import { toggleHabitLog } from "../actions";
 import { countLoggedInRange, isHabitLogged, type HabitLog } from "../lib/habit-log";
 
 const DAYS_SHOWN = 14;
 
 function toDateStr(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return dateInTimezone(date);
 }
 
 function lastNDays(n: number): string[] {

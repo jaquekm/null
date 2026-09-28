@@ -1,3 +1,5 @@
+import { getUserTimezone } from "@/features/reminders/queries";
+import { todayInTimezone } from "@/lib/dates";
 import type { JobHandler } from "../types";
 
 /**
@@ -9,7 +11,8 @@ import type { JobHandler } from "../types";
  * a conta fica em branco, igual ao resto do fluxo de faturas.
  */
 export const closeCardStatements: JobHandler = async (job, { supabase }) => {
-  const today = new Date().toISOString().slice(0, 10);
+  // Dia no fuso do dono: em UTC, a fatura fechava às 21h (Brasília) do próprio dia de fechamento.
+  const today = todayInTimezone(await getUserTimezone(supabase, job.owner_id));
 
   const { data: statements, error } = await supabase
     .from("fin_card_statements")
