@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { FieldDefinition } from "@/features/types/schemas";
-import { getViewItems, updateViewConfig } from "../actions";
+import { createView, getViewItems, updateViewConfig } from "../actions";
 import type { ViewItemRow, ViewRow } from "../queries";
 import { DEFAULT_PAGE_SIZE, type ViewConfig, type ViewFilter, type ViewSort } from "../schemas";
 import { CalendarView } from "./calendar-view";
@@ -14,6 +14,9 @@ import { KanbanView } from "./kanban-view";
 import { ListView } from "./list-view";
 import { TableView } from "./table-view";
 import { TimelineView } from "./timeline-view";
+
+/** Id da visão provisória mostrada quando o espaço/tipo ainda não tem nenhuma salva. */
+export const FALLBACK_VIEW_ID = "__visao_padrao__";
 
 const DATE_FIELD_TYPES = new Set<FieldDefinition["type"]>(["date", "datetime"]);
 /** Sem paginação de verdade (mesma decisão já tomada pro Kanban, 1.15) — essas visões precisam de "tudo à vista" numa janela/grade. */
@@ -30,7 +33,18 @@ const selectClassName =
  * criar/renomear/duplicar/excluir/marcar padrão) é responsabilidade de quem
  * usa este componente (`ViewSwitcher`, na página do espaço).
  */
-export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?: string; view: ViewRow }) {
+export function ItemsView({
+  spaceId,
+  typeId,
+  view,
+  onMaterialized,
+}: {
+  spaceId?: string;
+  typeId?: string;
+  view: ViewRow;
+  /** Visão provisória (`FALLBACK_VIEW_ID`): ao salvar, vira uma visão de verdade e quem usa troca pela nova. */
+  onMaterialized?: (view: ViewRow) => void;
+}) {
   const [filters, setFilters] = useState<ViewFilter[]>(view.config.filters);
   const [sort, setSort] = useState<ViewSort[]>(view.config.sort);
   const [groupBy, setGroupBy] = useState<string | undefined>(view.config.groupBy);
@@ -122,12 +136,23 @@ export function ItemsView({ spaceId, typeId, view }: { spaceId?: string; typeId?
         endField,
         dependsOnField,
       };
-      const result = await updateViewConfig(view.id, config);
+      let viewId = view.id;
+      if (viewId === FALLBACK_VIEW_ID) {
+        if (!spaceId) return;
+        const created = await createView({ spaceId, typeId: typeId ?? null, name: view.name, kind: view.kind });
+        if (!created.ok) {
+          toast.error(created.error);
+          return;
+        }
+        viewId = created.data.id;
+      }
+      const result = await updateViewConfig(viewId, config);
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       setDirty(false);
+      if (viewId !== view.id) onMaterialized?.({ ...view, id: viewId, config, isDefault: false });
       toast.success("Visão salva");
     });
   }

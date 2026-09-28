@@ -231,14 +231,22 @@ export async function reorderItem(
   itemId: string,
   beforePosition: number | null,
   afterPosition: number | null,
-): Promise<Result<null>> {
+): Promise<Result<{ updatedAt: string }>> {
   const { supabase, user } = await requireOwner();
   const position = positionBetween(beforePosition, afterPosition);
 
-  const { error } = await supabase.from("items").update({ position }).eq("id", itemId).eq("owner_id", user.id);
-  if (error) return fail("Não foi possível reordenar os itens.");
+  // Devolve o `updated_at` novo (o trigger muda a cada update): sem ele, o
+  // próximo arraste do mesmo card no Kanban batia na checagem de conflito.
+  const { data, error } = await supabase
+    .from("items")
+    .update({ position })
+    .eq("id", itemId)
+    .eq("owner_id", user.id)
+    .select("updated_at")
+    .single();
+  if (error || !data) return fail("Não foi possível reordenar os itens.");
 
-  return ok(null);
+  return ok({ updatedAt: data.updated_at });
 }
 
 export async function changeItemType(itemId: string, typeId: string | null): Promise<Result<null>> {

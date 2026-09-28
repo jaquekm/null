@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { createView, deleteView, duplicateView, renameView, setDefaultView } from "../actions";
 import type { ViewRow } from "../queries";
 import { parseViewConfig, viewKinds, type ViewKind } from "../schemas";
-import { ItemsView } from "./items-view";
+import { FALLBACK_VIEW_ID, ItemsView } from "./items-view";
 
 const KIND_ICON: Record<ViewKind, LucideIcon> = {
   list: ListIcon,
@@ -47,7 +47,25 @@ export function ViewSwitcher({
   const [newKind, setNewKind] = useState<ViewKind>("list");
   const [pending, startTransition] = useTransition();
 
-  const activeView = views.find((view) => view.id === activeId) ?? null;
+  // Sem visão salva, a tela ficava vazia ("Nenhuma visão ainda") e os itens
+  // pareciam ter sumido — mostra uma Lista provisória; salvar a transforma em visão.
+  const fallbackView: ViewRow = {
+    id: FALLBACK_VIEW_ID,
+    name: "Lista",
+    kind: "list",
+    spaceId,
+    typeId,
+    config: parseViewConfig({}),
+    isDefault: false,
+    position: 0,
+  };
+  const activeView = views.find((view) => view.id === activeId) ?? (views.length === 0 ? fallbackView : null);
+  const isFallback = activeView?.id === FALLBACK_VIEW_ID;
+
+  function handleMaterialized(created: ViewRow) {
+    setViews((current) => [...current, created]);
+    setActiveId(created.id);
+  }
 
   function handleCreate() {
     const name = newName.trim();
@@ -214,34 +232,43 @@ export function ViewSwitcher({
 
       {activeView && (
         <>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-            <button type="button" onClick={() => handleRename(activeView.id)} className="hover:underline">
-              Renomear
-            </button>
-            <button type="button" onClick={() => handleDuplicate(activeView.id)} className="hover:underline">
-              Duplicar
-            </button>
-            {!activeView.isDefault && (
-              <button type="button" onClick={() => handleSetDefault(activeView.id)} className="hover:underline">
-                Marcar como padrão
+          {isFallback ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Nenhuma visão salva aqui ainda — mostrando todos os itens em lista. Ajuste filtros e clique em salvar, ou crie uma visão acima.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <button type="button" onClick={() => handleRename(activeView.id)} className="hover:underline">
+                Renomear
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => handleDelete(activeView.id)}
-              className="text-red-600 hover:underline dark:text-red-400"
-            >
-              Excluir
-            </button>
-          </div>
+              <button type="button" onClick={() => handleDuplicate(activeView.id)} className="hover:underline">
+                Duplicar
+              </button>
+              {!activeView.isDefault && (
+                <button type="button" onClick={() => handleSetDefault(activeView.id)} className="hover:underline">
+                  Marcar como padrão
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleDelete(activeView.id)}
+                className="text-red-600 hover:underline dark:text-red-400"
+              >
+                Excluir
+              </button>
+            </div>
+          )}
           {/* `key`: ItemsView guarda a config da visão em estado local — sem remontar, trocar de visão manteria os filtros/ordenação da anterior. */}
-          <ItemsView key={`${activeView.id}:${typeId ?? ""}`} spaceId={spaceId} typeId={typeId ?? undefined} view={activeView} />
+          <ItemsView
+            key={`${activeView.id}:${typeId ?? ""}`}
+            spaceId={spaceId}
+            typeId={typeId ?? undefined}
+            view={activeView}
+            onMaterialized={handleMaterialized}
+          />
         </>
       )}
 
-      {!activeView && (
-        <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Nenhuma visão ainda — crie uma acima.</p>
-      )}
     </div>
   );
 }
