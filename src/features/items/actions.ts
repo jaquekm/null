@@ -18,6 +18,7 @@ import { positionBetween } from "@/features/spaces/lib/position";
 import { diffLinks } from "./lib/diff-links";
 import { extractMentionIds } from "./lib/extract-mention-ids";
 import { extractText } from "./lib/extract-text";
+import { listStyleSchema } from "./lib/list-styles";
 import { remapProperties } from "./lib/remap-properties";
 import { resetChecklist } from "./lib/reset-checklist";
 import { syncContactMentions } from "./lib/sync-contact-mentions";
@@ -316,6 +317,36 @@ export async function duplicateItem(itemId: string): Promise<Result<{ id: string
 
   revalidatePath(`/itens/${itemId}`);
   return ok({ id: data.id });
+}
+
+/**
+ * Tipo de lista (Riscar, Marcar vários, Escolher um, Dar nota, Ordenar e agrupar).
+ * Fica em `properties.list_style`, fora dos campos do tipo: é o comportamento
+ * do módulo Listas (código), não um campo configurável que se possa renomear
+ * e quebrar a tela.
+ */
+export async function setListStyle(itemId: string, knownUpdatedAt: string, style: string): Promise<Result<{ updatedAt: string }>> {
+  const parsed = listStyleSchema.safeParse(style);
+  if (!parsed.success) return fail("Tipo de lista inválido.");
+
+  const { supabase, user } = await requireOwner();
+  const conflict = await checkNotStale(supabase, itemId, knownUpdatedAt);
+  if (conflict) return conflict;
+
+  const { data: item, error: readError } = await supabase.from("items").select("properties, object_types(slug)").eq("id", itemId).maybeSingle();
+  if (readError || !item) return fail("Item não encontrado.");
+  if (item.object_types?.slug !== "lista") return fail("Só listas têm tipo de lista.");
+
+  const properties = { ...((item.properties as Record<string, unknown> | null) ?? {}), list_style: parsed.data };
+  const { data, error } = await supabase
+    .from("items")
+    .update({ properties: properties as unknown as Json })
+    .eq("id", itemId)
+    .eq("owner_id", user.id)
+    .select("updated_at")
+    .single();
+  if (error || !data) return fail(GENERIC_ERROR);
+  return ok({ updatedAt: data.updated_at });
 }
 
 /** "Duplicar como nova" (5.9, pack Listas): mesmos itens, todos desmarcados — pra listas recorrentes (compras, checklists de processo). */

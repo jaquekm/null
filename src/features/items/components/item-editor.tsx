@@ -5,7 +5,9 @@ import { useState } from "react";
 import { HabitTracker } from "@/features/habits/components/habit-tracker";
 import type { HabitLog } from "@/features/habits/lib/habit-log";
 import { ItemContentEditor } from "./editor/item-content-editor";
+import { listStyleOf } from "../lib/list-styles";
 import { ListModeView } from "./list-mode-view";
+import { ListStylePicker } from "./list-style-picker";
 import type { ItemDetail } from "../queries";
 import { PropertiesPanel } from "./properties-panel";
 import { TitleEditor } from "./title-editor";
@@ -14,6 +16,7 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
   const [updatedAt, setUpdatedAt] = useState(item.updatedAt);
   const [content, setContent] = useState<JSONContent | null>(item.content);
   const [listMode, setListMode] = useState(item.type?.slug === "lista");
+  const [listStyle, setListStyle] = useState(listStyleOf(item.properties));
 
   const isLista = item.type?.slug === "lista";
   const isHabito = item.type?.slug === "habito";
@@ -45,6 +48,19 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
       )}
 
       {isLista && (
+        <ListStylePicker
+          itemId={item.id}
+          value={listStyle}
+          updatedAt={updatedAt}
+          onChange={(style, nextUpdatedAt) => {
+            setListStyle(style);
+            setListMode(true);
+            handleSaved(nextUpdatedAt);
+          }}
+        />
+      )}
+
+      {isLista && (
         <button
           type="button"
           onClick={() => setListMode((value) => !value)}
@@ -57,6 +73,7 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
       {isLista && listMode ? (
         <ListModeView
           itemId={item.id}
+          style={listStyle}
           content={content}
           updatedAt={updatedAt}
           onSaved={handleSaved}

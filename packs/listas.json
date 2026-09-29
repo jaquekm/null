@@ -1,8 +1,8 @@
 {
   "key": "listas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Listas",
-  "description": "Checklists reutilizáveis — compras, viagem, mudança de casa, checklist de processo — com modo lista otimizado pro celular.",
+  "description": "Listas com 5 tipos de comportamento — Riscar, Marcar vários, Escolher um, Dar nota, Ordenar e agrupar — e modo lista otimizado pro celular. O assunto da lista é o espaço onde ela está.",
   "icon": "✅",
   "requires": [],
   "types": [
@@ -14,19 +14,6 @@
       "icon": "✅",
       "defaultView": "list",
       "fields": [
-        {
-          "key": "list_kind",
-          "label": "Tipo de lista",
-          "type": "select",
-          "showInCard": true,
-          "options": [
-            { "id": "compras", "label": "Compras" },
-            { "id": "viagem", "label": "Viagem" },
-            { "id": "mudanca_de_casa", "label": "Mudança de casa" },
-            { "id": "checklist_de_processo", "label": "Checklist de processo" },
-            { "id": "outros", "label": "Outros" }
-          ]
-        },
         { "key": "recurring", "label": "Recorrente", "type": "checkbox", "showInCard": true },
         { "key": "shared_with", "label": "Compartilhada com", "type": "contact", "multiple": false }
       ]
@@ -39,7 +26,7 @@
       "name": "Listas",
       "kind": "list",
       "isDefault": true,
-      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["list_kind", "recurring"] }
+      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["recurring"] }
     }
   ],
   "automations": [],
@@ -48,7 +35,7 @@
     {
       "typeRef": "list",
       "title": "Compras do mês",
-      "properties": { "list_kind": "compras", "recurring": true },
+      "properties": { "recurring": true },
       "content": {
         "type": "doc",
         "content": [
@@ -68,7 +55,7 @@
     {
       "typeRef": "list",
       "title": "Mala de viagem",
-      "properties": { "list_kind": "viagem", "recurring": false },
+      "properties": { "recurring": false },
       "content": {
         "type": "doc",
         "content": [
@@ -103,7 +90,7 @@
     {
       "typeRef": "list",
       "title": "Mudança de casa",
-      "properties": { "list_kind": "mudanca_de_casa", "recurring": false },
+      "properties": { "recurring": false },
       "content": {
         "type": "doc",
         "content": [
@@ -146,7 +133,7 @@
     {
       "typeRef": "list",
       "title": "Checklist de deploy",
-      "properties": { "list_kind": "checklist_de_processo", "recurring": true },
+      "properties": { "recurring": true },
       "content": {
         "type": "doc",
         "content": [
@@ -166,7 +153,7 @@
     {
       "typeRef": "list",
       "title": "Onboarding de cliente",
-      "properties": { "list_kind": "checklist_de_processo", "recurring": false },
+      "properties": { "recurring": false },
       "content": {
         "type": "doc",
         "content": [

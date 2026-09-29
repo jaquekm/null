@@ -829,3 +829,9 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Sessões guardam o nome do exercício** em cada entrada (`exercises.<id>.name`), pra o histórico continuar legível se o programa for editado ou apagado (`program_id` é `on delete set null`).
 - **Gráficos:** uma medida por gráfico (energia 1–5 e sono em horas não dividem eixo, ao contrário do app original), série única na cor `--chart-series-1` validada com o `validate_palette.js` nos dois temas.
 - **Rascunho do registro** fica no `localStorage` (conveniência por navegador), nunca como fonte de verdade.
+
+## Listas: tipo de lista é comportamento, assunto é o espaço
+
+- **O quê:** o campo `list_kind` do pack Listas (Compras, Viagem, Mudança de casa…) misturava assunto com tipo. A dona pediu que "tipo de lista" seja o jeito que a lista funciona, com nomes ligados ao comportamento, e que o grupo seja o próprio espaço. Agora são 5 tipos em código (`features/items/lib/list-styles.ts`): Riscar, Marcar vários, Escolher um, Dar nota, Ordenar e agrupar.
+- **Por que código e não um campo de seleção do tipo:** cada tipo muda a tela e as regras (ordenar por nota, uma escolha só, mover entre grupos). Um campo configurável poderia ter as opções renomeadas ou apagadas e quebrar a tela; por isso o valor fica em `properties.list_style`, validado por Zod, gravado só pela ação `setListStyle`.
+- **Mesmo documento para todos os tipos:** os itens continuam sendo `taskItem` do conteúdo Tiptap (o editor completo segue funcionando). "Marcado" serve para Riscar, Marcar vários e Escolher um; a nota é um atributo `score` no `taskItem` (`ScoredTaskItem`); os grupos de "Ordenar e agrupar" são os títulos do documento. Trocar de tipo nunca apaga nada.
