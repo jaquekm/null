@@ -4,6 +4,7 @@ import { DocumentsToReviewPanel } from "@/features/spaces/components/documents-t
 import { NewItemButton } from "@/features/spaces/components/new-item-button";
 import { SpaceBrowser } from "@/features/spaces/components/space-browser";
 import { filtersFromSearchParams } from "@/features/spaces/lib/space-browser";
+import { listOwnerTypeSlugs } from "@/features/templates/queries";
 import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-form";
 import { getSpaceBySlug, listDocumentsToReview, listOtherActiveSpaces, listSpaceBrowserItems, listSpaceObjectTypes } from "@/features/spaces/queries";
 import { ViewSwitcher } from "@/features/views/components/view-switcher";
@@ -22,13 +23,15 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   if (!space) notFound();
 
   const todayDateStr = todayInTimezone(await getUserTimezone(supabase, user.id));
-  const [types, otherSpaces, views, documentsToReview, browserItems] = await Promise.all([
+  const [types, otherSpaces, views, documentsToReview, browserItems, typeSlugs] = await Promise.all([
     listSpaceObjectTypes(supabase, space.id),
     listOtherActiveSpaces(supabase, space.id),
     listViews(supabase, space.id, typeId ?? null),
     listDocumentsToReview(supabase, user.id, space.id, todayDateStr),
     listSpaceBrowserItems(supabase, space.id),
+    listOwnerTypeSlugs(supabase),
   ]);
+  const subcategories = [...new Set(browserItems.flatMap((item) => item.tags.map((tag) => tag.name)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
@@ -49,7 +52,7 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
         </div>
         <div className="flex flex-wrap gap-2">
           <NewCanvasButton spaceId={space.id} />
-          <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} />
+          <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} typeSlugs={typeSlugs} subcategories={subcategories} />
         </div>
       </header>
 

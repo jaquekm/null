@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, DollarSign, FileText, Inbox as InboxIcon, Moon, Plus, Sun } from "lucide-react";
+import { Clock, DollarSign, FileText, Inbox as InboxIcon, Moon, Plus, Search, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -19,7 +19,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { NAV_ITEMS } from "@/lib/nav-items";
+import { NAV_ITEMS, SEARCH_ITEM } from "@/lib/nav-items";
 import { getRecentItemsForPalette } from "../actions";
 
 const DEBOUNCE_MS = 250;
@@ -132,6 +132,19 @@ export function CommandPalette({
           </CommandGroup>
         )}
 
+        {hasQuery && (
+          <CommandGroup heading="Busca avançada" forceMount>
+            <CommandItem
+              value="busca-avancada-texto"
+              forceMount
+              onSelect={() => runAndClose(() => router.push(`${SEARCH_ITEM.href}?q=${encodeURIComponent(query.trim())}`))}
+            >
+              <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+              <span className="truncate">Filtrar &ldquo;{query.trim()}&rdquo; por espaço, tipo, tag ou data</span>
+            </CommandItem>
+          </CommandGroup>
+        )}
+
         {!hasQuery && recent.length > 0 && (
           <CommandGroup heading="Recentes">
             {recent.map((item) => (
@@ -163,6 +176,10 @@ export function CommandPalette({
               </CommandItem>
             );
           })}
+          <CommandItem value="ir-para-busca-avancada" onSelect={() => runAndClose(() => router.push(SEARCH_ITEM.href))}>
+            <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+            {SEARCH_ITEM.label}
+          </CommandItem>
           {spaces.map((space) => (
             <CommandItem
               key={space.id}

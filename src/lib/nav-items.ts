@@ -22,9 +22,10 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
+/** Busca com filtros (espaço, tipo, tag, datas, "por significado") — fora do menu, aberta pela busca do topo. */
+export const SEARCH_ITEM: NavItem = { href: "/buscar", label: "Busca avançada", icon: Search };
 const HOJE: NavItem = { href: "/hoje", label: "Hoje", icon: Sun };
 const INBOX: NavItem = { href: "/inbox", label: "Inbox", icon: Inbox };
-const BUSCAR: NavItem = { href: "/buscar", label: "Buscar", icon: Search };
 const AGENDA: NavItem = { href: "/agenda", label: "Agenda", icon: Calendar };
 const LEMBRETES: NavItem = { href: "/lembretes", label: "Lembretes", icon: Bell };
 const FINANCAS: NavItem = {
@@ -69,11 +70,14 @@ const ZETTELKASTEN: NavItem = {
   icon: Network,
 };
 
-/** Itens da sidebar (desktop) e do menu completo (mobile). */
+/**
+ * Itens da sidebar (desktop) e do menu completo (mobile). "Buscar" saiu do
+ * menu (pedido da dona): a busca do topo (Ctrl K) já busca, e a página com
+ * filtros abre por "Busca avançada" dentro dela (`SEARCH_ITEM`).
+ */
 export const NAV_ITEMS: NavItem[] = [
   HOJE,
   INBOX,
-  BUSCAR,
   AGENDA,
   LEMBRETES,
   FINANCAS,
