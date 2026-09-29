@@ -4,7 +4,9 @@ import type { JSONContent } from "@tiptap/core";
 import { useState } from "react";
 import { HabitTracker } from "@/features/habits/components/habit-tracker";
 import type { HabitLog } from "@/features/habits/lib/habit-log";
+import { expiryOf } from "@/features/documents/lib/expiry";
 import { ItemContentEditor } from "./editor/item-content-editor";
+import { ExpiryField } from "./expiry-field";
 import { listStyleOf } from "../lib/list-styles";
 import { ListModeView } from "./list-mode-view";
 import { ListStylePicker } from "./list-style-picker";
@@ -12,14 +14,29 @@ import type { ItemDetail } from "../queries";
 import { PropertiesPanel } from "./properties-panel";
 import { TitleEditor } from "./title-editor";
 
-export function ItemEditor({ item, timezone }: { item: ItemDetail; timezone?: string }) {
+export function ItemEditor({
+  item,
+  timezone,
+  today,
+  expirySuggestion = null,
+}: {
+  item: ItemDetail;
+  timezone?: string;
+  /** Hoje (yyyy-MM-dd) no fuso da dona — pra mostrar quanto falta pra vencer. */
+  today?: string;
+  /** Validade lida no texto de um anexo (9.5), pra sugerir. */
+  expirySuggestion?: string | null;
+}) {
   const [updatedAt, setUpdatedAt] = useState(item.updatedAt);
   const [content, setContent] = useState<JSONContent | null>(item.content);
   const [listMode, setListMode] = useState(item.type?.slug === "lista");
   const [listStyle, setListStyle] = useState(listStyleOf(item.properties));
+  const [expiry, setExpiry] = useState(expiryOf(item.properties));
 
   const isLista = item.type?.slug === "lista";
   const isHabito = item.type?.slug === "habito";
+  // Validade (9.5): sempre nos documentos; em outros tipos, só se já tiver uma data.
+  const showExpiry = Boolean(today) && (item.type?.slug === "documento" || expiry !== null);
 
   function handleSaved(nextUpdatedAt: string) {
     setUpdatedAt(nextUpdatedAt);
@@ -41,6 +58,18 @@ export function ItemEditor({ item, timezone }: { item: ItemDetail; timezone?: st
                 onChange={(style, nextUpdatedAt) => {
                   setListStyle(style);
                   setListMode(true);
+                  handleSaved(nextUpdatedAt);
+                }}
+              />
+            ) : showExpiry ? (
+              <ExpiryField
+                itemId={item.id}
+                value={expiry}
+                updatedAt={updatedAt}
+                today={today!}
+                suggestion={expirySuggestion}
+                onChange={(value, nextUpdatedAt) => {
+                  setExpiry(value);
                   handleSaved(nextUpdatedAt);
                 }}
               />

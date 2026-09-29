@@ -10,6 +10,8 @@ import {
   listItemsForDateExtraction,
   listRemindersInRange,
 } from "@/features/agenda/queries";
+import { expiryStatus } from "@/features/documents/lib/expiry";
+import { listExpiringItems } from "@/features/documents/queries";
 import { listBills } from "@/features/financas/queries";
 import { countInboxItems, listRecentItems } from "@/features/items/queries";
 import { TodayView, type TodayRow } from "@/features/today/components/today-view";
@@ -33,7 +35,7 @@ export default async function TodayPage() {
   const dayRange = computeDayRange(now, timezone);
   const today = dayRange.dateStr;
 
-  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions] = await Promise.all([
+  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions, expiringItems] = await Promise.all([
     listGoogleEventsInRange(supabase, user.id, dayRange.startIso, dayRange.endIsoExclusive),
     listCalendarColors(supabase, user.id),
     listDateFieldsByTypeId(supabase, user.id),
@@ -44,6 +46,7 @@ export default async function TodayPage() {
     listRecentItems(supabase, 6),
     listWorkoutPrograms(supabase, user.id).catch(() => []),
     listWorkoutSessions(supabase, user.id).catch(() => []),
+    listExpiringItems(supabase, today).catch(() => []),
   ]);
 
   const items = await listItemsForDateExtraction(supabase, user.id, [...dateFieldsByTypeId.keys()]);
@@ -71,6 +74,11 @@ export default async function TodayPage() {
     danger: bill.overdue,
   }));
 
+  const expiring: TodayRow[] = expiringItems.slice(0, 6).map((doc) => {
+    const status = expiryStatus(doc.expiry, today);
+    return { id: doc.id, title: doc.title, href: `/itens/${doc.id}`, meta: status.label, danger: status.level === "expired" || status.level === "today" };
+  });
+
   const program = programs.find((p) => p.active);
   const letter = program ? nextWorkout(program.definition, sessions) : null;
   const workout =
@@ -88,6 +96,7 @@ export default async function TodayPage() {
       tasks={tasks}
       hiddenTasks={overdue.length + dueToday.length - tasks.length}
       bills={billRows}
+      expiring={expiring}
       workout={workout}
       recent={recent.map((item) => ({ id: item.id, title: item.title, href: `/itens/${item.id}` }))}
       inboxCount={inboxCount}

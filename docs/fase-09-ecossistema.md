@@ -49,14 +49,14 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Lembretes de acompanhamento criados a partir das tarefas.
 - Aceite: do evento ao resumo enviado sem sair da nota.
 
-## 9.4 — Lembrete em qualquer coisa, em linguagem natural ✅ (em PR)
+## 9.4 — Lembrete em qualquer coisa, em linguagem natural ✅
 
 - "Me lembra…" em qualquer item e em itens de lista: "amanhã 9h", "sexta às 14h", "toda segunda",
   "dia 10 de todo mês" → parser puro com testes (fuso America/Sao_Paulo).
 - Aviso antes de eventos da agenda (X minutos antes, por push ou WhatsApp).
 - Depende do agendador ligado.
 
-## 9.5 — Documentos importantes com vencimento
+## 9.5 — Documentos importantes com vencimento ✅ (em PR)
 
 - Tipo/modelo "Documento importante": validade (data), aviso 30, 7 e 1 dia antes.
 - OCR (já existe) sugere a data de validade ao anexar a foto/PDF — a dona confirma, nunca automático.

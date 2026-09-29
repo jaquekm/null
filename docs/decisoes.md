@@ -854,3 +854,9 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Escolhas de sentido:** dia da semana sozinho ("sexta") é sempre o próximo, nunca hoje; sem hora vale 9h (ou a próxima hora cheia se for "hoje" e já passou das 9h); "dia 10" é este mês se ainda não passou; "semana que vem" = daqui a 7 dias. "segunda via" não é segunda-feira.
 - **Servidor relê a frase:** a prévia no navegador é só prévia; `createReminderFromPhrase` interpreta de novo com o relógio e o fuso do servidor/dona, então não dá pra gravar data inventada pelo cliente.
 - **Aviso antes dos eventos sem WhatsApp:** lembrete pra própria dona só sai por notificação (push) ou e-mail — o sistema não guarda o número dela (`resolveDestination` devolve vazio pra WhatsApp de "eu"). Guardar o número exige campo em `user_settings` (migration) e opt-in; fica junto da 9.8 ("me avisar no WhatsApp").
+
+## Validade de documento (9.5): propriedade gravada por código, avisos como lembretes
+
+- **O quê:** `properties.validade` (yyyy-MM-dd) em qualquer item, editada pelo campo "Validade" (sempre nos Documentos; nos outros tipos, só quando já existe). Mesma abordagem do tipo de lista: valor gravado só pela ação própria (`setItemExpiry`), sem virar campo configurável do tipo — assim não precisa migration nem mexer nos tipos que a dona já tem, e o campo não pode ser renomeado/apagado por engano.
+- **Avisos:** três lembretes comuns pra dona (30, 7 e 1 dia antes, às 9h), com `source_type='item_expiry'` e `item_id`. Não usei a regra `item_date_field` (só um "dias antes" por regra e depende de campo do tipo). Mudar/tirar a data cancela os agendados desse item antes de criar os novos.
+- **OCR só sugere:** a data é procurada logo depois de palavras como "validade", "válido até", "vencimento", "date of expiry"; sem essas palavras nada é sugerido (emissão e nascimento também são datas). Com várias, fica a mais distante no futuro. A dona confirma com um toque.
