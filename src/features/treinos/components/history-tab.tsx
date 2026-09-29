@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteWorkoutSession, updateMorningPain } from "../actions";
-import { TRAFFIC_LIGHT_TEXT, validReps } from "../lib/rules";
+import { TRAFFIC_LIGHT_TEXT, sessionHasExercises, validReps } from "../lib/rules";
 import type { WeeklyMeasure, WorkoutSession } from "../queries";
 import { buildSessionsCsv, buildWeeklyCsv, downloadCsv } from "../lib/csv-export";
 import { Field, PainSelect, cardClassName, formatShortDate } from "./ui";
@@ -76,7 +76,10 @@ export function HistoryTab({ sessions, weekly, onChanged }: { sessions: WorkoutS
             </button>
             {open && (
               <div className="flex flex-col gap-2 px-3 pb-3">
-                <div className="overflow-x-auto">
+                {!sessionHasExercises(s) && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Sem exercícios de musculação neste dia (só cardio ou descanso ativo).</p>
+                )}
+                <div className={`overflow-x-auto ${sessionHasExercises(s) ? "" : "hidden"}`}>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-left text-zinc-500 dark:text-zinc-400">

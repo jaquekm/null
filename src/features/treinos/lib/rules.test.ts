@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProgramDefinition, ProgramExercise } from "./program";
 import {
+  canSaveSession,
   emptyEntries,
   exerciseVolume,
   nextWorkout,
@@ -73,10 +74,15 @@ describe("trafficLight", () => {
 describe("sequência e semana", () => {
   it("próximo treino segue A→B→C→D→A pelo último registrado", () => {
     expect(nextWorkout(program, [])).toBe("A");
-    expect(nextWorkout(program, [session("2026-09-01", 1, "A", {}), session("2026-09-03", 1, "B", {})])).toBe("C");
-    expect(nextWorkout(program, [session("2026-09-10", 2, "D", {})])).toBe("A");
+    const done = { legpress: entry() };
+    expect(nextWorkout(program, [session("2026-09-01", 1, "A", done), session("2026-09-03", 1, "B", done)])).toBe("C");
+    expect(nextWorkout(program, [session("2026-09-10", 2, "D", done)])).toBe("A");
+    // dia só de cardio (tudo pulado) depois do A: continua sendo a vez do B
+    const doneA = session("2026-09-28", 1, "A", { legpress: entry() });
+    const cardioOnly = session("2026-09-29", 1, "B", { puxada: entry({ skipped: true, reps: [] }) });
+    expect(nextWorkout(program, [doneA, cardioOnly])).toBe("B");
     // treino de um programa antigo que não existe mais: recomeça do primeiro
-    expect(nextWorkout(program, [session("2026-09-10", 2, "F", {})])).toBe("A");
+    expect(nextWorkout(program, [session("2026-09-10", 2, "F", done)])).toBe("A");
   });
 
   it("semana do programa conta a partir do primeiro treino", () => {
@@ -142,5 +148,23 @@ describe("volume e reps", () => {
     expect(validReps(["12", "", "10"])).toEqual([12, 10]);
     expect(exerciseVolume(legpress, entry({ load: "42,5", reps: ["10", "10"] }))).toBe(850);
     expect(exerciseVolume(prancha, entry({ load: "", reps: ["20", "20"] }))).toBe(40);
+  });
+});
+
+describe("canSaveSession", () => {
+  const skipped = { legpress: entry({ skipped: true, reps: [] }), puxada: entry({ skipped: true, reps: [] }) };
+
+  it("dia só de cardio (tudo pulado) salva com duração ou observação", () => {
+    expect(canSaveSession({ exercises: skipped, durationMin: 30, notes: "" })).toBe(true);
+    expect(canSaveSession({ exercises: skipped, durationMin: null, notes: "bicicleta e esteira 30 min cada" })).toBe(true);
+  });
+
+  it("sem exercício feito, sem duração e sem observação: não há o que salvar", () => {
+    expect(canSaveSession({ exercises: skipped, durationMin: null, notes: "  " })).toBe(false);
+    expect(canSaveSession({ exercises: skipped, durationMin: 0, notes: "" })).toBe(false);
+  });
+
+  it("com um exercício feito salva mesmo sem duração", () => {
+    expect(canSaveSession({ exercises: { legpress: entry() }, durationMin: null, notes: "" })).toBe(true);
   });
 });
