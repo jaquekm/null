@@ -8,30 +8,15 @@ import { TableKit } from "@tiptap/extension-table";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
-import { generateHTML, type JSONContent } from "@tiptap/core";
+import type { JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import DOMPurify from "isomorphic-dompurify";
-import { JSDOM } from "jsdom";
+import { renderToHTMLString } from "@tiptap/static-renderer/pm/html-string";
 import { common, createLowlight } from "lowlight";
 import { ScoredTaskItem } from "@/features/items/components/editor/scored-task-item";
+import { expandSelfClosingTags, sanitizePublicContent } from "./public-html-safety";
 import { injectTaskItemPaths, type JSONContentNode } from "./toggle-task-at-path";
 
 const lowlight = createLowlight(common);
-
-/**
- * `generateHTML` (via `prosemirror-model`) espera um `window`/`document`
- * globais — não roda em Node "puro" apesar de não precisar de um browser de
- * verdade (é só serialização, sem layout/eventos). Instala um DOM mínimo
- * (`jsdom`) nos globais uma única vez por processo — o resultado seria o
- * mesmo em qualquer chamada, então não há por que recriar a cada render.
- */
-let domInstalled = false;
-function ensureServerDom(): void {
-  if (domInstalled) return;
-  const { window } = new JSDOM("<!doctype html><html><body></body></html>");
-  Object.assign(globalThis, { window, document: window.document });
-  domInstalled = true;
-}
 
 /**
  * Versão "texto simples" das menções (3.11: "Links internos `[[...]]`
@@ -106,17 +91,18 @@ export interface RenderPublicContentOptions {
 }
 
 /**
- * Conteúdo Tiptap (JSON) → HTML sanitizado pra página pública (3.11).
- * `generateHTML` roda em Node puro (sem editor/DOM de verdade); o
- * resultado ainda passa por `DOMPurify` — defesa em profundidade contra
- * HTML malicioso que por algum motivo tenha entrado no `content` salvo
- * (ex.: colado de fora, ou um bug futuro na extensão de colar Markdown).
+ * Conteúdo Tiptap (JSON) → HTML pra página pública (3.11), sem DOM nenhum:
+ * o renderizador estático do Tiptap escapa texto e atributos, e
+ * `sanitizePublicContent` tira links/imagens com URL perigosa antes. Antes
+ * isto usava `generateHTML` + jsdom + DOMPurify, e o jsdom não carregava na
+ * Vercel (ERR_REQUIRE_ESM numa dependência dele) — toda página `/p/…` de
+ * item dava erro 500 em produção.
  */
 export function renderPublicContentHtml(content: JSONContent | null, options: RenderPublicContentOptions = {}): string {
   if (!content) return "";
-  ensureServerDom();
-
-  const source = options.interactiveChecklist ? injectTaskItemPaths(content as JSONContentNode) : content;
-  const html = generateHTML(source as JSONContent, buildExtensions(Boolean(options.interactiveChecklist)));
-  return DOMPurify.sanitize(html, { ADD_ATTR: ["data-path", "data-share-checkbox", "data-checked", "data-type", "data-score"] });
+  const withPaths = options.interactiveChecklist ? (injectTaskItemPaths(content as JSONContentNode) as JSONContent) : content;
+  const safe = sanitizePublicContent(withPaths);
+  if (!safe) return "";
+  const html = renderToHTMLString({ content: safe, extensions: buildExtensions(Boolean(options.interactiveChecklist)) });
+  return expandSelfClosingTags(html);
 }

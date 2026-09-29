@@ -28,8 +28,24 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
   return (
     <div className="flex flex-col gap-4">
       <TitleEditor itemId={item.id} initialTitle={item.title} updatedAt={updatedAt} onSaved={handleSaved} />
+
       {item.type && (
         <PropertiesPanel
+          // Primeiro campo da grade, onde ficava o antigo "Tipo de lista" (assunto): um seletor só.
+          leading={
+            isLista ? (
+              <ListStylePicker
+                itemId={item.id}
+                value={listStyle}
+                updatedAt={updatedAt}
+                onChange={(style, nextUpdatedAt) => {
+                  setListStyle(style);
+                  setListMode(true);
+                  handleSaved(nextUpdatedAt);
+                }}
+              />
+            ) : null
+          }
           itemId={item.id}
           typeSlug={item.type.slug}
           fields={item.type.fields}
@@ -44,19 +60,6 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
           itemId={item.id}
           initialLog={(item.properties.log as HabitLog | undefined) ?? {}}
           targetPerPeriod={typeof item.properties.target_per_period === "number" ? item.properties.target_per_period : null}
-        />
-      )}
-
-      {isLista && (
-        <ListStylePicker
-          itemId={item.id}
-          value={listStyle}
-          updatedAt={updatedAt}
-          onChange={(style, nextUpdatedAt) => {
-            setListStyle(style);
-            setListMode(true);
-            handleSaved(nextUpdatedAt);
-          }}
         />
       )}
 
