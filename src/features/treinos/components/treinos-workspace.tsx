@@ -57,7 +57,7 @@ export function TreinosWorkspace({ programs, sessions, weekly }: { programs: Wor
             .
           </p>
         ))}
-      {tab === "historico" && <HistoryTab sessions={sessions} weekly={weekly} onChanged={refresh} />}
+      {tab === "historico" && <HistoryTab programs={programs} sessions={sessions} weekly={weekly} onChanged={refresh} />}
       {tab === "graficos" && <ChartsTab program={active?.definition ?? null} sessions={sessions} weekly={weekly} />}
       {tab === "semanal" && <WeeklyTab weekly={weekly} sessions={sessions} onChanged={refresh} />}
       {tab === "programa" && <ProgramTab programs={programs} onChanged={refresh} />}

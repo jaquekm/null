@@ -116,9 +116,44 @@ describe("TreinosWorkspace", () => {
     };
     render(<TreinosWorkspace programs={[program]} sessions={[session]} weekly={[]} />);
     fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
-    fireEvent.click(screen.getByRole("button", { name: /28\/09 · sem\. 1/ }));
-    expect(screen.getByText("12/11")).toBeTruthy();
-    expect(screen.getAllByText("Leg press 45°").length).toBeGreaterThan(0);
+    // Cartão fechado: dia da semana, nome do treino do programa e resumo.
+    const card = screen.getByRole("button", { name: /Seg, 28\/09/ });
+    expect(within(card).getByText("Treino A · Inferiores 1 (quadríceps e joelho)")).toBeTruthy();
+    expect(within(card).getByText("1 exercício · 2 séries · 920 kg")).toBeTruthy();
+    fireEvent.click(card);
+    expect(screen.getByText("Leg press 45°")).toBeTruthy();
+    expect(screen.getByText("40 kg")).toBeTruthy();
+  });
+
+  it("histórico: dia só de cardio aparece como cardio, com a observação", () => {
+    const cardio: WorkoutSession = {
+      id: "s2",
+      createdAt: "2026-09-29T10:00:00Z",
+      programId: program.id,
+      date: "2026-09-29",
+      week: 1,
+      workout: "A",
+      exercises: { leg_press_45: { name: "Leg press 45°", load: "", reps: [], rir: null, pain: 0, note: "", skipped: true } },
+      sleepHours: 7,
+      energy: 3,
+      kneePainBefore: 0,
+      backPainBefore: 0,
+      swelling: false,
+      sick: false,
+      trafficLight: "green",
+      durationMin: 30,
+      kneePainAfter: 2,
+      backPainAfter: 0,
+      kneePainMorning: null,
+      backPainMorning: null,
+      notes: "bicicleta e esteira 30 min cada",
+    };
+    render(<TreinosWorkspace programs={[program]} sessions={[cardio]} weekly={[]} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
+    const card = screen.getByRole("button", { name: /Ter, 29\/09/ });
+    expect(within(card).getByText("Cardio / descanso ativo")).toBeTruthy();
+    expect(within(card).getByText("30 min")).toBeTruthy();
+    expect(within(card).getByText("“bicicleta e esteira 30 min cada”")).toBeTruthy();
   });
 
   it("montar do zero: edita treino e exercício e salva o programa em uso", async () => {
