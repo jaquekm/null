@@ -29,7 +29,7 @@ export function Sidebar({
       }`}
     >
       <div className={`flex h-14 items-center px-3 ${collapsed ? "flex-col justify-center gap-2 py-2 h-auto" : "justify-between"}`}>
-        <Link href="/inbox" aria-label="JKode — início" className="min-w-0">
+        <Link href="/hoje" aria-label="JKode — início" className="min-w-0">
           <BrandMark showName={!collapsed} />
         </Link>
         <button

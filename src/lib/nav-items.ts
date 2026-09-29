@@ -9,6 +9,7 @@ import {
   Network,
   Search,
   Settings,
+  Sun,
   Sparkles,
   Users,
   Wallet,
@@ -21,6 +22,7 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
+const HOJE: NavItem = { href: "/hoje", label: "Hoje", icon: Sun };
 const INBOX: NavItem = { href: "/inbox", label: "Inbox", icon: Inbox };
 const BUSCAR: NavItem = { href: "/buscar", label: "Buscar", icon: Search };
 const AGENDA: NavItem = { href: "/agenda", label: "Agenda", icon: Calendar };
@@ -69,6 +71,7 @@ const ZETTELKASTEN: NavItem = {
 
 /** Itens da sidebar (desktop) e do menu completo (mobile). */
 export const NAV_ITEMS: NavItem[] = [
+  HOJE,
   INBOX,
   BUSCAR,
   AGENDA,
@@ -85,4 +88,4 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /** Itens fixos da barra inferior no mobile (além do botão de captura e do "Menu"). */
-export const MOBILE_PRIMARY_ITEMS: NavItem[] = [INBOX, BUSCAR, AGENDA];
+export const MOBILE_PRIMARY_ITEMS: NavItem[] = [HOJE, INBOX, AGENDA];

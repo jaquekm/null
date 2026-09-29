@@ -12,7 +12,7 @@ export default async function BoasVindasPage() {
     .maybeSingle();
 
   if (settings?.onboarding_completed_at) {
-    redirect("/inbox");
+    redirect("/hoje");
   }
 
   return (
