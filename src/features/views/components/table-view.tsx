@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { FieldInput } from "@/components/fields/field-input";
 import type { FieldDefinition } from "@/features/types/schemas";
+import { TOTAL_AGGS, TOTAL_AGG_LABELS, defaultAgg, formatTotal, isTotalable, type ColumnSummary, type TotalAgg } from "../lib/column-totals";
 import type { ViewItemRow } from "../queries";
 import type { ViewSort } from "../schemas";
 
@@ -36,6 +37,11 @@ export function TableView({
   visibleFields,
   onVisibleFieldsChange,
   onItemSaved,
+  total = 0,
+  totals,
+  totalsPartial = false,
+  totalAggs = {},
+  onTotalAggChange,
 }: {
   rows: ViewItemRow[];
   fields: FieldDefinition[];
@@ -44,6 +50,13 @@ export function TableView({
   visibleFields?: string[];
   onVisibleFieldsChange: (fields: string[]) => void;
   onItemSaved: (itemId: string, updatedAt: string) => void;
+  /** Quantos itens o filtro pega (todas as páginas). */
+  total?: number;
+  /** Linha de totais (9.6): soma/contagem por coluna numérica, sobre o filtro inteiro. */
+  totals?: Record<string, ColumnSummary>;
+  totalsPartial?: boolean;
+  totalAggs?: Record<string, TotalAgg>;
+  onTotalAggChange?: (fieldKey: string, agg: TotalAgg) => void;
 }) {
   const hasType = fields.length > 0;
 
@@ -67,6 +80,8 @@ export function TableView({
             (field): LegacyColumnDef<ViewItemRow, unknown> => ({
               id: field.key,
               header: field.label,
+              // Calculados na leitura (rollup/fórmula) não existem no banco — não dá pra ordenar no servidor.
+              enableSorting: field.type !== "rollup" && field.type !== "formula",
               cell: ({ row }) => (
                 <FieldInput
                   itemId={row.original.id}
@@ -141,6 +156,9 @@ export function TableView({
     onColumnSizingChange: setColumnSizing,
   });
 
+  const fieldByKey = new Map(fields.map((field) => [field.key, field]));
+  const showTotals = hasType && rows.length > 0 && fields.some((field) => !field.hidden && isTotalable(field));
+
   return (
     <div className="flex flex-col gap-2">
       <div className="overflow-x-auto">
@@ -190,6 +208,44 @@ export function TableView({
               ))
             )}
           </tbody>
+          {showTotals && (
+            <tfoot>
+              <tr className="border-t-2 border-black/[.1] bg-surface-muted/60 dark:border-white/[.12]">
+                {table.getVisibleLeafColumns().map((column, index) => {
+                  const field = fieldByKey.get(column.id);
+                  if (index === 0) {
+                    return (
+                      <td key={column.id} className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                        Total · {total} {total === 1 ? "item" : "itens"}
+                        {totalsPartial && <span className="block font-normal text-amber-700 dark:text-amber-400">só os primeiros 5.000</span>}
+                      </td>
+                    );
+                  }
+                  if (!field || !isTotalable(field)) return <td key={column.id} />;
+                  const agg = totalAggs[field.key] ?? defaultAgg(field);
+                  return (
+                    <td key={column.id} className="px-3 py-2 align-top">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-semibold tabular-nums text-black dark:text-zinc-50">{formatTotal(totals?.[field.key], agg, field)}</span>
+                        <select
+                          value={agg}
+                          onChange={(e) => onTotalAggChange?.(field.key, e.target.value as TotalAgg)}
+                          aria-label={`Cálculo do total de ${field.label}`}
+                          className="w-fit rounded border-0 bg-transparent p-0 text-[11px] text-zinc-500 focus:ring-2 focus:ring-brand/25 dark:text-zinc-400"
+                        >
+                          {TOTAL_AGGS.map((option) => (
+                            <option key={option} value={option}>
+                              {TOTAL_AGG_LABELS[option]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

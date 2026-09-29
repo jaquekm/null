@@ -87,7 +87,7 @@ export function FieldInput({
 function FieldValueInput({ field, value, pending }: { field: FieldDefinition; value: unknown; pending: boolean }) {
   const [multiSelected, setMultiSelected] = useState<string[]>(Array.isArray(value) ? (value as string[]) : []);
 
-  if (field.type === "rollup") {
+  if (field.type === "rollup" || field.type === "formula") {
     return <p className="text-sm text-zinc-600 dark:text-zinc-300">{formatPropertyValue(value, field)}</p>;
   }
 
@@ -219,17 +219,20 @@ function FieldValueInput({ field, value, pending }: { field: FieldDefinition; va
       );
 
     case "money":
+      // Digita-se em reais ("25,90"); o servidor converte pra centavos (`parseBRL`). Antes pedia centavos ("2590").
       return (
-        <div className="flex flex-col gap-0.5">
+        <div className="relative flex items-center">
+          <span className="pointer-events-none absolute left-3 text-sm text-zinc-400 dark:text-zinc-500">{field.currency && field.currency !== "BRL" ? field.currency : "R$"}</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             name="value"
-            defaultValue={typeof value === "number" ? value : ""}
+            defaultValue={typeof value === "number" ? (value / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+            placeholder="0,00"
             disabled={pending}
             onBlur={(e) => e.currentTarget.form?.requestSubmit()}
-            className={inputClassName}
+            className={`${inputClassName} w-full pl-9 tabular-nums`}
           />
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">Em centavos ({field.currency ?? "BRL"})</span>
         </div>
       );
 

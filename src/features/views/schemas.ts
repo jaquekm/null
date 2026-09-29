@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TOTAL_AGGS } from "./lib/column-totals";
 
 export const filterOperators = ["contains", "eq", "neq", "gt", "lt", "between", "empty", "not_empty", "any_of"] as const;
 export type FilterOperator = (typeof filterOperators)[number];
@@ -48,6 +49,8 @@ export const viewConfigSchema = z.object({
   dependsOnField: z.string().optional(),
   /** Kanban (5.6, "soma de valores por coluna"): campo `money` cujo total (por coluna) aparece no cabeçalho — genérico, qualquer tipo com campo `money` pode usar. */
   sumField: z.string().optional(),
+  /** Tabela (9.6): cálculo da linha de totais por coluna (`sum`/`avg`/`count`/`none`); coluna sem entrada usa o padrão do tipo de campo. */
+  totals: z.record(z.string(), z.enum(TOTAL_AGGS)).optional(),
 });
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
 

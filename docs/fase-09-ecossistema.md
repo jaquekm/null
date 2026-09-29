@@ -56,13 +56,13 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Aviso antes de eventos da agenda (X minutos antes, por push ou WhatsApp).
 - Depende do agendador ligado.
 
-## 9.5 — Documentos importantes com vencimento ✅ (em PR)
+## 9.5 — Documentos importantes com vencimento ✅
 
 - Tipo/modelo "Documento importante": validade (data), aviso 30, 7 e 1 dia antes.
 - OCR (já existe) sugere a data de validade ao anexar a foto/PDF — a dona confirma, nunca automático.
 - Cartão "Vencendo" no Hoje.
 
-## 9.6 — Planilhas de verdade
+## 9.6 — Planilhas de verdade ✅ (em PR)
 
 - Visão de tabela: linha de totais (soma, média, contagem por coluna numérica/dinheiro).
 - Fórmulas simples entre colunas (ex.: `quantidade × preço`), com parser puro e testado.

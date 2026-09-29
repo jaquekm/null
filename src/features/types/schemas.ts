@@ -20,6 +20,7 @@ export const fieldTypes = [
   "file",
   "duration",
   "rollup",
+  "formula",
 ] as const;
 
 export type FieldType = (typeof fieldTypes)[number];
@@ -74,6 +75,13 @@ export const fieldDefinitionSchema = z.object({
   rollupOp: z.enum(rollupOps).optional(),
   rollupTargetField: z.string().min(1).optional(),
   rollupCondition: rollupConditionSchema.optional(),
+  /**
+   * Campo `formula` (9.6) — conta entre campos numéricos do próprio item
+   * (`quantidade × preço`), nunca armazenada: calculada na leitura
+   * (`features/types/lib/formula.ts`).
+   */
+  formula: z.string().max(300).optional(),
+  formulaFormat: z.enum(["number", "money", "percent"]).optional(),
 });
 
 export type FieldDefinition = z.infer<typeof fieldDefinitionSchema>;
@@ -134,8 +142,9 @@ function fieldValueSchema(field: FieldDefinition): z.ZodTypeAny {
     case "file":
       return relationArraySchema(field);
     case "rollup":
+    case "formula":
       // Nunca chega a ser chamado: `buildPropertiesSchema` pula campos
-      // `rollup` antes de invocar `fieldValueSchema` (não são armazenados).
+      // `rollup`/`formula` antes de invocar `fieldValueSchema` (não são armazenados).
       return z.never();
     default: {
       const exhaustive: never = field.type;
@@ -154,7 +163,7 @@ function fieldValueSchema(field: FieldDefinition): z.ZodTypeAny {
 export function buildPropertiesSchema(fields: FieldDefinition[]) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const field of fields) {
-    if (field.type === "rollup") continue;
+    if (field.type === "rollup" || field.type === "formula") continue;
     const valueSchema = fieldValueSchema(field);
     shape[field.key] = field.required ? valueSchema : valueSchema.optional();
   }

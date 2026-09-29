@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JSONContent } from "@tiptap/core";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
+import { computeFormulas } from "@/features/types/lib/formula";
 import { computeRollupsForRows } from "@/features/types/lib/rollup-query";
 import { listTagsByItemIds, type TagOption } from "@/features/tags/queries";
 
@@ -43,6 +44,8 @@ export async function getItemDetail(supabase: Client, id: string): Promise<ItemD
     const computed = await computeRollupsForRows(supabase, [{ id: data.id }], fields);
     Object.assign(properties, computed.get(data.id) ?? {});
   }
+  // Fórmulas (9.6) por último: podem usar o valor de um rollup.
+  Object.assign(properties, computeFormulas(fields, properties));
 
   return {
     id: data.id,
