@@ -22,7 +22,20 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 // recharts precisa de medidas de layout que o jsdom não tem; os gráficos não são o alvo deste teste.
 vi.mock("recharts", () => {
   const Empty = () => null;
-  return { CartesianGrid: Empty, Line: Empty, LineChart: Empty, ResponsiveContainer: Empty, Tooltip: Empty, XAxis: Empty, YAxis: Empty };
+  return {
+    Area: Empty,
+    AreaChart: Empty,
+    Bar: Empty,
+    BarChart: Empty,
+    CartesianGrid: Empty,
+    LabelList: Empty,
+    Line: Empty,
+    LineChart: Empty,
+    ResponsiveContainer: Empty,
+    Tooltip: Empty,
+    XAxis: Empty,
+    YAxis: Empty,
+  };
 });
 
 const { TreinosWorkspace } = await import("./treinos-workspace");
