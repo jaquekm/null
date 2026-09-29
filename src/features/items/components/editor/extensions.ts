@@ -5,7 +5,6 @@ import Image from "@tiptap/extension-image";
 import Mention from "@tiptap/extension-mention";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
-import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Typography from "@tiptap/extension-typography";
 import StarterKit from "@tiptap/starter-kit";
@@ -13,6 +12,7 @@ import { common, createLowlight } from "lowlight";
 import { createContactMentionSuggestion } from "./contact-mention-suggestion";
 import { ImagePaste } from "./image-paste-extension";
 import { MarkdownPaste } from "./markdown-paste-extension";
+import { ScoredTaskItem } from "./scored-task-item";
 import { createMentionSuggestion } from "./mention-suggestion";
 import { SlashCommand } from "./slash-command-extension";
 
@@ -41,7 +41,7 @@ export function buildEditorExtensions(spaceId: string | null, itemId: string) {
     DetailsSummary,
     DetailsContent,
     TaskList,
-    TaskItem.configure({ nested: true }),
+    ScoredTaskItem.configure({ nested: true }),
     TableKit.configure({ table: { resizable: false } }),
     Image,
     Highlight,

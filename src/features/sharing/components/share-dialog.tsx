@@ -23,7 +23,16 @@ const inputClassName =
 const labelClassName = "flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400";
 
 /** Diálogo "Compartilhar" (3.11) — criar link + lista de links ativos do item. */
-export function ShareDialog({ itemId, links }: { itemId: string; links: ShareLinkRow[] }) {
+export function ShareDialog({
+  itemId,
+  links,
+  triggerLabel,
+}: {
+  itemId: string;
+  links: ShareLinkRow[];
+  /** Texto do botão que abre o diálogo; sem ele, o botão "Compartilhar" com ícone. */
+  triggerLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [permission, setPermission] = useState<SharePermission>("view");
@@ -87,13 +96,19 @@ export function ShareDialog({ itemId, links }: { itemId: string; links: ShareLin
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]"
-      >
-        <Share2 className="h-4 w-4" /> Compartilhar
-      </button>
+      {triggerLabel ? (
+        <button type="button" onClick={() => setOpen(true)} className="text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400">
+          {triggerLabel}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]"
+        >
+          <Share2 className="h-4 w-4" /> Compartilhar
+        </button>
+      )}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleClose}>
           <div
