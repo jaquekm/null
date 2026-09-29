@@ -293,7 +293,7 @@ export function CustomReportBuilder({ types, spaces, categories }: { types: Type
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputClassName} text-lg font-semibold`} />
-        <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-lg bg-black px-4 py-1.5 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-black">
+        <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-lg bg-brand px-4 py-1.5 text-sm text-brand-fg disabled:opacity-50">
           {isSaving ? "Salvando..." : "Salvar relatório"}
         </button>
       </div>

@@ -10,7 +10,7 @@ export interface ManualItemRow {
   updatedAt: string;
 }
 
-/** Itens já gerados do manual (7.10) — espaço "Hub", tipo "Documento". Vazio antes do primeiro "Gerar manual". */
+/** Itens já gerados do manual (7.10) — espaço "JKode", tipo "Documento". Vazio antes do primeiro "Gerar manual". */
 export async function listManualItems(supabase: Client, ownerId: string): Promise<ManualItemRow[]> {
   const { data: space } = await supabase.from("spaces").select("id").eq("owner_id", ownerId).eq("slug", "hub").maybeSingle();
   if (!space) return [];

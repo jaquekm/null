@@ -5,7 +5,7 @@ import type { Database } from "@/lib/supabase/database.types";
 type Client = SupabaseClient<Database>;
 
 /**
- * Dump de tudo que o Hub sabe sobre um contato (7.7, LGPD: "tela para
+ * Dump de tudo que o JKode sabe sobre um contato (7.7, LGPD: "tela para
  * exportar... os dados de um contato a pedido") — um JSON só, pra entregar
  * a quem pediu. Cada seção é uma tabela que referencia esse contato de
  * algum jeito. `reminders.contact_ids` é array (um lembrete pode ter vários

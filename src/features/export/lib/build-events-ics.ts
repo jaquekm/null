@@ -56,6 +56,6 @@ function buildEventBlock(event: EventForIcs): string[] {
 
 /** `agenda/eventos.ics` (7.4) — um `VCALENDAR` com um `VEVENT` por evento; sem `RRULE` (a recorrência já vem materializada, um evento por ocorrência, mesma convenção da sincronização com o Google Calendar). */
 export function buildEventsIcs(events: EventForIcs[]): string {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Hub//Export//PT-BR", ...events.flatMap(buildEventBlock), "END:VCALENDAR"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//JKode//Export//PT-BR", ...events.flatMap(buildEventBlock), "END:VCALENDAR"];
   return lines.map(foldLine).join("\r\n") + "\r\n";
 }

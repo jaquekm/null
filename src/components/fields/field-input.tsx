@@ -9,7 +9,7 @@ import type { FieldDefinition } from "@/features/types/schemas";
 import { isoToWallClock } from "@/lib/dates";
 
 const inputClassName =
-  "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
+  "rounded-lg border border-black/[.08] bg-surface-muted px-3 py-2 text-sm transition-colors hover:border-black/[.16] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.08] dark:hover:border-white/[.16]";
 
 const initialState: Result<{ updatedAt: string } | null> = { ok: true, data: null };
 

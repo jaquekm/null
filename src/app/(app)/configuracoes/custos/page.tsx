@@ -36,7 +36,7 @@ export default async function CustosPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
       <div>
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Custos e economia</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">Quanto o Hub substitui, quanto ele custa e o saldo entre os dois.</p>
+        <p className="text-sm text-black/60 dark:text-white/60">Quanto o JKode substitui, quanto ele custa e o saldo entre os dois.</p>
       </div>
 
       <SubscriptionsSection subscriptions={subscriptions} />
@@ -46,7 +46,7 @@ export default async function CustosPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium text-black dark:text-zinc-50">Saldo (últimos 12 meses)</h2>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Só em reais — economia de assinaturas canceladas menos custos fixos do Hub. O custo variável de IA/uso (
+          Só em reais — economia de assinaturas canceladas menos custos fixos do JKode. O custo variável de IA/uso (
           {formatUsd(usageSummary.totalUsd)} neste mês) é cobrado em dólar e fica de fora deste gráfico; veja o detalhe em{" "}
           <a href="/configuracoes/uso" className="underline">
             Uso e custo

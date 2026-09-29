@@ -40,7 +40,7 @@ export function CaptureAutomationSetup({ appUrl, tokens }: { appUrl: string; tok
           draggable
           className="self-start rounded-full border border-black/[.12] px-4 py-2 text-sm font-medium text-black hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-50 dark:hover:bg-white/[.06]"
         >
-          Capturar no Hub
+          Capturar no JKode
         </a>
         <details className="text-sm text-black/60 dark:text-white/60">
           <summary className="cursor-pointer">Ver o código (para criar o favorito manualmente)</summary>

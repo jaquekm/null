@@ -151,7 +151,7 @@ export function OnboardingForm() {
       <button
         type="submit"
         disabled={pending}
-        className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium transition-colors hover:bg-[#383838] disabled:opacity-60 dark:hover:bg-[#ccc]"
+        className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium transition-colors hover:bg-brand-hover disabled:opacity-60"
       >
         {pending ? "Configurando..." : "Começar a usar"}
       </button>

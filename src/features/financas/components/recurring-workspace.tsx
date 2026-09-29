@@ -60,7 +60,7 @@ export function RecurringWorkspace({
             setEditing(null);
             setShowForm(true);
           }}
-          className="bg-foreground text-background self-start rounded-full px-4 py-1.5 text-sm font-medium"
+          className="bg-brand text-brand-fg self-start rounded-full px-4 py-1.5 text-sm font-medium"
         >
           + Nova recorrência
         </button>

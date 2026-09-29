@@ -51,7 +51,7 @@ self.addEventListener("fetch", (event) => {
 
 // Push pro dono (3.9) — payload: `{ title, body, url }` (ver `WebPushChannel`, `src/lib/messaging/web-push.ts`).
 self.addEventListener("push", (event) => {
-  let data = { title: "Hub", body: "", url: "/" };
+  let data = { title: "JKode", body: "", url: "/" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

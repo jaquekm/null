@@ -18,7 +18,7 @@ export default async function McpSettingsPage() {
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Servidor MCP</h1>
         <p className="mt-1 text-sm text-black/60 dark:text-white/60">
           Deixa clientes compatíveis com MCP (Claude Code, apps do Claude) consultar e, com permissão, criar
-          conteúdo no Hub.
+          conteúdo no JKode.
         </p>
       </div>
 

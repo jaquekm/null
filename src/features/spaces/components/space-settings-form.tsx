@@ -99,7 +99,7 @@ export function SpaceSettingsForm({ space, otherSpaces }: SpaceSettingsFormProps
           <button
             type="submit"
             disabled={updatePending}
-            className="bg-foreground text-background self-start rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+            className="bg-brand text-brand-fg self-start rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
           >
             {updatePending ? "Salvando..." : "Salvar"}
           </button>

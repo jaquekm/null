@@ -42,6 +42,6 @@ describe("buildEventsIcs", () => {
 
   it("lista vazia ainda produz um VCALENDAR válido", () => {
     const ics = buildEventsIcs([]);
-    expect(ics).toBe("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Hub//Export//PT-BR\r\nEND:VCALENDAR\r\n");
+    expect(ics).toBe("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//JKode//Export//PT-BR\r\nEND:VCALENDAR\r\n");
   });
 });

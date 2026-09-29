@@ -29,7 +29,7 @@ export function OptOutConfirmForm({ token }: { token: string }) {
       type="button"
       onClick={handleConfirm}
       disabled={pending}
-      className="bg-foreground text-background rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+      className="bg-brand text-brand-fg rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
     >
       {pending ? "Confirmando..." : "Confirmar saída"}
     </button>

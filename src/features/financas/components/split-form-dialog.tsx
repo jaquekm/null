@@ -306,7 +306,7 @@ export function SplitFormDialog({ accounts, categories, contacts, linkableTransa
           <button type="button" onClick={onClose} disabled={pending} className="rounded-full px-5 py-2 text-sm text-zinc-500 hover:underline">
             Cancelar
           </button>
-          <button type="button" onClick={handleSubmit} disabled={pending || !canSubmit} className="bg-foreground text-background rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60">
+          <button type="button" onClick={handleSubmit} disabled={pending || !canSubmit} className="bg-brand text-brand-fg rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60">
             {pending ? "Salvando..." : "Salvar"}
           </button>
         </div>

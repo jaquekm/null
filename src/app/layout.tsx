@@ -16,12 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hub",
+  title: "JKode",
   description: "Sistema pessoal de organização",
   // iOS não lê o manifest.json para "Adicionar à Tela de Início" — precisa dessas tags à parte.
   appleWebApp: {
     capable: true,
-    title: "Hub",
+    title: "JKode",
     statusBarStyle: "black-translucent",
   },
   icons: {

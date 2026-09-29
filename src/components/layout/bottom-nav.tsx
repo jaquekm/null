@@ -15,7 +15,7 @@ export function BottomNav({ email }: { email: string }) {
 
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex h-16 items-center justify-around border-t border-black/[.08] bg-white/90 backdrop-blur md:hidden dark:border-white/[.08] dark:bg-black/90">
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex h-16 items-center justify-around border-t border-black/[.08] bg-surface/90 backdrop-blur md:hidden dark:border-white/[.08]">
         {MOBILE_PRIMARY_ITEMS.slice(0, 2).map((item) => (
           <BottomNavLink
             key={item.href}
@@ -27,7 +27,7 @@ export function BottomNav({ email }: { email: string }) {
         <button
           type="button"
           onClick={() => openCapture()}
-          className="bg-foreground text-background flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
+          className="bg-brand text-brand-fg flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-lg shadow-violet-600/30"
           aria-label="Capturar"
         >
           <Plus className="h-6 w-6" />
@@ -69,7 +69,7 @@ function BottomNavLink({ item, active }: { item: NavItem; active: boolean }) {
       href={item.href}
       className={`flex flex-1 flex-col items-center gap-1 py-2 text-xs ${
         active
-          ? "text-black dark:text-zinc-50"
+          ? "font-medium text-brand-text"
           : "text-zinc-500 dark:text-zinc-400"
       }`}
     >

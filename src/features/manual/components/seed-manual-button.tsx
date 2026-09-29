@@ -16,7 +16,7 @@ export function SeedManualButton({ hasItems }: { hasItems: boolean }) {
         toast.error(result.error);
         return;
       }
-      toast.success(hasItems ? "Manual atualizado." : "Manual gerado no espaço Hub.");
+      toast.success(hasItems ? "Manual atualizado." : "Manual gerado no espaço JKode.");
       router.refresh();
     });
   }
@@ -26,7 +26,7 @@ export function SeedManualButton({ hasItems }: { hasItems: boolean }) {
       type="button"
       onClick={handleClick}
       disabled={pending}
-      className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+      className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
     >
       {pending ? "Gerando..." : hasItems ? "Atualizar manual" : "Gerar manual"}
     </button>

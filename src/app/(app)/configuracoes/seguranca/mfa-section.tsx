@@ -172,7 +172,7 @@ export function MfaSection({
               type="button"
               onClick={confirmEnroll}
               disabled={busy || code.length !== 6}
-              className="bg-foreground text-background flex-1 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-60"
+              className="bg-brand text-brand-fg flex-1 rounded-full px-4 py-2 text-sm font-medium disabled:opacity-60"
             >
               Confirmar
             </button>

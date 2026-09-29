@@ -183,7 +183,7 @@ export function VersionDetailDialog({
             type="button"
             disabled={pending || !ready}
             onClick={handleRestore}
-            className="bg-foreground text-background rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+            className="bg-brand text-brand-fg rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
           >
             {pending ? "Restaurando..." : "Restaurar esta versão"}
           </button>

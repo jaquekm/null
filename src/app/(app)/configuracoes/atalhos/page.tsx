@@ -5,7 +5,7 @@ export default function AtalhosPage() {
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-6">
       <div>
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Atalhos de teclado</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">Todos os atalhos disponíveis no Hub.</p>
+        <p className="text-sm text-black/60 dark:text-white/60">Todos os atalhos disponíveis no JKode.</p>
       </div>
 
       {SHORTCUT_GROUPS.map((group) => (

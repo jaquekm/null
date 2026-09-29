@@ -5,7 +5,7 @@ import { setListStyle } from "../actions";
 import { LIST_STYLE_INFO, listStyleSchema, listStyles, type ListStyle } from "../lib/list-styles";
 
 const selectClassName =
-  "w-full rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 dark:border-white/[.16] dark:focus:ring-white/20";
+  "w-full rounded-lg border border-black/[.08] bg-surface-muted px-3 py-2 text-sm transition-colors hover:border-black/[.16] focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:opacity-60 dark:border-white/[.08] dark:hover:border-white/[.16]";
 
 /**
  * "Tipo de lista": como a lista se comporta (o assunto/grupo é o espaço onde

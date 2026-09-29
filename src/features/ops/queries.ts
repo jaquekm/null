@@ -5,7 +5,7 @@ import type { Database } from "@/lib/supabase/database.types";
 type Client = SupabaseClient<Database>;
 
 /**
- * Resolve o `owner_id` do único dono do Hub (CLAUDE.md: "sistema pessoal...
+ * Resolve o `owner_id` do único dono do JKode (CLAUDE.md: "sistema pessoal...
  * com um único usuário") a partir de `user_settings` — usada por rotas que
  * rodam fora de sessão e sem nenhum outro jeito de saber de quem é o dado
  * (ex.: `/api/ops/backup-report`, chamada pelo workflow do GitHub Actions,

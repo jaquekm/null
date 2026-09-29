@@ -343,7 +343,7 @@ export function RegisterTab({ program, sessions, onSaved }: { program: WorkoutPr
           type="button"
           disabled={pending}
           onClick={handleSave}
-          className="rounded-xl bg-black py-3 font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+          className="rounded-xl bg-brand py-3 font-semibold text-brand-fg disabled:opacity-60"
         >
           {pending ? "Salvando…" : "Salvar treino"}
         </button>

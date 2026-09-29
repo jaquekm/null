@@ -77,7 +77,7 @@ export function FinanceOnboarding({
         type="button"
         onClick={handleFinish}
         disabled={finishing}
-        className="bg-foreground text-background self-start rounded-full px-6 py-2 text-sm font-medium disabled:opacity-60"
+        className="bg-brand text-brand-fg self-start rounded-full px-6 py-2 text-sm font-medium disabled:opacity-60"
       >
         {finishing ? "Concluindo..." : "Concluir configuração"}
       </button>

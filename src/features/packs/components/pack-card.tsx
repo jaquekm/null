@@ -34,7 +34,7 @@ export function PackCard({ file, pack, spaces, installed, missingModules }: Prop
         <button
           type="button"
           onClick={() => setInstallDialog({})}
-          className="bg-foreground text-background shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium"
+          className="bg-brand text-brand-fg shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium"
         >
           Instalar
         </button>

@@ -27,7 +27,7 @@ export function ExportAllButton() {
       type="button"
       onClick={handleClick}
       disabled={pending}
-      className="w-fit rounded-full bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-white dark:text-black"
+      className="w-fit rounded-full bg-brand px-4 py-2 text-sm font-medium text-brand-fg disabled:opacity-60"
     >
       {pending ? "Iniciando..." : "Exportar tudo"}
     </button>

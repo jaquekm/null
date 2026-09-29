@@ -16,7 +16,7 @@ export default async function CaptureAutomationPage() {
       <div>
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Bookmarklet e atalho do iOS</h1>
         <p className="text-sm text-black/60 dark:text-white/60">
-          Formas de capturar sem abrir o Hub primeiro: um favorito do navegador para o computador e um atalho de
+          Formas de capturar sem abrir o JKode primeiro: um favorito do navegador para o computador e um atalho de
           Shortcuts para a folha de compartilhamento do iOS.
         </p>
       </div>

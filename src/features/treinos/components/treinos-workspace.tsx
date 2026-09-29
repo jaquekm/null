@@ -36,7 +36,7 @@ export function TreinosWorkspace({ programs, sessions, weekly }: { programs: Wor
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className={`rounded-lg py-2 text-xs font-medium sm:text-sm ${
-              tab === id ? "bg-black text-white dark:bg-white dark:text-black" : "text-zinc-600 hover:bg-black/[.04] dark:text-zinc-300 dark:hover:bg-white/[.06]"
+              tab === id ? "bg-brand text-brand-fg" : "text-zinc-600 hover:bg-black/[.04] dark:text-zinc-300 dark:hover:bg-white/[.06]"
             }`}
           >
             {label}

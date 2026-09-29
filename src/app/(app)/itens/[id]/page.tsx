@@ -109,10 +109,13 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   ]);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
       <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
         {item.space && (
-          <Link href={`/espacos/${item.space.slug}`} className="hover:underline">
+          <Link
+            href={`/espacos/${item.space.slug}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-black/[.06] bg-surface px-3 py-1 text-xs font-medium text-zinc-600 shadow-sm hover:border-black/[.12] dark:border-white/[.08] dark:text-zinc-300 dark:hover:border-white/[.16]"
+          >
             {item.space.icon ? `${item.space.icon} ` : ""}
             {item.space.name}
           </Link>
@@ -167,7 +170,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         />
       )}
 
-      <TagSelector itemId={item.id} tags={tags} />
+      <TagSelector itemId={item.id} tags={tags} label="Subcategorias" placeholder="+ subcategoria" />
 
       <div className="flex flex-wrap gap-2">
         <RemindAboutButton

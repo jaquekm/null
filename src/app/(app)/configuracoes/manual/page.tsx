@@ -12,7 +12,7 @@ export default async function ManualPage() {
       <div>
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Manual do sistema</h1>
         <p className="text-sm text-black/60 dark:text-white/60">
-          Três documentos gerados dentro do próprio Hub (espaço &quot;Hub&quot;, tipo Documento): como usar o dia a dia, o que fazer quando algo dá errado, e
+          Três documentos gerados dentro do próprio JKode (espaço &quot;JKode&quot;, tipo Documento): como usar o dia a dia, o que fazer quando algo dá errado, e
           onde está cada segredo — sem os valores.
         </p>
       </div>

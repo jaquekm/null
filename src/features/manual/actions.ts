@@ -13,7 +13,7 @@ const HUB_SPACE_SLUG = "hub";
 
 /**
  * Seed opcional (7.10) — cria (ou reescreve, se já existir) os 3 itens do
- * manual do sistema no espaço "Hub", tipo "Documento". Re-executável: acha
+ * manual do sistema no espaço "JKode", tipo "Documento". Re-executável: acha
  * o item existente pelo título dentro do mesmo espaço/tipo e atualiza o
  * conteúdo em vez de duplicar — útil pra quando o texto do manual mudar
  * numa versão futura do app.
@@ -23,7 +23,7 @@ export async function seedManual(): Promise<Result<{ itemIds: string[] }>> {
 
   const { data: space, error: spaceError } = await supabase
     .from("spaces")
-    .upsert({ owner_id: user.id, name: "Hub", slug: HUB_SPACE_SLUG, icon: "BookOpen", position: 999 }, { onConflict: "owner_id,slug" })
+    .upsert({ owner_id: user.id, name: "JKode", slug: HUB_SPACE_SLUG, icon: "BookOpen", position: 999 }, { onConflict: "owner_id,slug" })
     .select("id")
     .single();
   if (spaceError || !space) return fail(GENERIC_ERROR);

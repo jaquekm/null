@@ -19,10 +19,11 @@ import {
 } from "../lib/list-styles";
 
 const inputClassName =
-  "w-full rounded-lg border border-black/[.12] bg-transparent px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
-const rowClassName = "flex w-full items-center gap-3 rounded-lg border px-4 py-3.5 text-left text-base transition-colors disabled:opacity-60";
-const idleRow = "border-black/[.08] text-black dark:border-white/[.08] dark:text-zinc-50";
-const pickedRow = "border-blue-500/60 bg-blue-500/[.08] text-black dark:text-zinc-50";
+  "w-full rounded-xl border border-dashed border-black/[.14] bg-transparent px-4 py-3 text-base transition-colors placeholder:text-zinc-400 hover:border-black/[.25] focus:border-solid focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.14] dark:hover:border-white/[.25]";
+const rowClassName =
+  "flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left text-base shadow-sm transition-all hover:-translate-y-px hover:shadow-md disabled:opacity-60";
+const idleRow = "border-black/[.06] bg-surface text-black dark:border-white/[.06] dark:text-zinc-50";
+const pickedRow = "border-brand/60 bg-brand-soft text-black dark:text-zinc-50";
 
 function EntryText({ entry }: { entry: ListEntry }) {
   return <span className="min-w-0 flex-1 break-words">{entry.text || <span className="italic text-zinc-400">(sem texto)</span>}</span>;
@@ -118,7 +119,7 @@ export function ListModeView({
               type="button"
               disabled={pending}
               onClick={() => save(toggleChecklistItem(doc, entry.index, !entry.checked))}
-              className={`${rowClassName} border-black/[.08] dark:border-white/[.08] ${
+              className={`${rowClassName} border-black/[.06] bg-surface dark:border-white/[.06] ${
                 entry.checked ? "text-zinc-400 line-through dark:text-zinc-600" : "text-black dark:text-zinc-50"
               }`}
             >
@@ -163,7 +164,7 @@ export function ListModeView({
               >
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${
-                    entry.checked ? "border-blue-500 bg-blue-500 text-white" : "border-black/20 dark:border-white/25"
+                    entry.checked ? "border-brand bg-brand text-white" : "border-black/20 dark:border-white/25"
                   }`}
                 >
                   {entry.checked && <Check className="h-4 w-4" />}
@@ -194,10 +195,10 @@ export function ListModeView({
               >
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
-                    entry.checked ? "border-blue-500" : "border-black/20 dark:border-white/25"
+                    entry.checked ? "border-brand" : "border-black/20 dark:border-white/25"
                   }`}
                 >
-                  {entry.checked && <span className="h-3 w-3 rounded-full bg-blue-500" />}
+                  {entry.checked && <span className="h-3 w-3 rounded-full bg-brand" />}
                 </span>
                 <EntryText entry={entry} />
               </button>

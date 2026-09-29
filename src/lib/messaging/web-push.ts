@@ -25,7 +25,7 @@ export class WebPushChannel implements MessageChannel {
       throw new Error("Nenhum dispositivo com notificações ativadas.");
     }
 
-    const payload = JSON.stringify({ title: input.subject ?? "Hub", body: input.text, url: "/lembretes" });
+    const payload = JSON.stringify({ title: input.subject ?? "JKode", body: input.text, url: "/lembretes" });
 
     let sentCount = 0;
     for (const subscription of subscriptions) {

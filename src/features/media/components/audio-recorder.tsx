@@ -270,7 +270,7 @@ export function AudioRecorder({
         <button
           type="button"
           onClick={() => void start()}
-          className="bg-foreground text-background flex items-center justify-center gap-2 self-start rounded-full px-5 py-2 text-sm font-medium"
+          className="bg-brand text-brand-fg flex items-center justify-center gap-2 self-start rounded-full px-5 py-2 text-sm font-medium"
         >
           <Mic className="h-4 w-4" />
           Gravar

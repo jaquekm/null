@@ -8,7 +8,7 @@ export function DisconnectButton({ connectionId, googleEmail }: { connectionId: 
   const [pending, startTransition] = useTransition();
 
   function handleClick() {
-    if (!confirm(`Desconectar ${googleEmail}? Os calendários e eventos importados dele deixam de aparecer no Hub.`)) return;
+    if (!confirm(`Desconectar ${googleEmail}? Os calendários e eventos importados dele deixam de aparecer no JKode.`)) return;
     startTransition(async () => {
       const result = await disconnectGoogle(connectionId);
       if (!result.ok) toast.error(result.error);

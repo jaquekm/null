@@ -152,7 +152,7 @@ export function ChartsTab({ program, sessions, weekly }: { program: ProgramDefin
                   onClick={() => setSelectedId(ex.id)}
                   className={`shrink-0 rounded-full border px-3 py-1 text-xs ${
                     ex.id === selected?.id
-                      ? "border-transparent bg-black text-white dark:bg-white dark:text-black"
+                      ? "border-transparent bg-brand text-brand-fg"
                       : "border-black/[.12] text-zinc-600 hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
                   }`}
                 >

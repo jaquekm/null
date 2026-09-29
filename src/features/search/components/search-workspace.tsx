@@ -111,14 +111,14 @@ export function SearchWorkspace({
         <button
           type="button"
           onClick={() => setMode("words")}
-          className={`rounded-full px-3 py-1 ${mode === "words" ? "bg-foreground text-background" : "text-zinc-500 dark:text-zinc-400"}`}
+          className={`rounded-full px-3 py-1 ${mode === "words" ? "bg-brand text-brand-fg" : "text-zinc-500 dark:text-zinc-400"}`}
         >
           Por palavras
         </button>
         <button
           type="button"
           onClick={() => setMode("meaning")}
-          className={`rounded-full px-3 py-1 ${mode === "meaning" ? "bg-foreground text-background" : "text-zinc-500 dark:text-zinc-400"}`}
+          className={`rounded-full px-3 py-1 ${mode === "meaning" ? "bg-brand text-brand-fg" : "text-zinc-500 dark:text-zinc-400"}`}
         >
           Por significado
         </button>

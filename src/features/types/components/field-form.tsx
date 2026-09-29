@@ -226,7 +226,7 @@ export function FieldForm({
         <button
           type="submit"
           disabled={pending}
-          className="bg-foreground text-background rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+          className="bg-brand text-brand-fg rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
         >
           {pending ? "Salvando..." : "Salvar campo"}
         </button>
