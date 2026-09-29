@@ -29,22 +29,23 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
     <div className="flex flex-col gap-4">
       <TitleEditor itemId={item.id} initialTitle={item.title} updatedAt={updatedAt} onSaved={handleSaved} />
 
-      {/* Logo abaixo do nome: o tipo decide como a lista funciona, é a primeira escolha depois de dar o nome. */}
-      {isLista && (
-        <ListStylePicker
-          itemId={item.id}
-          value={listStyle}
-          updatedAt={updatedAt}
-          onChange={(style, nextUpdatedAt) => {
-            setListStyle(style);
-            setListMode(true);
-            handleSaved(nextUpdatedAt);
-          }}
-        />
-      )}
-
       {item.type && (
         <PropertiesPanel
+          // Primeiro campo da grade, onde ficava o antigo "Tipo de lista" (assunto): um seletor só.
+          leading={
+            isLista ? (
+              <ListStylePicker
+                itemId={item.id}
+                value={listStyle}
+                updatedAt={updatedAt}
+                onChange={(style, nextUpdatedAt) => {
+                  setListStyle(style);
+                  setListMode(true);
+                  handleSaved(nextUpdatedAt);
+                }}
+              />
+            ) : null
+          }
           itemId={item.id}
           typeSlug={item.type.slug}
           fields={item.type.fields}

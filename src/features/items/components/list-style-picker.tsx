@@ -2,9 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { setListStyle } from "../actions";
-import { LIST_STYLE_INFO, listStyles, type ListStyle } from "../lib/list-styles";
+import { LIST_STYLE_INFO, listStyleSchema, listStyles, type ListStyle } from "../lib/list-styles";
 
-/** "Tipo de lista": como a lista se comporta. O assunto/grupo é o espaço onde ela está. */
+const selectClassName =
+  "w-full rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 dark:border-white/[.16] dark:focus:ring-white/20";
+
+/**
+ * "Tipo de lista": como a lista se comporta (o assunto/grupo é o espaço onde
+ * ela está). Um menu de seleção só, no lugar do antigo campo de assunto —
+ * a dona achou a fileira de botões poluída.
+ */
 export function ListStylePicker({
   itemId,
   value,
@@ -19,41 +26,36 @@ export function ListStylePicker({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function pick(style: ListStyle) {
-    if (style === value) return;
+  function pick(raw: string) {
+    const parsed = listStyleSchema.safeParse(raw);
+    if (!parsed.success || parsed.data === value) return;
     setError(null);
     startTransition(async () => {
-      const result = await setListStyle(itemId, updatedAt, style);
+      const result = await setListStyle(itemId, updatedAt, parsed.data);
       if (!result.ok) setError(result.error);
-      else onChange(style, result.data.updatedAt);
+      else onChange(parsed.data, result.data.updatedAt);
     });
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <span id={`list-style-${itemId}`} className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+    <div className="flex flex-col gap-1">
+      <label htmlFor={`list-style-${itemId}`} className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
         Tipo de lista
-      </span>
-      <div role="radiogroup" aria-labelledby={`list-style-${itemId}`} className="flex flex-wrap gap-1.5">
+      </label>
+      <select
+        id={`list-style-${itemId}`}
+        value={value}
+        disabled={pending}
+        onChange={(e) => pick(e.target.value)}
+        title={LIST_STYLE_INFO[value].description}
+        className={selectClassName}
+      >
         {listStyles.map((style) => (
-          <button
-            key={style}
-            type="button"
-            role="radio"
-            aria-checked={style === value}
-            disabled={pending}
-            onClick={() => pick(style)}
-            className={`rounded-full border px-3 py-1.5 text-sm disabled:opacity-60 ${
-              style === value
-                ? "border-transparent bg-black text-white dark:bg-white dark:text-black"
-                : "border-black/[.12] text-zinc-600 hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
-            }`}
-          >
+          <option key={style} value={style}>
             {LIST_STYLE_INFO[style].label}
-          </button>
+          </option>
         ))}
-      </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">{LIST_STYLE_INFO[value].description}</p>
+      </select>
       {error && (
         <p role="alert" className="text-xs text-red-600 dark:text-red-400">
           {error}
