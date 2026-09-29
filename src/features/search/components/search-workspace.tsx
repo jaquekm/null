@@ -40,6 +40,7 @@ export function SearchWorkspace({
   pinned,
   recent,
   aiEnabled,
+  initialQuery = "",
 }: {
   spaces: SidebarSpace[];
   types: TypeOptionWithFields[];
@@ -48,8 +49,10 @@ export function SearchWorkspace({
   recent: BrowseItemRow[];
   /** Módulo de IA ligado (6.6) — só decide o padrão inicial da alternância; o dono continua podendo trocar. */
   aiEnabled: boolean;
+  /** Texto vindo da busca do topo ("Busca avançada por …", `?q=`). */
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [mode, setMode] = useState<SearchMode>(aiEnabled ? "meaning" : "words");
   const [spaceId, setSpaceId] = useState("");
   const [typeId, setTypeId] = useState("");

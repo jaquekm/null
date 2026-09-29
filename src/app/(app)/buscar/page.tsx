@@ -5,7 +5,8 @@ import { listActiveSpaces } from "@/features/spaces/queries";
 import { listAllTags } from "@/features/tags/queries";
 import { requireOwner } from "@/lib/auth";
 
-export default async function BuscarPage() {
+export default async function BuscarPage(props: PageProps<"/buscar">) {
+  const { q } = await props.searchParams;
   const { supabase, user } = await requireOwner();
 
   const [spaces, types, tags, pinned, recent, aiEnabled] = await Promise.all([
@@ -17,5 +18,15 @@ export default async function BuscarPage() {
     isAiModuleEnabled(supabase, user.id),
   ]);
 
-  return <SearchWorkspace spaces={spaces} types={types} tags={tags} pinned={pinned} recent={recent} aiEnabled={aiEnabled} />;
+  return (
+    <SearchWorkspace
+      spaces={spaces}
+      types={types}
+      tags={tags}
+      pinned={pinned}
+      recent={recent}
+      aiEnabled={aiEnabled}
+      initialQuery={typeof q === "string" ? q.slice(0, 200) : ""}
+    />
+  );
 }
