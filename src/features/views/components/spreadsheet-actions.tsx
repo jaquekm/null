@@ -46,6 +46,8 @@ export function SpreadsheetActions({
   onImported: () => void;
 }) {
   const [exporting, startExport] = useTransition();
+  // Ler o arquivo e criar os itens são estados separados: com um só, a prévia abria dizendo "Importando…" e travada.
+  const [reading, startReading] = useTransition();
   const [importing, startImport] = useTransition();
   const [plan, setPlan] = useState<(SheetImportPlan & { fileName: string }) | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -65,7 +67,7 @@ export function SpreadsheetActions({
 
   function handleFile(file: File | undefined) {
     if (!file) return;
-    startImport(async () => {
+    startReading(async () => {
       try {
         const rows = await readSheetRows(file.name, new Uint8Array(await file.arrayBuffer()));
         const next = planSheetImport(rows, fields);
@@ -104,8 +106,8 @@ export function SpreadsheetActions({
         </button>
         {spaceId && typeId && (
           <>
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={importing} className={buttonClassName}>
-              <Upload className="h-3.5 w-3.5" aria-hidden /> {importing && !plan ? "Lendo…" : "Importar planilha"}
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={reading || importing} className={buttonClassName}>
+              <Upload className="h-3.5 w-3.5" aria-hidden /> {reading ? "Lendo…" : "Importar planilha"}
             </button>
             <input
               ref={fileRef}

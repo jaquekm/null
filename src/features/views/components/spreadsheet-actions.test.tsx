@@ -38,7 +38,8 @@ describe("SpreadsheetActions — importar", () => {
     expect(dialog.textContent).toContain("→ Preço");
     expect(dialog.textContent).toContain("não entra");
 
-    fireEvent.click(screen.getByRole("button", { name: "Importar 2 itens" }));
+    // A prévia já abre pronta pra confirmar (não "Importando…").
+    fireEvent.click(await screen.findByRole("button", { name: "Importar 2 itens" }));
     await waitFor(() => expect(onImported).toHaveBeenCalled());
     expect(importSpreadsheetRows).toHaveBeenCalledWith({
       spaceId: "s1",
