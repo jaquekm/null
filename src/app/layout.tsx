@@ -24,9 +24,7 @@ export const metadata: Metadata = {
     title: "JKode",
     statusBarStyle: "black-translucent",
   },
-  icons: {
-    apple: "/icons/icon-192.png",
-  },
+  // Ícones vêm dos arquivos de convenção do Next em `src/app` (icon.svg, favicon.ico, apple-icon.png) — logo "JK" do JKode.
 };
 
 export const viewport: Viewport = {
