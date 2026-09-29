@@ -13,6 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import DOMPurify from "isomorphic-dompurify";
 import { JSDOM } from "jsdom";
 import { common, createLowlight } from "lowlight";
+import { ScoredTaskItem } from "@/features/items/components/editor/scored-task-item";
 import { injectTaskItemPaths, type JSONContentNode } from "./toggle-task-at-path";
 
 const lowlight = createLowlight(common);
@@ -88,7 +89,8 @@ function buildExtensions(interactiveChecklist: boolean) {
     DetailsSummary,
     DetailsContent,
     TaskList,
-    interactiveChecklist ? InteractiveTaskItem : TaskItem.configure({ nested: true }),
+    // Estático: com a nota ("Dar nota") em `data-score`, que o CSS da página pública mostra como estrelas.
+    interactiveChecklist ? InteractiveTaskItem : ScoredTaskItem.configure({ nested: true }),
     TableKit.configure({ table: { resizable: false } }),
     Image,
     Highlight,
@@ -116,5 +118,5 @@ export function renderPublicContentHtml(content: JSONContent | null, options: Re
 
   const source = options.interactiveChecklist ? injectTaskItemPaths(content as JSONContentNode) : content;
   const html = generateHTML(source as JSONContent, buildExtensions(Boolean(options.interactiveChecklist)));
-  return DOMPurify.sanitize(html, { ADD_ATTR: ["data-path", "data-share-checkbox", "data-checked", "data-type"] });
+  return DOMPurify.sanitize(html, { ADD_ATTR: ["data-path", "data-share-checkbox", "data-checked", "data-type", "data-score"] });
 }

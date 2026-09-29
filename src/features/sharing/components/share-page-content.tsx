@@ -1,6 +1,7 @@
 import type { AttachmentRow } from "@/features/attachments/queries";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { JSONContent } from "@tiptap/core";
+import { listStyleSchema, sortTaskListsByScore } from "@/features/items/lib/list-styles";
 import { CommentForm } from "./comment-form";
 import { ChecklistInteractivity } from "./checklist-interactivity";
 import { buildPublicProperties } from "../lib/build-public-item";
@@ -36,10 +37,17 @@ export function SharePageContent({
 }) {
   const publicProperties = buildPublicProperties(properties, fields);
   const interactiveChecklist = permission === "check";
-  const html = renderPublicContentHtml(content, { interactiveChecklist });
+  // Tipo de lista (Riscar, Marcar vários, Escolher um, Dar nota, Ordenar e agrupar): quem recebe vê a lista do mesmo jeito que a dona.
+  const listStyle = listStyleSchema.safeParse(properties.list_style).data;
+  const shown = listStyle === "rating" && content ? sortTaskListsByScore(content) : content;
+  const html = renderPublicContentHtml(shown, { interactiveChecklist });
 
   const contentBlock = (
-    <div className="share-content prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: html }} />
+    <div
+      className="share-content prose prose-sm dark:prose-invert max-w-none"
+      data-list-style={interactiveChecklist ? undefined : listStyle}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 
   return (

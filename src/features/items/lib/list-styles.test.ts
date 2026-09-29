@@ -11,6 +11,7 @@ import {
   moveListItemToSection,
   setItemScore,
   sortByScore,
+  sortTaskListsByScore,
 } from "./list-styles";
 
 function item(text: string, checked = false, extra: Record<string, unknown> = {}, children?: JSONContent): JSONContent {
@@ -171,5 +172,14 @@ describe("moveListItemToSection / addItemToSection / addSection", () => {
       [null, ["A"]],
       ["Trabalho", []],
     ]);
+  });
+});
+
+describe("sortTaskListsByScore", () => {
+  it("ordena cada lista pela nota, inclusive aninhadas, sem mexer nos títulos", () => {
+    const d = doc(heading("Férias"), list(item("Praia", false, { score: 2 }), item("Serra", false, { score: 5 }, list(item("x"), item("y", false, { score: 1 }))), item("Chapada")));
+    const sorted = sortTaskListsByScore(d);
+    expect(sorted.content?.[0]).toEqual(heading("Férias"));
+    expect(listEntries(sorted).map((e) => e.text)).toEqual(["Serra", "y", "x", "Praia", "Chapada"]);
   });
 });

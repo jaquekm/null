@@ -270,3 +270,19 @@ export function addSection(doc: JSONContent | null, title: string): JSONContent 
   const heading: JSONContent = { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: title }] };
   return { ...base, content: [...(base.content ?? []), heading] };
 }
+
+/**
+ * "Dar nota" na página compartilhada: reordena cada lista de tarefas da maior
+ * nota para a menor (sem nota no fim), como a dona vê no app. Os títulos e o
+ * resto do documento ficam no lugar.
+ */
+export function sortTaskListsByScore(doc: JSONContent): JSONContent {
+  function walk(node: JSONContent): JSONContent {
+    const content = node.content?.map(walk);
+    if (node.type !== "taskList" || !content) return content ? { ...node, content } : node;
+    const ranked = content.map((child, i) => ({ child, i, score: child.type === "taskItem" ? (scoreOf(child) ?? 0) : 0 }));
+    ranked.sort((a, b) => b.score - a.score || a.i - b.i);
+    return { ...node, content: ranked.map((r) => r.child) };
+  }
+  return walk(doc);
+}

@@ -36,7 +36,7 @@ import { listItemTags } from "@/features/tags/queries";
 import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
 import { getUserTimezone } from "@/features/reminders/queries";
 import { ItemShareComments } from "@/features/sharing/components/item-share-comments";
-import { ShareDialog } from "@/features/sharing/components/share-dialog";
+import { ShareFooter } from "@/features/sharing/components/share-footer";
 import { listItemShareComments, listShareLinksForItem } from "@/features/sharing/queries";
 import { MeetingSummaryActions } from "@/features/transcripts/components/meeting-summary-actions";
 import { TranscriptViewer } from "@/features/transcripts/components/transcript-viewer";
@@ -177,7 +177,6 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
           sourceType="item"
           sourceId={item.id}
         />
-        <ShareDialog itemId={item.id} links={shareLinks} />
       </div>
 
       <ItemActionsBar
@@ -232,6 +231,9 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         currentContent={item.content}
         currentProperties={item.properties}
       />
+
+      {/* No fim da página, depois de tudo: é o último passo natural — terminei a lista, mando pra quem quer acompanhar. */}
+      <ShareFooter itemId={item.id} title={item.title} isList={item.type?.slug === "lista"} links={shareLinks} />
     </div>
   );
 }

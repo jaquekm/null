@@ -93,6 +93,42 @@ select optgroup {
   opacity: 0.8;
 }
 
+/* Tipos de lista na página compartilhada — o mesmo comportamento visual do app. */
+.share-content[data-list-style="multi"] li[data-checked="true"] > div,
+.share-content[data-list-style="single"] li[data-checked="true"] > div {
+  text-decoration: none;
+  opacity: 1;
+  font-weight: 600;
+}
+.share-content[data-list-style="rating"] ul[data-type="taskList"] li > label,
+.share-content[data-list-style="priority"] > ul[data-type="taskList"] > li > label {
+  display: none;
+}
+.share-content[data-list-style="rating"] li::after {
+  content: "☆☆☆☆☆";
+  margin-left: auto;
+  padding-left: 0.75em;
+  color: #a1a1aa;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.share-content[data-list-style="rating"] li[data-score="1"]::after { content: "★☆☆☆☆"; color: #f59e0b; }
+.share-content[data-list-style="rating"] li[data-score="2"]::after { content: "★★☆☆☆"; color: #f59e0b; }
+.share-content[data-list-style="rating"] li[data-score="3"]::after { content: "★★★☆☆"; color: #f59e0b; }
+.share-content[data-list-style="rating"] li[data-score="4"]::after { content: "★★★★☆"; color: #f59e0b; }
+.share-content[data-list-style="rating"] li[data-score="5"]::after { content: "★★★★★"; color: #f59e0b; }
+.share-content[data-list-style="priority"] {
+  counter-reset: rank;
+}
+.share-content[data-list-style="priority"] > ul[data-type="taskList"] > li::before {
+  counter-increment: rank;
+  content: counter(rank);
+  min-width: 1.5em;
+  font-weight: 600;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
 /*
  * Conteúdo de item (editor Tiptap e página compartilhada). As classes `prose`
  * vinham do plugin @tailwindcss/typography, que nunca foi instalado — então
