@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { textToDoc } from "@/features/capture/lib/text-to-doc";
 import { extractText } from "@/features/items/lib/extract-text";
+import { createReminder } from "@/features/reminders/actions";
+import { getUserTimezone } from "@/features/reminders/queries";
 import { getObjectTypeBySlug } from "@/features/types/queries";
 import { requireOwner } from "@/lib/auth";
 import { enqueueJob } from "@/lib/jobs/enqueue";
@@ -35,6 +37,8 @@ const actionInputSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato AAAA-MM-DD")
     .nullable(),
   spaceId: z.string().uuid().nullable(),
+  /** "Me lembrar no prazo" (9.3): lembrete pra dona às 9h do dia do prazo. */
+  lembrar: z.boolean().default(false),
 });
 
 const createTasksSchema = z.object({
@@ -47,6 +51,7 @@ export interface TaskFromAction {
   responsavel: string | null;
   prazo: string | null;
   spaceId: string | null;
+  lembrar?: boolean;
 }
 
 /**
@@ -67,9 +72,11 @@ export async function createTasksFromActions(meetingItemId: string, tasks: TaskF
   const taskType = await getObjectTypeBySlug(supabase, "tarefa");
   if (!taskType) return fail('Tipo "Tarefa" não encontrado.');
 
+  const timezone = parsed.data.tasks.some((task) => task.lembrar && task.prazo) ? await getUserTimezone(supabase, user.id) : null;
+
   let createdCount = 0;
   for (const task of parsed.data.tasks) {
-    const content = task.responsavel ? textToDoc(`Responsável sugerido: ${task.responsavel}`) : null;
+    const content = task.responsavel ? textToDoc(`Responsável: ${task.responsavel}`) : null;
 
     const { data: created, error } = await supabase
       .from("items")
@@ -88,6 +95,17 @@ export async function createTasksFromActions(meetingItemId: string, tasks: TaskF
     if (error || !created) continue; // uma falha isolada não impede criar as outras tarefas da lista
 
     await supabase.from("links").insert({ owner_id: user.id, source_id: meetingItemId, target_id: created.id, kind: "relation" });
+    if (task.lembrar && task.prazo && timezone) {
+      // Lembrete que falha não desfaz a tarefa — dá pra lembrar depois pela própria tarefa.
+      await createReminder({
+        title: task.descricao,
+        messageTemplate: `Prazo hoje: ${task.descricao}${task.responsavel ? ` (responsável: ${task.responsavel})` : ""}`,
+        date: task.prazo,
+        time: "09:00",
+        timezone,
+        itemId: created.id,
+      });
+    }
     createdCount++;
   }
 

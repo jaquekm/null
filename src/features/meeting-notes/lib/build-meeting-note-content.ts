@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { markdownToTiptapDoc } from "@/features/items/lib/markdown-to-tiptap";
+import { findTemplate } from "@/features/templates/lib/templates";
 
 export interface PreviousMeetingSummary {
   id: string;
@@ -9,7 +10,7 @@ export interface PreviousMeetingSummary {
 
 /**
  * Conteúdo inicial da nota de reunião (3.7): o template do tipo "Reunião"
- * (se o dono configurou um) primeiro, depois o link do Meet (se o evento
+ * (se o dono configurou um; senão a estrutura padrão do modelo 9.2) primeiro, depois o link do Meet (se o evento
  * tiver um) e a seção "Última reunião com estes participantes" (se achou
  * uma anterior com participante em comum).
  */
@@ -18,7 +19,10 @@ export function buildMeetingNoteContent(
   meetUrl: string | null,
   previousMeeting: PreviousMeetingSummary | null,
 ): JSONContent {
-  const blocks: JSONContent[] = [...(typeTemplate?.content ?? [])];
+  // Sem template no tipo, a nota nasce com a estrutura do modelo "Reunião" (9.3): pauta, anotações e próximos passos —
+  // antes nascia vazia e a dona tinha que montar tudo a cada reunião.
+  const base = typeTemplate?.content?.length ? typeTemplate.content : (findTemplate("reuniao")?.content?.content ?? []);
+  const blocks: JSONContent[] = [...base];
 
   if (meetUrl) {
     blocks.push({

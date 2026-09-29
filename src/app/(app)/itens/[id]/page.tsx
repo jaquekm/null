@@ -39,6 +39,9 @@ import { ItemShareComments } from "@/features/sharing/components/item-share-comm
 import { ShareFooter } from "@/features/sharing/components/share-footer";
 import { listItemShareComments, listShareLinksForItem } from "@/features/sharing/queries";
 import { MeetingSummaryActions } from "@/features/transcripts/components/meeting-summary-actions";
+import { MeetingPanel } from "@/features/meeting-notes/components/meeting-panel";
+import { nextStepsFromContent } from "@/features/meeting-notes/lib/next-steps";
+import { listMeetingParticipants } from "@/features/meeting-notes/queries";
 import { TranscriptViewer } from "@/features/transcripts/components/transcript-viewer";
 import { getTranscriptForItem } from "@/features/transcripts/queries";
 import { requireOwner } from "@/lib/auth";
@@ -108,6 +111,15 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listRelatedItems(supabase, item.id),
   ]);
 
+  // Reunião (9.3): participantes (campo `participantes`, ids de contatos) e data pro painel de envio e tarefas.
+  const isMeeting = item.type?.slug === "reuniao";
+  const participantIds = Array.isArray(item.properties.participantes) ? item.properties.participantes.filter((id): id is string => typeof id === "string") : [];
+  const meetingParticipants = isMeeting ? await listMeetingParticipants(supabase, participantIds) : [];
+  const meetingDate = typeof item.properties.data === "string" ? item.properties.data : null;
+  const meetingDateLabel = meetingDate
+    ? new Date(meetingDate.length === 10 ? `${meetingDate}T12:00:00Z` : meetingDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: timezone })
+    : null;
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
       <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
@@ -132,7 +144,18 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 
       <ItemEditor key={item.updatedAt} item={item} />
 
-      {item.type?.slug === "reuniao" && <RecordMeetingButton itemId={item.id} />}
+      {isMeeting && (
+        <MeetingPanel
+          itemId={item.id}
+          title={item.title}
+          dateLabel={meetingDateLabel}
+          participants={meetingParticipants}
+          nextSteps={nextStepsFromContent(item.content)}
+          spaces={spaces}
+          defaultSpaceId={item.space?.id ?? null}
+          recorder={<RecordMeetingButton itemId={item.id} />}
+        />
+      )}
 
       {item.type?.slug && ["plano-de-estudo", "curso", "livro"].includes(item.type.slug) && <StudyTimer itemId={item.id} />}
 

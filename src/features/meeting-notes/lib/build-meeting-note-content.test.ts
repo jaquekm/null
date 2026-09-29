@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import { buildMeetingNoteContent } from "./build-meeting-note-content";
 
 describe("buildMeetingNoteContent", () => {
-  it("sem template, sem Meet, sem reunião anterior: parágrafo vazio", () => {
+  it("sem template no tipo: nasce com pauta, anotações e próximos passos", () => {
     const doc = buildMeetingNoteContent(null, null, null);
-    expect(doc).toEqual({ type: "doc", content: [{ type: "paragraph", content: [] }] });
+    const headings = (doc.content ?? []).filter((node) => node.type === "heading").map((node) => node.content?.[0]?.text);
+    expect(headings).toEqual(["Pauta", "Anotações", "Próximos passos"]);
+    expect(doc.content?.some((node) => node.type === "taskList")).toBe(true);
+  });
+
+  it("template vazio no tipo conta como sem template", () => {
+    const doc = buildMeetingNoteContent({ type: "doc", content: [] }, null, null);
+    expect(doc.content?.[0]).toMatchObject({ type: "heading", content: [{ text: "Pauta" }] });
   });
 
   it("template do tipo entra primeiro", () => {
@@ -34,8 +41,11 @@ describe("buildMeetingNoteContent", () => {
     });
   });
 
+  // Com um template simples no tipo, pra estrutura padrão (que tem lista de pauta) não se misturar com a lista de pendências.
+  const simple = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Notas" }] }] };
+
   it("reunião anterior com ações pendentes: vira lista", () => {
-    const doc = buildMeetingNoteContent(null, null, {
+    const doc = buildMeetingNoteContent(simple, null, {
       id: "item-1",
       title: "Reunião de kickoff",
       pendingActions: [{ id: "a1", title: "Enviar proposta" }, { id: "a2", title: "Agendar follow-up" }],
@@ -46,7 +56,7 @@ describe("buildMeetingNoteContent", () => {
   });
 
   it("reunião anterior sem ações pendentes: sem lista", () => {
-    const doc = buildMeetingNoteContent(null, null, { id: "item-1", title: "Reunião", pendingActions: [] });
+    const doc = buildMeetingNoteContent(simple, null, { id: "item-1", title: "Reunião", pendingActions: [] });
     expect(doc.content?.some((node) => node.type === "bulletList")).toBe(false);
   });
 
