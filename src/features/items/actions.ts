@@ -1,11 +1,20 @@
 "use server";
 
+import { formatInTimeZone } from "date-fns-tz";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { JSONContent } from "@tiptap/core";
 import { getUserTimezone } from "@/features/reminders/queries";
+import {
+  EXPIRY_ALERT_TIME,
+  EXPIRY_PROPERTY,
+  expiryAlertMessage,
+  expiryAlerts,
+  formatExpiry,
+} from "@/features/documents/lib/expiry";
 import { requireOwner } from "@/lib/auth";
+import { serverEnv } from "@/lib/env";
 import { wallClockToIso } from "@/lib/dates";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
@@ -347,6 +356,81 @@ export async function setListStyle(itemId: string, knownUpdatedAt: string, style
     .single();
   if (error || !data) return fail(GENERIC_ERROR);
   return ok({ updatedAt: data.updated_at });
+}
+
+const expirySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.").nullable();
+
+/**
+ * Validade de documento (9.5): grava `properties.validade` e refaz os avisos
+ * de 30, 7 e 1 dia antes (às 9h, pra dona, com o link do item). Os avisos
+ * antigos desse item (`source_type = 'item_expiry'`) que ainda não saíram são
+ * cancelados antes — mudar ou apagar a data nunca deixa aviso velho pra trás.
+ */
+export async function setItemExpiry(itemId: string, knownUpdatedAt: string, expiry: string | null): Promise<Result<{ updatedAt: string; alerts: number }>> {
+  const parsed = expirySchema.safeParse(expiry);
+  if (!parsed.success) return fail("Data de validade inválida.");
+  if (parsed.data && Number.isNaN(Date.parse(`${parsed.data}T12:00:00Z`))) return fail("Data de validade inválida.");
+
+  const { supabase, user } = await requireOwner();
+  const conflict = await checkNotStale(supabase, itemId, knownUpdatedAt);
+  if (conflict) return conflict;
+
+  const { data: item, error: readError } = await supabase.from("items").select("title, properties").eq("id", itemId).maybeSingle();
+  if (readError || !item) return fail("Item não encontrado.");
+
+  const properties = { ...((item.properties as Record<string, unknown> | null) ?? {}) };
+  if (parsed.data) properties[EXPIRY_PROPERTY] = parsed.data;
+  else delete properties[EXPIRY_PROPERTY];
+
+  const { data, error } = await supabase
+    .from("items")
+    .update({ properties: properties as unknown as Json })
+    .eq("id", itemId)
+    .eq("owner_id", user.id)
+    .select("updated_at")
+    .single();
+  if (error || !data) return fail(GENERIC_ERROR);
+
+  await supabase
+    .from("reminders")
+    .update({ status: "canceled" })
+    .eq("owner_id", user.id)
+    .eq("item_id", itemId)
+    .eq("source_type", "item_expiry")
+    .eq("status", "scheduled");
+
+  let alerts = 0;
+  if (parsed.data) {
+    const timezone = await getUserTimezone(supabase, user.id);
+    const now = Date.now();
+    const today = formatInTimeZone(new Date(now), timezone, "yyyy-MM-dd");
+    const rows = expiryAlerts(parsed.data, today)
+      .map((alert) => ({ alert, sendAt: wallClockToIso(`${alert.date}T${EXPIRY_ALERT_TIME}`, timezone) }))
+      .filter(({ sendAt }) => Date.parse(sendAt) > now)
+      .map(({ alert, sendAt }) => ({
+        owner_id: user.id,
+        title: item.title || "Documento",
+        message_template: expiryAlertMessage(alert.daysBefore),
+        channel: "auto",
+        recipient_type: "me",
+        contact_ids: [],
+        send_at: sendAt,
+        timezone,
+        variables: { link: `${serverEnv.APP_URL}/itens/${itemId}`, validade: formatExpiry(parsed.data!) } as unknown as Json,
+        item_id: itemId,
+        source_type: "item_expiry",
+      }));
+    if (rows.length > 0) {
+      const { error: reminderError } = await supabase.from("reminders").insert(rows);
+      // A data fica salva mesmo se os avisos falharem — a dona vê o aviso na tela e pode tentar de novo.
+      if (reminderError) return fail("A validade foi salva, mas não consegui agendar os avisos. Tente salvar de novo.");
+      alerts = rows.length;
+    }
+  }
+
+  revalidatePath(`/itens/${itemId}`);
+  revalidatePath("/hoje");
+  return ok({ updatedAt: data.updated_at, alerts });
 }
 
 /** "Duplicar como nova" (5.9, pack Listas): mesmos itens, todos desmarcados — pra listas recorrentes (compras, checklists de processo). */

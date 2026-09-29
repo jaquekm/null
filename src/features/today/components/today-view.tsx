@@ -1,4 +1,4 @@
-import { AlarmClock, CalendarDays, CheckCircle2, Clock3, Dumbbell, Inbox, ListTodo, Receipt, type LucideIcon } from "lucide-react";
+import { AlarmClock, CalendarClock, CalendarDays, CheckCircle2, Clock3, Dumbbell, Inbox, ListTodo, Receipt, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { TodayCapture } from "./today-capture";
@@ -24,6 +24,8 @@ export interface TodayViewProps {
   /** Quantos prazos ficaram de fora da lista (o "e mais…"). */
   hiddenTasks: number;
   bills: TodayRow[];
+  /** Documentos vencendo ou vencidos há pouco (9.5) — vazio = o cartão nem aparece. */
+  expiring?: TodayRow[];
   /** `null` = sem programa de treino ativo (o cartão nem aparece). */
   workout: { done: boolean; letter: string; name: string | null } | null;
   recent: TodayRow[];
@@ -121,6 +123,12 @@ export function TodayView(props: TodayViewProps) {
         <Card icon={Receipt} title="Contas a pagar" href="/financas/contas" linkLabel="Contas">
           <Rows rows={props.bills} empty="Nenhuma conta vencendo nos próximos 7 dias." />
         </Card>
+
+        {props.expiring && props.expiring.length > 0 && (
+          <Card icon={CalendarClock} title="Vencendo">
+            <Rows rows={props.expiring} empty="" />
+          </Card>
+        )}
 
         {workout && (
           <Card icon={Dumbbell} title="Treino" href="/treinos" linkLabel="Abrir treinos">

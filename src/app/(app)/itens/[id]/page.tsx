@@ -34,6 +34,7 @@ import {
 import { TagSelector } from "@/features/tags/components/tag-selector";
 import { listItemTags } from "@/features/tags/queries";
 import { QuickReminder } from "@/features/reminders/components/quick-reminder";
+import { suggestExpiryForItem } from "@/features/documents/queries";
 import { getUserTimezone } from "@/features/reminders/queries";
 import { ItemShareComments } from "@/features/sharing/components/item-share-comments";
 import { ShareFooter } from "@/features/sharing/components/share-footer";
@@ -90,6 +91,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     itemBills,
     canvasRefs,
     relatedItems,
+    expirySuggestion,
   ] = await Promise.all([
     listActiveSpaces(supabase),
     listObjectTypesForPicker(supabase),
@@ -109,6 +111,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listBillsForItem(supabase, item.id, today),
     listCanvasesContainingItem(supabase, item.id),
     listRelatedItems(supabase, item.id),
+    item.type?.slug === "documento" ? suggestExpiryForItem(supabase, item.id).catch(() => null) : Promise.resolve(null),
   ]);
 
   // Reunião (9.3): participantes (campo `participantes`, ids de contatos) e data pro painel de envio e tarefas.
@@ -142,7 +145,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         )}
       </div>
 
-      <ItemEditor key={item.updatedAt} item={item} timezone={timezone} />
+      <ItemEditor key={item.updatedAt} item={item} timezone={timezone} today={today} expirySuggestion={expirySuggestion} />
 
       {isMeeting && (
         <MeetingPanel

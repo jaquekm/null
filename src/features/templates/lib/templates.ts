@@ -121,11 +121,12 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
     id: "documento-importante",
     label: "Documento importante",
     emoji: "📄",
-    description: "Número, validade e onde está guardado.",
+    description: "Validade com aviso antes de vencer, número e onde está guardado.",
     typeSlug: "documento",
     titlePlaceholder: "Ex.: Passaporte",
     defaultTitle: "Documento",
-    content: doc(heading("Número"), paragraph(), heading("Validade"), paragraph(), heading("Onde está guardado"), paragraph()),
+    // A validade tem campo próprio (9.5), com aviso 30, 7 e 1 dia antes.
+    content: doc(heading("Número"), paragraph(), heading("Onde está guardado"), paragraph()),
   },
   {
     id: "tarefa",
