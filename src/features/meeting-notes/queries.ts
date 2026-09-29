@@ -68,3 +68,11 @@ export async function listPendingActions(supabase: Client, ownerId: string, meet
 }
 
 export { DATA_FIELD_KEY, PARTICIPANTES_FIELD_KEY };
+
+/** Participantes da reunião (campo `participantes`, ids de contatos) com o que precisa pra mandar o link (9.3). */
+export async function listMeetingParticipants(supabase: Client, contactIds: string[]): Promise<{ name: string; phoneE164: string | null; email: string | null }[]> {
+  if (contactIds.length === 0) return [];
+  const { data, error } = await supabase.from("contacts").select("id, name, phone_e164, email").in("id", contactIds);
+  if (error) return [];
+  return data.map((contact) => ({ name: contact.name, phoneE164: contact.phone_e164, email: contact.email }));
+}
