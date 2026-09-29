@@ -8,7 +8,7 @@ import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { parseProgramText, type ParsedProgram } from "./lib/parse-program";
 import { findWorkout, programDefinitionSchema } from "./lib/program";
-import { trafficLight, validReps } from "./lib/rules";
+import { canSaveSession, trafficLight } from "./lib/rules";
 import { morningPainSchema, programInputSchema, sessionInputSchema, weeklyInputSchema } from "./schemas";
 
 const MAX_PROGRAM_FILE_BYTES = 4 * 1024 * 1024;
@@ -33,8 +33,10 @@ export async function saveWorkoutSession(input: unknown): Promise<Result<{ id: s
   const exercises = Object.fromEntries(
     workout.exercises.filter((ex) => s.exercises[ex.id]).map((ex) => [ex.id, { ...s.exercises[ex.id]!, name: ex.name }]),
   );
-  const anyDone = Object.values(exercises).some((e) => !e.skipped && validReps(e.reps).length > 0);
-  if (!anyDone) return fail("Preencha as repetições de pelo menos um exercício.");
+  // Dia só de cardio (tudo "Pulei") também é treino: basta ter duração ou observação.
+  if (!canSaveSession({ exercises, durationMin: s.durationMin, notes: s.notes })) {
+    return fail("Preencha as séries de algum exercício ou, se foi só cardio, a duração ou uma observação em “Fim do treino”.");
+  }
 
   const { data, error } = await supabase
     .from("workout_sessions")

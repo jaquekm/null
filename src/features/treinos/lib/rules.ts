@@ -87,10 +87,27 @@ export function programWeek(sessions: { date: string; id: string }[], date: stri
   return Math.max(1, Math.floor(days / 7) + 1);
 }
 
-/** Próximo treino na sequência do programa (A → B → C → D → A), a partir do último registrado. */
+/** O treino teve pelo menos um exercício feito (com repetições)? Dia só de cardio/descanso ativo não tem. */
+export function sessionHasExercises(session: Pick<SessionForRules, "exercises">): boolean {
+  return Object.values(session.exercises).some((e) => !e.skipped && validReps(e.reps).length > 0);
+}
+
+/**
+ * Um treino pode ser salvo se algum exercício foi feito ou, num dia só de
+ * cardio (tudo "Pulei"), se tem duração ou observação.
+ */
+export function canSaveSession(input: { exercises: Record<string, ExerciseEntry>; durationMin: number | null; notes: string }): boolean {
+  return sessionHasExercises(input) || (input.durationMin ?? 0) > 0 || input.notes.trim().length > 0;
+}
+
+/**
+ * Próximo treino na sequência do programa (A → B → C → D → A), a partir do
+ * último em que algum exercício foi feito — um dia só de cardio com tudo
+ * "Pulei" não conta como ter feito o treino, então não avança a sequência.
+ */
 export function nextWorkout(program: ProgramDefinition, sessions: SessionForRules[]): string {
   const order = program.workouts.map((w) => w.id);
-  const last = sortSessions(sessions).at(-1);
+  const last = sortSessions(sessions.filter(sessionHasExercises)).at(-1);
   const index = last ? order.indexOf(last.workout) : -1;
   return order[(index + 1) % order.length] ?? order[0] ?? "A";
 }
