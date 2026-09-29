@@ -33,7 +33,7 @@ import {
 } from "@/features/items/queries";
 import { TagSelector } from "@/features/tags/components/tag-selector";
 import { listItemTags } from "@/features/tags/queries";
-import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
+import { QuickReminder } from "@/features/reminders/components/quick-reminder";
 import { getUserTimezone } from "@/features/reminders/queries";
 import { ItemShareComments } from "@/features/sharing/components/item-share-comments";
 import { ShareFooter } from "@/features/sharing/components/share-footer";
@@ -142,7 +142,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         )}
       </div>
 
-      <ItemEditor key={item.updatedAt} item={item} />
+      <ItemEditor key={item.updatedAt} item={item} timezone={timezone} />
 
       {isMeeting && (
         <MeetingPanel
@@ -196,13 +196,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       <TagSelector itemId={item.id} tags={tags} label="Subcategorias" placeholder="+ subcategoria" />
 
       <div className="flex flex-wrap gap-2">
-        <RemindAboutButton
-          defaultTitle={item.title || "Sem título"}
-          defaultTimezone={timezone}
-          itemId={item.id}
-          sourceType="item"
-          sourceId={item.id}
-        />
+        <QuickReminder title={item.title || "Sem título"} timezone={timezone} itemId={item.id} sourceType="item" sourceId={item.id} />
       </div>
 
       <ItemActionsBar

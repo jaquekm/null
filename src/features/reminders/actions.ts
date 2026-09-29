@@ -4,12 +4,17 @@ import { fromZonedTime } from "date-fns-tz";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { requireOwner } from "@/lib/auth";
+import { serverEnv } from "@/lib/env";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
 import { dispatchReminderOccurrence } from "./lib/dispatch";
+import { describeReminderPhrase, parseReminderPhrase } from "./lib/parse-reminder-phrase";
 import { buildRRuleString } from "./lib/recurrence";
 import { findUnknownTemplateVariables } from "./lib/render-template";
-import { reminderInputSchema, reminderRuleInputSchema } from "./schemas";
+import { EVENT_ALERT_MESSAGE, EVENT_ALERT_RULE_NAME, eventAlertLabel } from "./lib/event-alert";
+import { getEventAlert, getUserTimezone } from "./queries";
+import { eventAlertInputSchema, quickReminderInputSchema, reminderInputSchema, reminderRuleInputSchema } from "./schemas";
 
 const GENERIC_ERROR = "Não foi possível salvar o lembrete. Tente de novo.";
 const REMINDERS_PATH = "/lembretes";
@@ -67,6 +72,49 @@ export async function createReminder(input: z.input<typeof reminderInputSchema>)
 
   revalidatePath(REMINDERS_PATH);
   return ok({ id: data.id });
+}
+
+/**
+ * "Me lembrar…" (9.4) — lembrete pra dona a partir de uma frase ("amanhã 9h",
+ * "toda segunda"). A frase é lida de novo aqui, com o relógio e o fuso do
+ * servidor (a prévia do navegador é só prévia). O que sobrar da frase vira o
+ * título; senão, o título do item. A mensagem leva o link do item.
+ */
+export async function createReminderFromPhrase(
+  input: z.input<typeof quickReminderInputSchema>,
+): Promise<Result<{ id: string; description: string }>> {
+  const parsed = quickReminderInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+
+  const { supabase, user } = await requireOwner();
+  const timezone = await getUserTimezone(supabase, user.id);
+  const now = new Date();
+  const when = parseReminderPhrase(parsed.data.phrase, now, timezone);
+  if (!when) return fail("Não entendi quando. Tente “amanhã 9h” ou “toda segunda”.", { phrase: ["Não entendi quando."] });
+  if (when.isPast) return fail("Esse horário já passou — escolha outro.", { phrase: ["Esse horário já passou."] });
+
+  const itemId = parsed.data.itemId ?? null;
+  const link = itemId ? `${serverEnv.APP_URL}/itens/${itemId}` : "";
+  const result = await createReminder({
+    title: (when.subject || parsed.data.title || "Lembrete").slice(0, 300),
+    messageTemplate: link ? "🔔 {{titulo}}\n{{link}}" : "🔔 {{titulo}}",
+    channel: "auto",
+    recipientType: "me",
+    contactIds: [],
+    date: when.date,
+    time: when.time,
+    timezone,
+    recurrence: when.recurrence,
+    variables: link ? { link } : {},
+    itemId,
+    sourceType: parsed.data.sourceType,
+    sourceId: parsed.data.sourceId,
+  });
+  if (!result.ok) return result;
+
+  if (itemId) revalidatePath(`/itens/${itemId}`);
+  revalidatePath("/hoje");
+  return ok({ id: result.data.id, description: describeReminderPhrase(when, now, timezone) });
 }
 
 /** Editar lembrete (3.8) — recalcula `send_at`/`rrule`/`ends_at`; não mexe em `status` (use pausar/retomar/cancelar). */
@@ -220,4 +268,68 @@ export async function deleteReminderRule(id: string): Promise<Result<null>> {
   if (error) return fail("Não foi possível apagar a regra. Tente de novo.");
   revalidatePath(REMINDER_RULES_PATH);
   return ok(null);
+}
+
+/**
+ * "Me avisar antes de cada evento" (9.4, na Agenda) — cria, ajusta ou desliga
+ * a regra `event_before` pra dona. Desligar cancela os avisos já agendados
+ * dessa regra; mudar o canal vale também pros já agendados (o job só
+ * recalcula horário, não canal). Depois pede um `generate_reminders` na hora
+ * pra não esperar o próximo ciclo.
+ */
+export async function setEventAlert(input: z.input<typeof eventAlertInputSchema>): Promise<Result<{ label: string | null }>> {
+  const parsed = eventAlertInputSchema.safeParse(input);
+  if (!parsed.success) return fail("Dados inválidos.", parsed.error.flatten().fieldErrors);
+  const { minutesBefore, channel } = parsed.data;
+
+  const { supabase, user } = await requireOwner();
+  const current = await getEventAlert(supabase);
+  const error = "Não foi possível salvar o aviso. Tente de novo.";
+
+  if (minutesBefore === null) {
+    if (current.ruleId) {
+      const { error: ruleError } = await supabase.from("reminder_rules").update({ enabled: false }).eq("id", current.ruleId).eq("owner_id", user.id);
+      if (ruleError) return fail(error);
+      await supabase
+        .from("reminders")
+        .update({ status: "canceled" })
+        .eq("owner_id", user.id)
+        .eq("rule_id", current.ruleId)
+        .eq("status", "scheduled");
+    }
+  } else if (current.ruleId) {
+    const { data: rule } = await supabase.from("reminder_rules").select("config").eq("id", current.ruleId).eq("owner_id", user.id).maybeSingle();
+    const config = { ...((rule?.config ?? {}) as Record<string, unknown>), minutesBefore };
+    const { error: ruleError } = await supabase
+      .from("reminder_rules")
+      .update({ enabled: true, channel, config: config as unknown as Json })
+      .eq("id", current.ruleId)
+      .eq("owner_id", user.id);
+    if (ruleError) return fail(error);
+    await supabase.from("reminders").update({ channel }).eq("owner_id", user.id).eq("rule_id", current.ruleId).eq("status", "scheduled");
+  } else {
+    const { error: insertError } = await supabase.from("reminder_rules").insert({
+      owner_id: user.id,
+      name: EVENT_ALERT_RULE_NAME,
+      kind: "event_before",
+      channel,
+      recipient_type: "me",
+      message_template: EVENT_ALERT_MESSAGE,
+      enabled: true,
+      config: { minutesBefore } as unknown as Json,
+    });
+    if (insertError) return fail(error);
+  }
+
+  if (minutesBefore !== null) {
+    try {
+      await enqueueJob({ ownerId: user.id, kind: "generate_reminders", dedupeKey: `generate_reminders:event_alert:${user.id}` });
+    } catch {
+      // O ciclo normal do generate_reminders (a cada 15 min) cobre.
+    }
+  }
+
+  revalidatePath("/agenda");
+  revalidatePath(REMINDER_RULES_PATH);
+  return ok({ label: minutesBefore === null ? null : eventAlertLabel(minutesBefore) });
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RELATIONSHIPS } from "@/features/contacts/schemas";
+import { EVENT_ALERT_CHANNELS, EVENT_ALERT_MINUTES } from "./lib/event-alert";
 
 export const REMINDER_CHANNELS = ["whatsapp", "email", "push", "auto"] as const;
 export type ReminderChannel = (typeof REMINDER_CHANNELS)[number];
@@ -55,6 +56,15 @@ export const reminderInputSchema = z
 
 export type ReminderInput = z.infer<typeof reminderInputSchema>;
 
+/** "Me lembrar…" (9.4): o quando vem em frase ("amanhã 9h") e é lido no servidor, no fuso da dona. */
+export const quickReminderInputSchema = z.object({
+  phrase: z.string().trim().min(1, "Diga quando.").max(300, "Frase muito longa."),
+  title: z.string().trim().max(300).optional(),
+  itemId: z.string().uuid().nullable().optional(),
+  sourceType: z.string().trim().max(50).optional(),
+  sourceId: z.string().uuid().optional(),
+});
+
 export const REMINDER_STATUSES = ["scheduled", "paused", "completed", "canceled"] as const;
 export type ReminderStatus = (typeof REMINDER_STATUSES)[number];
 
@@ -97,4 +107,14 @@ export const billDueRuleConfigSchema = z.object({
 
 export const splitOpenRuleConfigSchema = z.object({
   everyDays: z.coerce.number().int().positive().optional(),
+});
+
+/** "Me avisar antes de cada evento" (9.4) — `null` desliga. */
+export const eventAlertInputSchema = z.object({
+  minutesBefore: z
+    .number()
+    .int()
+    .refine((value) => (EVENT_ALERT_MINUTES as readonly number[]).includes(value), "Escolha um dos tempos da lista.")
+    .nullable(),
+  channel: z.enum(EVENT_ALERT_CHANNELS),
 });

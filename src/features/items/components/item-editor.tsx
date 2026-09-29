@@ -12,7 +12,7 @@ import type { ItemDetail } from "../queries";
 import { PropertiesPanel } from "./properties-panel";
 import { TitleEditor } from "./title-editor";
 
-export function ItemEditor({ item }: { item: ItemDetail }) {
+export function ItemEditor({ item, timezone }: { item: ItemDetail; timezone?: string }) {
   const [updatedAt, setUpdatedAt] = useState(item.updatedAt);
   const [content, setContent] = useState<JSONContent | null>(item.content);
   const [listMode, setListMode] = useState(item.type?.slug === "lista");
@@ -81,6 +81,7 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
           updatedAt={updatedAt}
           onSaved={handleSaved}
           onContentChange={setContent}
+          timezone={timezone}
         />
       ) : (
         <ItemContentEditor

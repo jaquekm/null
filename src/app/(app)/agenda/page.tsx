@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { AgendaCalendar } from "@/features/agenda/components/agenda-calendar";
 import { getUserTimezone, listCalendarsForPicker } from "@/features/agenda/queries";
+import { EventAlertSetting } from "@/features/reminders/components/event-alert-setting";
+import { getEventAlert } from "@/features/reminders/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function AgendaPage() {
   const { supabase, user } = await requireOwner();
-  const [calendars, timezone] = await Promise.all([listCalendarsForPicker(supabase, user.id), getUserTimezone(supabase, user.id)]);
+  const [calendars, timezone, eventAlert] = await Promise.all([
+    listCalendarsForPicker(supabase, user.id),
+    getUserTimezone(supabase, user.id),
+    getEventAlert(supabase),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
@@ -25,6 +31,8 @@ export default async function AgendaPage() {
           pra criar eventos por aqui. Prazos de itens e lembretes continuam aparecendo normalmente.
         </p>
       )}
+
+      <EventAlertSetting initialMinutes={eventAlert.minutesBefore} initialChannel={eventAlert.channel} />
 
       <AgendaCalendar calendars={calendars} timezone={timezone} />
     </div>

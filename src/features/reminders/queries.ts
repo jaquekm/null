@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { eventAlertState, type EventAlertState } from "./lib/event-alert";
 
 type Client = SupabaseClient<Database>;
 
@@ -167,4 +168,14 @@ export async function listReminderRules(supabase: Client): Promise<ReminderRuleR
     messageTemplate: row.message_template,
     enabled: row.enabled,
   }));
+}
+
+/** Aviso antes dos eventos (9.4) — lido da regra `event_before` pra dona. */
+export async function getEventAlert(supabase: Client): Promise<EventAlertState> {
+  const { data } = await supabase
+    .from("reminder_rules")
+    .select("id, kind, recipient_type, channel, enabled, config, created_at")
+    .eq("kind", "event_before")
+    .eq("recipient_type", "me");
+  return eventAlertState(data ?? []);
 }

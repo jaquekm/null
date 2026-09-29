@@ -3,6 +3,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { Check, ChevronDown, ChevronUp, Star } from "lucide-react";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { QuickReminder } from "@/features/reminders/components/quick-reminder";
 import { updateItemContent } from "../actions";
 import { toggleChecklistItem } from "../lib/checklist";
 import {
@@ -72,6 +73,7 @@ export function ListModeView({
   updatedAt,
   onSaved,
   onContentChange,
+  timezone,
 }: {
   itemId: string;
   style: ListStyle;
@@ -79,6 +81,8 @@ export function ListModeView({
   updatedAt: string;
   onSaved: (updatedAt: string) => void;
   onContentChange: (content: JSONContent) => void;
+  /** Com o fuso, cada linha ganha o sininho "Me lembrar" (9.4). */
+  timezone?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +109,8 @@ export function ListModeView({
   const doc: JSONContent = content ?? { type: "doc", content: [] };
   const lastGroup = sections.length - 1;
   const addTo = targetGroup !== null && targetGroup <= lastGroup ? targetGroup : lastGroup;
+  const bell = (entry: ListEntry) =>
+    timezone && entry.text.trim() ? <QuickReminder variant="icon" title={entry.text} timezone={timezone} itemId={itemId} sourceType="list_entry" /> : null;
   const add = (text: string) => save(addItemToSection(content, style === "priority" ? addTo : lastGroup, text));
 
   let body: ReactNode;
@@ -114,7 +120,7 @@ export function ListModeView({
     body = (
       <ul className="flex flex-col gap-2">
         {ordered.map((entry) => (
-          <li key={entry.index}>
+          <li key={entry.index} className="flex items-center gap-1">
             <button
               type="button"
               disabled={pending}
@@ -132,6 +138,8 @@ export function ListModeView({
               </span>
               <EntryText entry={entry} />
             </button>
+            {/* Item já riscado não precisa de lembrete. */}
+            {!entry.checked && bell(entry)}
           </li>
         ))}
         {ordered.length === 0 && <Empty />}
@@ -153,7 +161,7 @@ export function ListModeView({
         </div>
         <ul className="flex flex-col gap-2">
           {shown.map((entry) => (
-            <li key={entry.index}>
+            <li key={entry.index} className="flex items-center gap-1">
               <button
                 type="button"
                 role="checkbox"
@@ -171,6 +179,7 @@ export function ListModeView({
                 </span>
                 <EntryText entry={entry} />
               </button>
+              {bell(entry)}
             </li>
           ))}
           {entries.length === 0 && <Empty />}
@@ -184,7 +193,7 @@ export function ListModeView({
         <Tally>{chosen ? <>Escolha: <strong className="font-semibold text-black dark:text-zinc-50">{chosen.text || "(sem texto)"}</strong></> : "Nenhuma opção escolhida ainda."}</Tally>
         <ul role="radiogroup" className="flex flex-col gap-2">
           {entries.map((entry) => (
-            <li key={entry.index}>
+            <li key={entry.index} className="flex items-center gap-1">
               <button
                 type="button"
                 role="radio"
@@ -202,6 +211,7 @@ export function ListModeView({
                 </span>
                 <EntryText entry={entry} />
               </button>
+              {bell(entry)}
             </li>
           ))}
           {entries.length === 0 && <Empty />}
@@ -238,6 +248,7 @@ export function ListModeView({
                   );
                 })}
               </span>
+              {bell(entry)}
             </li>
           ))}
           {entries.length === 0 && <Empty />}
@@ -261,7 +272,8 @@ export function ListModeView({
                   <li key={entry.index} className={`${rowClassName} ${idleRow} py-2 pr-2`}>
                     <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{rank}</span>
                     <EntryText entry={entry} />
-                    <span className="flex shrink-0 gap-0.5">
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      {bell(entry)}
                       <button
                         type="button"
                         aria-label={`Subir ${entry.text}`}
