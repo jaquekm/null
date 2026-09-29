@@ -34,6 +34,18 @@ async function saved(): Promise<JSONContent> {
 }
 
 describe("ListModeView", () => {
+  it("com o fuso, cada item tem o sininho de lembrete (9.4); sem ele, não", () => {
+    render(
+      <ListModeView itemId="i1" style="checklist" content={doc(list(item("Leite"), item("Pão", { checked: true })))} updatedAt="t1" onSaved={vi.fn()} onContentChange={vi.fn()} timezone="America/Sao_Paulo" />,
+    );
+    expect(screen.getByRole("button", { name: "Me lembrar de Leite" })).toBeTruthy();
+    // Riscado não ganha sininho.
+    expect(screen.queryByRole("button", { name: "Me lembrar de Pão" })).toBeNull();
+    cleanup();
+    renderList("priority", doc(list(item("Leite"))));
+    expect(screen.queryByRole("button", { name: /Me lembrar/ })).toBeNull();
+  });
+
   it("Riscar: toque risca o item", async () => {
     renderList("checklist", doc(list(item("Leite"), item("Pão"))));
     fireEvent.click(screen.getByRole("button", { name: "Pão" }));

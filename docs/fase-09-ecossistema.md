@@ -22,7 +22,7 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - [ ] Conferir: `cron.job_run_details` com sucesso, `/api/jobs/tick` respondendo 200 nos logs da Vercel,
   fila de `jobs` andando.
 
-## 9.1 — Tela "Hoje" como página inicial ✅ (em PR)
+## 9.1 — Tela "Hoje" como página inicial ✅
 
 - `/hoje`: data, saudação, resumo do dia, captura rápida, cartões de Agenda, Lembretes, Prazos
   (atrasados + de hoje), Contas a pagar (vencidas + próximos 7 dias), Treino (próximo treino do programa
@@ -32,7 +32,7 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - **Depois de a dona usar o Hoje por alguns dias:** enxugar o menu (Hoje, Espaços, Agenda, Buscar,
   Mais) — decidir com ela o que vai pro "Mais".
 
-## 9.2 — Criar pelo objetivo: modelos no "+ Novo"
+## 9.2 — Criar pelo objetivo: modelos no "+ Novo" ✅
 
 - O "+ Novo" (e a captura) oferece modelos antes dos tipos: Lista de presentes, Lista de compras,
   Reunião, Documento com vencimento, Evento, Planilha de gastos, Nota.
@@ -40,7 +40,7 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Modelos são dados (JSON em `packs/` ou tabela), não código espalhado — dá pra criar os próprios depois.
 - Aceite: criar "Ideias de presentes pra cunhada" em 2 toques, já como lista "Marcar vários".
 
-## 9.3 — Reunião ponta a ponta
+## 9.3 — Reunião ponta a ponta ✅
 
 - Evento na agenda → botão "Criar nota da reunião" (e automático pra eventos com convidados):
   pauta, participantes (contatos), link do evento.
@@ -49,7 +49,7 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Lembretes de acompanhamento criados a partir das tarefas.
 - Aceite: do evento ao resumo enviado sem sair da nota.
 
-## 9.4 — Lembrete em qualquer coisa, em linguagem natural
+## 9.4 — Lembrete em qualquer coisa, em linguagem natural ✅ (em PR)
 
 - "Me lembra…" em qualquer item e em itens de lista: "amanhã 9h", "sexta às 14h", "toda segunda",
   "dia 10 de todo mês" → parser puro com testes (fuso America/Sao_Paulo).

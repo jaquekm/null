@@ -846,3 +846,11 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **O quê:** a dona organiza por espaço (Pessoal) → subcategoria (ex.: "Cunhada") → item (ex.: lista "Ideias de presentes"), e quer achar as coisas filtrando por subcategoria, tipo e tipo de lista, não por uma fileira com todos os tipos do sistema.
 - **Decisão:** subcategoria usa as **tags** que já existiam (sem migration, sem hierarquia nova de espaços). Na página do item o campo aparece como "Subcategorias". A página do espaço carrega os itens do espaço (até 1000, sem conteúdo) e filtra no navegador; as visões salvas continuam acessíveis em "Visões avançadas".
 - **Nome:** o sistema passou a se chamar JKode. Nomes internos (tabela `hub_costs`, slug do espaço do manual, cabeçalho `X-Hub-Signature` dos webhooks) não mudaram — só o texto que aparece pra pessoa.
+
+## Lembrete em frase (9.4): leitor próprio, sem biblioteca nova
+
+- **O quê:** "amanhã 9h", "toda segunda", "dia 10 de todo mês" viram lembrete. O leitor é uma função pura nossa (`reminders/lib/parse-reminder-phrase.ts`) que devolve o mesmo `RecurrencePreset` do formulário de lembrete — nada de schema novo.
+- **Por que não uma biblioteca (chrono-node etc.):** o suporte a português dessas libs é parcial (recorrência quase nenhuma) e ainda teríamos de traduzir o resultado pra RRULE no fuso da dona. O conjunto de frases do dia a dia é pequeno e fica todo coberto por testes.
+- **Escolhas de sentido:** dia da semana sozinho ("sexta") é sempre o próximo, nunca hoje; sem hora vale 9h (ou a próxima hora cheia se for "hoje" e já passou das 9h); "dia 10" é este mês se ainda não passou; "semana que vem" = daqui a 7 dias. "segunda via" não é segunda-feira.
+- **Servidor relê a frase:** a prévia no navegador é só prévia; `createReminderFromPhrase` interpreta de novo com o relógio e o fuso do servidor/dona, então não dá pra gravar data inventada pelo cliente.
+- **Aviso antes dos eventos sem WhatsApp:** lembrete pra própria dona só sai por notificação (push) ou e-mail — o sistema não guarda o número dela (`resolveDestination` devolve vazio pra WhatsApp de "eu"). Guardar o número exige campo em `user_settings` (migration) e opt-in; fica junto da 9.8 ("me avisar no WhatsApp").
