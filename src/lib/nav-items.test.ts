@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MOBILE_PRIMARY_ITEMS, NAV_ITEMS } from "./nav-items";
 
 describe("nav-items", () => {
-  it("tem 13 itens na sidebar, todos com href e label únicos", () => {
-    expect(NAV_ITEMS).toHaveLength(13);
+  it("tem 14 itens na sidebar, todos com href e label únicos", () => {
+    expect(NAV_ITEMS).toHaveLength(14);
     expect(new Set(NAV_ITEMS.map((item) => item.href)).size).toBe(
       NAV_ITEMS.length,
     );
@@ -20,10 +20,14 @@ describe("nav-items", () => {
     expect(NAV_ITEMS.some((item) => item.href === "/configuracoes")).toBe(true);
   });
 
-  it("a barra inferior do mobile mostra Inbox, Buscar e Agenda, nessa ordem", () => {
+  it("começa por Hoje, a página inicial", () => {
+    expect(NAV_ITEMS[0]?.href).toBe("/hoje");
+  });
+
+  it("a barra inferior do mobile mostra Hoje, Inbox e Agenda, nessa ordem", () => {
     expect(MOBILE_PRIMARY_ITEMS.map((item) => item.href)).toEqual([
+      "/hoje",
       "/inbox",
-      "/buscar",
       "/agenda",
     ]);
   });

@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "JKode",
     short_name: "JKode",
     description: "Notas, agenda, finanças, CRM e mais — sistema pessoal de organização.",
-    start_url: "/inbox",
+    start_url: "/hoje",
     display: "standalone",
     background_color: "#0a0a0a",
     theme_color: "#0a0a0a",

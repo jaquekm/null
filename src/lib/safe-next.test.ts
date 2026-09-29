@@ -7,15 +7,15 @@ describe("safeNext", () => {
   });
 
   it("usa o fallback quando next está ausente", () => {
-    expect(safeNext(undefined)).toBe("/inbox");
-    expect(safeNext(null)).toBe("/inbox");
-    expect(safeNext("")).toBe("/inbox");
+    expect(safeNext(undefined)).toBe("/hoje");
+    expect(safeNext(null)).toBe("/hoje");
+    expect(safeNext("")).toBe("/hoje");
   });
 
   it("rejeita URLs absolutas e protocol-relative (open redirect)", () => {
-    expect(safeNext("https://evil.example.com")).toBe("/inbox");
-    expect(safeNext("//evil.example.com")).toBe("/inbox");
-    expect(safeNext("javascript:alert(1)")).toBe("/inbox");
+    expect(safeNext("https://evil.example.com")).toBe("/hoje");
+    expect(safeNext("//evil.example.com")).toBe("/hoje");
+    expect(safeNext("javascript:alert(1)")).toBe("/hoje");
   });
 
   it("aceita um fallback customizado", () => {

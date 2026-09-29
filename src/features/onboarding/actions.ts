@@ -116,5 +116,5 @@ export async function completeOnboarding(
     { onConflict: "kind" },
   );
 
-  redirect("/inbox");
+  redirect("/hoje");
 }
