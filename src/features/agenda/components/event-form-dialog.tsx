@@ -289,7 +289,7 @@ export function EventFormDialog(props: EventFormDialogProps) {
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-full bg-black px-4 py-1.5 text-xs font-medium text-white disabled:opacity-60 dark:bg-white dark:text-black"
+                className="rounded-full bg-brand px-4 py-1.5 text-xs font-medium text-brand-fg disabled:opacity-60"
               >
                 {pending ? "Salvando…" : "Salvar"}
               </button>

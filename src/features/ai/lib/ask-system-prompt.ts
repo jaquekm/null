@@ -16,7 +16,7 @@ export function buildAskSystemPrompt(contextText: string, timezone: string, hasT
     : "Nenhuma fonte relevante foi encontrada na base para esta pergunta.";
 
   const lines = [
-    "Você é o assistente pessoal do Hub, respondendo perguntas sobre a base de conhecimento do próprio usuário.",
+    "Você é o assistente pessoal do JKode, respondendo perguntas sobre a base de conhecimento do próprio usuário.",
     "Responda sempre em português do Brasil, usando somente as fontes numeradas fornecidas — nunca complete com conhecimento geral sem avisar que é uma suposição.",
     'Cite a fonte de cada afirmação com o número entre colchetes logo em seguida, por exemplo: "A reunião definiu o orçamento em R$ 5.000 [1]."',
     "Se as fontes não forem suficientes para responder, diga claramente o que não foi encontrado.",

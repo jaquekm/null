@@ -60,7 +60,7 @@ export async function GET(request: Request) {
   if (!tokens.refreshToken) {
     return redirectWithError(
       request.url,
-      "O Google não devolveu permissão de acesso contínuo. Remova o acesso do Hub em myaccount.google.com/permissions e tente conectar de novo.",
+      "O Google não devolveu permissão de acesso contínuo. Remova o acesso do JKode em myaccount.google.com/permissions e tente conectar de novo.",
     );
   }
 

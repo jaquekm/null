@@ -11,7 +11,7 @@ export default async function AutomacoesPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Automações</h1>
-        <Link href="/configuracoes/automacoes/novo" className="bg-foreground text-background rounded-full px-4 py-2 text-sm font-medium">
+        <Link href="/configuracoes/automacoes/novo" className="bg-brand text-brand-fg rounded-full px-4 py-2 text-sm font-medium">
           Nova automação
         </Link>
       </div>

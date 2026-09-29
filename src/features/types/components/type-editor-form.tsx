@@ -87,7 +87,7 @@ export function TypeEditorForm({ type, spaces }: { type: ObjectTypeDetail; space
       <button
         type="submit"
         disabled={pending}
-        className="bg-foreground text-background self-start rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+        className="bg-brand text-brand-fg self-start rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
       >
         {pending ? "Salvando..." : "Salvar"}
       </button>

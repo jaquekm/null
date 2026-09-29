@@ -18,7 +18,7 @@ export default async function BoasVindasPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Bem-vindo(a) ao Hub</h1>
+        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Bem-vindo(a) ao JKode</h1>
         <p className="text-sm text-black/60 dark:text-white/60">
           Vamos configurar o básico antes de começar: os espaços onde suas notas e itens vão morar, e o fuso horário
           para datas e lembretes.

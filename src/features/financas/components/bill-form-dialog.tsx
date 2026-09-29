@@ -297,7 +297,7 @@ export function BillFormDialog({ bill, accounts, categories, spaces, contacts, d
             type="button"
             onClick={handleSubmit}
             disabled={pending || !amount.trim() || !description.trim() || !dueOn}
-            className="bg-foreground text-background rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+            className="bg-brand text-brand-fg rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
           >
             {pending ? "Salvando..." : "Salvar"}
           </button>

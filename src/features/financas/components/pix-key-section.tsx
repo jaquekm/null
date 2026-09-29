@@ -161,7 +161,7 @@ export function PixKeySection({ pixKeys, spaces }: { pixKeys: PixKeyRow[]; space
               type="button"
               onClick={handleCreate}
               disabled={pending || !label.trim() || !keyValue.trim() || !merchantName.trim() || !merchantCity.trim()}
-              className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+              className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
             >
               {pending ? "Salvando..." : "Cadastrar chave"}
             </button>

@@ -47,9 +47,9 @@ export function TitleEditor({
           e.currentTarget.style.height = "auto";
           e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
         }}
-        className="resize-none overflow-hidden border-0 bg-transparent text-xl font-semibold text-black outline-none dark:text-zinc-50"
+        className="resize-none overflow-hidden border-0 bg-transparent text-3xl font-bold tracking-tight text-black outline-none placeholder:text-zinc-300 sm:text-4xl dark:text-zinc-50 dark:placeholder:text-zinc-700"
       />
-      <span className="text-xs text-zinc-400 dark:text-zinc-500">{pending ? "Salvando…" : "Salvo"}</span>
+      <span className="text-xs text-zinc-400 dark:text-zinc-500">{pending ? "Salvando…" : "✓ Salvo"}</span>
       {conflict && (
         <p role="alert" className="text-xs text-amber-600 dark:text-amber-400">
           {state.error}{" "}

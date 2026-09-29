@@ -34,7 +34,7 @@ export function ClaimPaidButton({ token, initiallyClaimed }: { token: string; in
           setClaimed(true);
         });
       }}
-      className="bg-foreground text-background self-center rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+      className="bg-brand text-brand-fg self-center rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
     >
       {pending ? "Marcando..." : "Já paguei"}
     </button>

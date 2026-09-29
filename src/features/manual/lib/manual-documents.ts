@@ -10,8 +10,8 @@ export interface ManualDocument {
  */
 export const MANUAL_DOCUMENTS: ManualDocument[] = [
   {
-    title: "Como uso o Hub",
-    markdown: `# Como uso o Hub
+    title: "Como uso o JKode",
+    markdown: `# Como uso o JKode
 
 ## Captura rápida
 
@@ -94,7 +94,7 @@ Sem valores — só onde cada coisa mora e quando trocar. Passo a passo completo
 
 Todos em **Settings → Secrets and variables → Actions** do repositório: \`SUPABASE_DB_URL\`, \`BACKUP_AGE_PUBLIC_KEY\` (a chave privada \`age\` fica **fora** do repositório, num gerenciador de senhas), \`BACKUP_S3_*\` (endpoint/bucket/credenciais do bucket externo), \`SUPABASE_STORAGE_S3_*\` (credenciais S3 do Storage do Supabase). Rotacionar a chave de acesso do bucket a cada 6–12 meses.
 
-## Tokens gerados pelo próprio Hub
+## Tokens gerados pelo próprio JKode
 
 - **Tokens de API/MCP**: gerados e revogados em **Configurações → Tokens** (\`/configuracoes/tokens\`) e **Configurações → MCP** (\`/configuracoes/mcp\`) — guardados só como hash, o valor puro só aparece uma vez na hora de criar.
 - **Links compartilhados**: cada um tem prazo de validade próprio, configurado na hora de criar o link (não é um "segredo" de longa duração).

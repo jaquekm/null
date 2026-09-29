@@ -11,6 +11,8 @@ export function TagSelector({
   autoFocusInput,
   inputId,
   onTagsChange,
+  label = "Tags",
+  placeholder = "+ tag",
 }: {
   itemId: string;
   tags: TagOption[];
@@ -20,6 +22,9 @@ export function TagSelector({
   inputId?: string;
   /** Avisa o pai da lista atualizada — usado pelo Inbox (1.13) pra manter a prévia da linha em dia. */
   onTagsChange?: (tags: TagOption[]) => void;
+  /** Na página do item as tags aparecem como "Subcategorias" — é o que o filtro da página do espaço usa. */
+  label?: string;
+  placeholder?: string;
 }) {
   const [tags, setTags] = useState(initialTags);
   const [input, setInput] = useState("");
@@ -59,7 +64,7 @@ export function TagSelector({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Tags</span>
+      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</span>
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
           <TagBadge key={tag.id} tag={tag} onRemove={pending ? undefined : handleRemove} />
@@ -75,10 +80,10 @@ export function TagSelector({
             }
           }}
           onBlur={handleAdd}
-          placeholder="+ tag"
+          placeholder={placeholder}
           disabled={pending}
           autoFocus={autoFocusInput}
-          className="w-20 rounded-full border border-dashed border-black/[.2] bg-transparent px-2 py-0.5 text-xs focus:outline-none dark:border-white/[.24]"
+          className="w-32 rounded-full border border-dashed border-black/[.2] bg-transparent px-2 py-0.5 text-xs focus:outline-none dark:border-white/[.24]"
         />
       </div>
       {error && (

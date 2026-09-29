@@ -269,7 +269,7 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
           >
             <Zap className="h-4 w-4" /> Gasto rápido
           </button>
-          <button type="button" onClick={() => setShowForm(true)} className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium">
+          <button type="button" onClick={() => setShowForm(true)} className="bg-brand text-brand-fg flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium">
             <Plus className="h-4 w-4" /> Novo lançamento
           </button>
         </div>
@@ -393,7 +393,7 @@ export function LancamentosWorkspace({ accounts, categories, spaces, contacts, i
             type="button"
             onClick={handleBulkCategorize}
             disabled={!bulkCategoryId}
-            className="bg-foreground text-background rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+            className="bg-brand text-brand-fg rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
           >
             Aplicar
           </button>

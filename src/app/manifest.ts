@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Hub",
-    short_name: "Hub",
+    name: "JKode",
+    short_name: "JKode",
     description: "Notas, agenda, finanças, CRM e mais — sistema pessoal de organização.",
     start_url: "/inbox",
     display: "standalone",

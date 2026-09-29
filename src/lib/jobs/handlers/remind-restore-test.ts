@@ -8,7 +8,7 @@ const REMINDER_THRESHOLD_DAYS = 25;
  * Job `remind_restore_test` (7.3, "push de lembrete mensal para o dono
  * executar/confirmar"): o teste de restauração em si roda no GitHub
  * Actions (`restore-test.yml`, manual — não dá pra disparar por webhook a
- * partir do Hub), então este job só cobra o lembrete; quem de fato roda e
+ * partir do JKode), então este job só cobra o lembrete; quem de fato roda e
  * registra o resultado (`backup_runs`, kind `restore_test`) é o workflow,
  * via `/api/ops/backup-report`.
  */

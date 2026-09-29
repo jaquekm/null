@@ -67,7 +67,7 @@ export function WeeklyTab({ weekly, sessions, onChanged }: { weekly: WeeklyMeasu
           type="button"
           disabled={pending}
           onClick={handleSave}
-          className="rounded-xl bg-black py-2.5 font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+          className="rounded-xl bg-brand py-2.5 font-semibold text-brand-fg disabled:opacity-60"
         >
           Salvar semana
         </button>

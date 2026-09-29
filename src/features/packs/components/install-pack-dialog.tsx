@@ -174,7 +174,7 @@ export function InstallPackDialog({ file, pack, spaces, missingModules, defaultS
             type="button"
             onClick={handleSubmit}
             disabled={pending || blocked || (spaceId === NEW_SPACE && !newSpaceName.trim())}
-            className="bg-foreground text-background rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+            className="bg-brand text-brand-fg rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
           >
             {pending ? "Instalando..." : "Instalar"}
           </button>

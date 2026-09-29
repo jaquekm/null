@@ -1,6 +1,6 @@
 /** `README.md` do export completo (7.4) — explica a estrutura de pastas do zip. */
 export function buildExportReadme(generatedAt: string): string {
-  return `# Export do Hub — ${generatedAt}
+  return `# Export do JKode — ${generatedAt}
 
 Este arquivo é um export completo dos seus dados, gerado pelo botão
 "Exportar tudo" em Configurações → Dados.

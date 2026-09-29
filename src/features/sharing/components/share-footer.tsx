@@ -18,7 +18,7 @@ const QUICK_PERMISSIONS: { value: SharePermission; label: string; listOnly?: boo
 ];
 
 const chipClassName = "rounded-full border px-3 py-1.5 text-sm disabled:opacity-60";
-const chipOn = "border-transparent bg-black text-white dark:bg-white dark:text-black";
+const chipOn = "border-transparent bg-brand text-brand-fg";
 const chipOff = "border-black/[.12] text-zinc-600 hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]";
 
 /**
@@ -46,13 +46,13 @@ export function ShareFooter({ itemId, title, isList, links }: { itemId: string; 
       router.refresh();
       if (typeof navigator.share === "function") {
         // Fechar a folha de compartilhar do celular sem escolher nada rejeita a promise — não é erro, o link continua na tela.
-        navigator.share({ title: title || "Hub", text: shareMessage(title, result.data.url, isList) }).catch(() => {});
+        navigator.share({ title: title || "JKode", text: shareMessage(title, result.data.url, isList) }).catch(() => {});
       }
     });
   }
 
   return (
-    <section aria-labelledby={`share-${itemId}`} className="flex flex-col gap-3 rounded-2xl border border-black/[.08] p-4 dark:border-white/[.08]">
+    <section aria-labelledby={`share-${itemId}`} className="flex flex-col gap-3 rounded-2xl border border-black/[.06] bg-surface p-5 shadow-sm dark:border-white/[.06]">
       <div>
         <h2 id={`share-${itemId}`} className="flex items-center gap-2 font-semibold">
           <Share2 className="h-4 w-4" aria-hidden /> {isList ? "Compartilhar esta lista" : "Compartilhar"}
@@ -83,7 +83,7 @@ export function ShareFooter({ itemId, title, isList, links }: { itemId: string; 
             <a href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer" className={`${chipClassName} ${chipOff}`}>
               WhatsApp
             </a>
-            <a href={`mailto:?subject=${encodeURIComponent(title || "Hub")}&body=${encodeURIComponent(message)}`} className={`${chipClassName} ${chipOff}`}>
+            <a href={`mailto:?subject=${encodeURIComponent(title || "JKode")}&body=${encodeURIComponent(message)}`} className={`${chipClassName} ${chipOff}`}>
               E-mail
             </a>
             <button type="button" onClick={() => setUrl(null)} className="text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400">
@@ -112,7 +112,7 @@ export function ShareFooter({ itemId, title, isList, links }: { itemId: string; 
             type="button"
             onClick={handleShare}
             disabled={pending}
-            className="flex items-center justify-center gap-2 rounded-xl bg-black py-2.5 font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+            className="flex items-center justify-center gap-2 rounded-xl bg-brand py-2.5 font-semibold text-brand-fg disabled:opacity-60"
           >
             <Share2 className="h-4 w-4" aria-hidden /> {pending ? "Criando link…" : "Compartilhar"}
           </button>

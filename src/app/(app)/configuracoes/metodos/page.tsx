@@ -22,7 +22,7 @@ export default async function MetodosPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Métodos (packs)</h1>
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        O Hub começa em branco: telas como Vendas, Estudos ou Projetos só aparecem depois de instalado o pack
+        O JKode começa em branco: telas como Vendas, Estudos ou Projetos só aparecem depois de instalado o pack
         correspondente. Cada pack é um pacote pronto pra um método específico — os tipos de item, as telas e os
         lembretes/automações daquele fluxo — que você liga quando quiser usar. Ao desinstalar, só o que ficou vazio é
         removido; itens que você já criou com ele continuam guardados.

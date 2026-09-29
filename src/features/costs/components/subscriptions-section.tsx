@@ -73,7 +73,7 @@ export function SubscriptionsSection({ subscriptions }: { subscriptions: Subscri
     <section className="flex flex-col gap-3">
       <div>
         <h2 className="text-sm font-medium text-black dark:text-zinc-50">Assinaturas substituídas</h2>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">O que o Hub substitui — marque como cancelada quando cancelar de verdade.</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">O que o JKode substitui — marque como cancelada quando cancelar de verdade.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 rounded-lg border border-black/[.08] p-3 text-sm dark:border-white/[.08] sm:grid-cols-3">
@@ -142,7 +142,7 @@ export function SubscriptionsSection({ subscriptions }: { subscriptions: Subscri
               type="button"
               onClick={handleCreate}
               disabled={pending || !name.trim() || !monthlyCost.trim()}
-              className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+              className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
             >
               {pending ? "Salvando..." : "Cadastrar"}
             </button>

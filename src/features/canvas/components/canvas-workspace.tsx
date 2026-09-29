@@ -338,7 +338,7 @@ function CanvasWorkspaceInner({ itemTitle, canvasId, initialViewport, initialNod
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[.08] px-4 py-2 dark:border-white/[.08]">
         <div className="flex items-center gap-2 text-sm">
           <a href="/inbox" className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
-            Hub
+            JKode
           </a>
           <span className="text-zinc-300 dark:text-zinc-600">/</span>
           <span className="font-medium text-black dark:text-zinc-50">🗺️ {itemTitle || "Canvas sem título"}</span>

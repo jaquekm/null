@@ -1,7 +1,7 @@
 /**
  * Texto que acompanha o link no WhatsApp/e-mail/compartilhar do celular.
  * Diz o que a pessoa vai ver e que não precisa de conta — ela nunca cria
- * conta no Hub, só abre o link.
+ * conta no JKode, só abre o link.
  */
 export function shareMessage(title: string, url: string, isList: boolean): string {
   const name = title.trim() || "Sem título";

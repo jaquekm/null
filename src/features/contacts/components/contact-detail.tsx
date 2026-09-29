@@ -55,7 +55,7 @@ export function ContactDetail({
     });
   }
 
-  /** Exportação de dados (7.7, LGPD) — baixa um `.json` com tudo que o Hub sabe sobre o contato. */
+  /** Exportação de dados (7.7, LGPD) — baixa um `.json` com tudo que o JKode sabe sobre o contato. */
   function handleExport() {
     startTransition(async () => {
       const result = await exportContactData(contact.id);

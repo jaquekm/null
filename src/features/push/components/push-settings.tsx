@@ -81,14 +81,14 @@ export function PushSettings({ initialSubscriptions }: { initialSubscriptions: P
         <div>
           <h2 className="text-sm font-medium text-black dark:text-zinc-50">Notificações push</h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            No iOS, só funciona com o Hub instalado na tela inicial (PWA). No dispositivo, o navegador vai pedir permissão.
+            No iOS, só funciona com o JKode instalado na tela inicial (PWA). No dispositivo, o navegador vai pedir permissão.
           </p>
         </div>
         <button
           type="button"
           onClick={activate}
           disabled={pending || !supported}
-          className="bg-foreground text-background flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+          className="bg-brand text-brand-fg flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
         >
           <Bell className="h-4 w-4" /> Ativar neste dispositivo
         </button>

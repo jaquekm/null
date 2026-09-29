@@ -284,7 +284,7 @@ export async function commitImport(formData: FormData): Promise<Result<ImportCom
    * Origem "Planilha": categoria/subcategoria só existem como campo `select`
    * quando há um tipo de destino escolhido (campos pertencem a um tipo). Sem
    * tipo (Inbox), caem como tag em vez de se perder — mesma ideia de
-   * `#categoria-x` que o dono já usa em qualquer outro lugar do Hub.
+   * `#categoria-x` que o dono já usa em qualquer outro lugar do JKode.
    */
   const { propertiesByLocalId, extraTagsByLocalId } = await resolveSpreadsheetFields(supabase, user.id, typeId, itemsToImport);
 

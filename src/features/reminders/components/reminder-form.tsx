@@ -358,7 +358,7 @@ export function ReminderForm({
           type="button"
           onClick={handleSubmit}
           disabled={pending || !title.trim() || !messageTemplate.trim() || !date || !time}
-          className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+          className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
         >
           {pending ? "Salvando..." : reminder ? "Salvar" : "Criar lembrete"}
         </button>

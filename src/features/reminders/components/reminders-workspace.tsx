@@ -87,7 +87,7 @@ export function RemindersWorkspace({ contacts, defaultTimezone, initialUpcoming,
               setEditing(null);
               setShowForm(true);
             }}
-            className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
+            className="bg-brand text-brand-fg flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
           >
             <Plus className="h-4 w-4" /> Novo lembrete
           </button>

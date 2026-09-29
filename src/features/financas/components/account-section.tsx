@@ -191,7 +191,7 @@ export function AccountSection({ accounts, spaces }: { accounts: AccountRow[]; s
               type="button"
               onClick={handleCreate}
               disabled={pending || !name.trim() || !openingBalance.trim()}
-              className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+              className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
             >
               {pending ? "Salvando..." : "Criar conta"}
             </button>

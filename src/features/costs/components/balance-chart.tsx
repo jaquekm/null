@@ -15,7 +15,7 @@ function axisTick(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 }
 
-/** Saldo mensal (7.8): economia de assinaturas canceladas × custos fixos do Hub × resultado. Só BRL — custos variáveis de IA ficam de fora (ver monthly-balance.ts). */
+/** Saldo mensal (7.8): economia de assinaturas canceladas × custos fixos do JKode × resultado. Só BRL — custos variáveis de IA ficam de fora (ver monthly-balance.ts). */
 export function BalanceChart({ data }: { data: MonthBalance[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>

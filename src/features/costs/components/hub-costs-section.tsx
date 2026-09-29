@@ -64,7 +64,7 @@ export function HubCostsSection({ costs }: { costs: HubCostRow[] }) {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="text-sm font-medium text-black dark:text-zinc-50">Custos fixos do Hub</h2>
+        <h2 className="text-sm font-medium text-black dark:text-zinc-50">Custos fixos do JKode</h2>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">Lançamento manual mensal (Supabase, Vercel, domínio, bucket de backup). Um por categoria/mês — lançar de novo substitui o valor.</p>
       </div>
 
@@ -115,7 +115,7 @@ export function HubCostsSection({ costs }: { costs: HubCostRow[] }) {
               type="button"
               onClick={handleCreate}
               disabled={pending || !amount.trim()}
-              className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+              className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
             >
               {pending ? "Salvando..." : "Lançar"}
             </button>

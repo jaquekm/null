@@ -68,7 +68,7 @@ export function ChoiceButtons<T extends string | number>({
           onClick={() => onChange(option)}
           className={`rounded-lg border py-2 text-sm font-semibold ${
             option === value
-              ? "border-transparent bg-black text-white dark:bg-white dark:text-black"
+              ? "border-transparent bg-brand text-brand-fg"
               : "border-black/[.12] hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
           }`}
         >

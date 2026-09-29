@@ -65,7 +65,7 @@ export function ReindexAllButton({ estimate }: { estimate: ReindexEstimate }) {
                 type="button"
                 onClick={handleConfirm}
                 disabled={pending || estimate.itemCount === 0}
-                className="bg-foreground text-background rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
+                className="bg-brand text-brand-fg rounded-full px-4 py-1.5 text-sm font-medium disabled:opacity-60"
               >
                 {pending ? "Enfileirando..." : "Confirmar"}
               </button>

@@ -22,7 +22,7 @@ import { detectCsvDelimiter, readFileText } from "@/lib/csv";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
-const buttonClassName = "rounded-full bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-white dark:text-black";
+const buttonClassName = "rounded-full bg-brand px-4 py-2 text-sm font-medium text-brand-fg disabled:opacity-60";
 const secondaryButtonClassName = "rounded-full border border-black/[.12] px-4 py-2 text-sm dark:border-white/[.16]";
 
 type WizardSource = ImportSource | "ics";

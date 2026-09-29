@@ -360,7 +360,7 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
               type="button"
               onClick={handleMappingContinue}
               disabled={pending || missingRoles.length > 0}
-              className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+              className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
             >
               Continuar
             </button>
@@ -467,7 +467,7 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
           </div>
 
           <div className="flex gap-2">
-            <button type="button" onClick={handleConfirm} disabled={pending} className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60">
+            <button type="button" onClick={handleConfirm} disabled={pending} className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60">
               {pending ? "Importando..." : "Confirmar importação"}
             </button>
             <button type="button" onClick={resetForNewImport} disabled={pending} className="self-start rounded-full px-5 py-2 text-sm text-zinc-500 hover:underline">
@@ -483,7 +483,7 @@ export function ImportWorkspace({ accounts, categories, imports }: { accounts: A
             {summary.imported} lançamento(s) importado(s), {summary.duplicate} duplicado(s) ignorado(s).
           </p>
           <div className="flex gap-2">
-            <Link href="/financas/lancamentos" className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium">
+            <Link href="/financas/lancamentos" className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium">
               Ver lançamentos
             </Link>
             <button type="button" onClick={resetForNewImport} className="self-start rounded-full border border-black/[.12] px-5 py-2 text-sm dark:border-white/[.16]">

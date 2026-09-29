@@ -10,7 +10,7 @@ export default function OptOutLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <main className="flex flex-1 flex-col">{children}</main>
-      <footer className="p-4 text-center text-xs text-zinc-400 dark:text-zinc-600">Hub</footer>
+      <footer className="p-4 text-center text-xs text-zinc-400 dark:text-zinc-600">JKode</footer>
     </div>
   );
 }

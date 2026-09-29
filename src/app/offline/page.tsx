@@ -1,4 +1,4 @@
-export const metadata = { title: "Sem conexão — Hub" };
+export const metadata = { title: "Sem conexão — JKode" };
 
 /**
  * Fallback do service worker (`public/sw.js`, 1.12) quando a navegação falha

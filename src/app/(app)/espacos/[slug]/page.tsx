@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { NewCanvasButton } from "@/features/canvas/components/new-canvas-button";
 import { DocumentsToReviewPanel } from "@/features/spaces/components/documents-to-review-panel";
 import { NewItemButton } from "@/features/spaces/components/new-item-button";
+import { SpaceBrowser } from "@/features/spaces/components/space-browser";
+import { filtersFromSearchParams } from "@/features/spaces/lib/space-browser";
 import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-form";
-import { getSpaceBySlug, listDocumentsToReview, listOtherActiveSpaces, listSpaceObjectTypes } from "@/features/spaces/queries";
+import { getSpaceBySlug, listDocumentsToReview, listOtherActiveSpaces, listSpaceBrowserItems, listSpaceObjectTypes } from "@/features/spaces/queries";
 import { ViewSwitcher } from "@/features/views/components/view-switcher";
 import { listViews } from "@/features/views/queries";
 import { getUserTimezone } from "@/features/reminders/queries";
@@ -21,34 +22,19 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
   if (!space) notFound();
 
   const todayDateStr = todayInTimezone(await getUserTimezone(supabase, user.id));
-  const [types, otherSpaces, views, documentsToReview] = await Promise.all([
+  const [types, otherSpaces, views, documentsToReview, browserItems] = await Promise.all([
     listSpaceObjectTypes(supabase, space.id),
     listOtherActiveSpaces(supabase, space.id),
     listViews(supabase, space.id, typeId ?? null),
     listDocumentsToReview(supabase, user.id, space.id, todayDateStr),
+    listSpaceBrowserItems(supabase, space.id),
   ]);
 
-  const spaceSlug = space.slug;
-
-  function buildHref(next: { tipo?: string }) {
-    const params = new URLSearchParams();
-    if (next.tipo) params.set("tipo", next.tipo);
-    const query = params.toString();
-    return `/espacos/${spaceSlug}${query ? `?${query}` : ""}`;
-  }
-
-  const linkClass = (isActive: boolean) =>
-    `rounded-full px-3 py-1 ${
-      isActive
-        ? "bg-black/[.06] font-medium text-black dark:bg-white/[.1] dark:text-zinc-50"
-        : "text-zinc-500 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-white/[.06]"
-    }`;
-
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-black dark:text-zinc-50">
+          <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-black dark:text-zinc-50">
             <span>{space.icon || "•"}</span>
             {space.name}
             {space.archived_at && (
@@ -69,25 +55,18 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
 
       <DocumentsToReviewPanel documents={documentsToReview} />
 
-      {types.length > 0 && (
-        <nav className="flex flex-wrap gap-2 text-sm">
-          <Link href={buildHref({})} className={linkClass(!typeId)}>
-            Todos
-          </Link>
-          {types.map((type) => (
-            <Link key={type.id} href={buildHref({ tipo: type.id })} className={linkClass(typeId === type.id)}>
-              {type.name}
-            </Link>
-          ))}
-        </nav>
-      )}
+      <SpaceBrowser spaceSlug={space.slug} items={browserItems} initialFilters={filtersFromSearchParams(searchParams)} />
 
-      {/* `key` força remontar ao trocar de tab/tipo ou espaço — sem isso o Next.js
-          reaproveita a instância entre navegações na mesma rota (só o `tipo` muda),
-          e o estado interno (`views`/`activeId`) ficava preso na visão de antes
-          enquanto os itens já mostravam o novo tipo: parecia "grudar" numa visão
-          errada, sem forma de sair, e sumir ao recarregar noutra tab. */}
-      <ViewSwitcher key={`${space.id}:${typeId ?? "all"}`} spaceId={space.id} typeId={typeId ?? null} initialViews={views} />
+      {/* Visões salvas (tabela, kanban, calendário…) continuam existindo, mas recolhidas: o dia a dia é a busca com filtros acima. */}
+      <details className="group rounded-2xl border border-black/[.06] bg-surface p-4 shadow-sm dark:border-white/[.06]">
+        <summary className="cursor-pointer text-sm font-medium text-zinc-700 select-none dark:text-zinc-200">
+          Visões avançadas <span className="font-normal text-zinc-500 dark:text-zinc-400">— tabela, kanban, calendário, galeria</span>
+        </summary>
+        <div className="mt-4">
+          {/* `key` força remontar ao trocar de tipo ou espaço — sem isso o estado interno da visão ficava preso na anterior. */}
+          <ViewSwitcher key={`${space.id}:${typeId ?? "all"}`} spaceId={space.id} typeId={typeId ?? null} initialViews={views} />
+        </div>
+      </details>
 
       <SpaceSettingsForm
         space={{

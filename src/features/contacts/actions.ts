@@ -120,7 +120,7 @@ export async function archiveContact(id: string): Promise<Result<null>> {
   return ok(null);
 }
 
-/** "Exportar os dados de um contato a pedido" (7.7, LGPD) — tudo que o Hub sabe sobre ele, num JSON só. */
+/** "Exportar os dados de um contato a pedido" (7.7, LGPD) — tudo que o JKode sabe sobre ele, num JSON só. */
 export async function exportContactData(id: string): Promise<Result<{ fileName: string; json: string }>> {
   const { supabase, user } = await requireOwner();
 

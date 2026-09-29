@@ -10,8 +10,18 @@
      sobre uma tela escura, ilegível ("onde estou?"). `color-scheme` resolve os
      dois temas sem precisar reimplementar cada `<select>` como componente. */
   color-scheme: light;
-  --background: #ffffff;
+  --background: #fafafa;
   --foreground: #171717;
+  /* Marca JKode: violeta. `--brand` é fundo de botão com texto branco (contraste 5,7:1 nos dois temas);
+     `--brand-text` é o tom pra texto/ícone sobre o fundo da página; `--brand-soft` é o realce de item ativo. */
+  --brand: #7c3aed;
+  --brand-hover: #6d28d9;
+  --brand-fg: #ffffff;
+  --brand-text: #6d28d9;
+  --brand-soft: rgba(124, 58, 237, 0.09);
+  --brand-glow: rgba(124, 58, 237, 0.07);
+  --surface: #ffffff;
+  --surface-muted: #f4f4f5;
   /* Painel financeiro (4.12, recharts) — mesmas cores de entrada/saída já usadas em texto (emerald/red) desde a 4.4,
      validadas separação/contraste com scripts/validate_palette.js da skill dataviz (claro e escuro). */
   --chart-income: #059669;
@@ -24,8 +34,16 @@
 
 .dark {
   color-scheme: dark;
-  --background: #0a0a0a;
+  --background: #0b0b0f;
   --foreground: #ededed;
+  --brand: #7c3aed;
+  --brand-hover: #8b5cf6;
+  --brand-fg: #ffffff;
+  --brand-text: #c4b5fd;
+  --brand-soft: rgba(139, 92, 246, 0.16);
+  --brand-glow: rgba(139, 92, 246, 0.12);
+  --surface: #131318;
+  --surface-muted: #1a1a21;
   /* Vermelho um tom mais claro que o do texto (red-500 em vez de red-400) — é o par que passou no validador
      pro fundo escuro (red-400 falhava a faixa de luminosidade); verde continua o mesmo dos dois modos. */
   --chart-income: #059669;
@@ -38,14 +56,37 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
+  /* Um brilho violeta bem leve no topo: tira a cara de "página em branco" sem competir com o conteúdo. */
+  background:
+    radial-gradient(1100px 420px at 50% -160px, var(--brand-glow), transparent 70%) no-repeat,
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* A Geist já era carregada no layout, mas o Arial daqui ganhava — o app inteiro saía em Arial. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Botões na cor da marca sem hover próprio escurecem/clareiam um tom ao passar o mouse. */
+.bg-brand:where(button, a):not(:disabled):hover {
+  background-color: var(--brand-hover);
+}
+
+/* Foco visível na cor da marca, em qualquer controle navegado por teclado. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* Popup nativo do <select>: o Chrome no Windows pinta as opções com a cor do

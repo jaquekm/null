@@ -157,7 +157,7 @@ export default async function ConfiguracoesPage() {
         <Smartphone className="h-5 w-5 shrink-0" />
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Bookmarklet e atalho do iOS</p>
-          <p className="text-zinc-500 dark:text-zinc-400">Capturar sem abrir o Hub primeiro</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Capturar sem abrir o JKode primeiro</p>
         </div>
       </Link>
 
@@ -208,7 +208,7 @@ export default async function ConfiguracoesPage() {
         <PiggyBank className="h-5 w-5 shrink-0" />
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Custos e economia</p>
-          <p className="text-zinc-500 dark:text-zinc-400">Assinaturas substituídas, custos fixos do Hub e saldo</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Assinaturas substituídas, custos fixos do JKode e saldo</p>
         </div>
       </Link>
 

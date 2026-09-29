@@ -8,6 +8,7 @@ import { NewSpaceButton } from "@/features/spaces/components/new-space-button";
 import { SpaceSidebarList } from "@/features/spaces/components/space-sidebar-list";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { NAV_ITEMS } from "@/lib/nav-items";
+import { BrandMark } from "./brand-mark";
 
 export function Sidebar({
   spaces,
@@ -23,16 +24,14 @@ export function Sidebar({
 
   return (
     <aside
-      className={`hidden shrink-0 flex-col border-r border-black/[.08] bg-zinc-50 transition-[width] duration-200 md:flex dark:border-white/[.08] dark:bg-zinc-950 ${
+      className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-black/[.06] bg-surface/70 backdrop-blur transition-[width] duration-200 md:flex dark:border-white/[.06] ${
         collapsed ? "w-16" : "w-64"
       }`}
     >
-      <div className="flex h-14 items-center justify-between px-3">
-        {!collapsed && (
-          <span className="truncate font-semibold text-black dark:text-zinc-50">
-            Hub
-          </span>
-        )}
+      <div className={`flex h-14 items-center px-3 ${collapsed ? "flex-col justify-center gap-2 py-2 h-auto" : "justify-between"}`}>
+        <Link href="/inbox" aria-label="JKode — início" className="min-w-0">
+          <BrandMark showName={!collapsed} />
+        </Link>
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
@@ -59,11 +58,12 @@ export function Sidebar({
               title={collapsed ? item.label : undefined}
               className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                 active
-                  ? "bg-black/[.06] font-medium text-black dark:bg-white/[.1] dark:text-zinc-50"
+                  ? "bg-brand-soft font-medium text-brand-text"
                   : "text-zinc-600 hover:bg-black/[.04] hover:text-black dark:text-zinc-400 dark:hover:bg-white/[.06] dark:hover:text-zinc-50"
               }`}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              {active && <span aria-hidden className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-brand" />}
+              <Icon className="h-[18px] w-[18px] shrink-0" />
               {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
               {item.href === "/inbox" && inboxCount > 0 && (
                 <span

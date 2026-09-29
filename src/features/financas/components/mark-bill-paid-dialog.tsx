@@ -89,7 +89,7 @@ export function MarkBillPaidDialog({ bill, accounts, onClose, onPaid }: MarkBill
             type="button"
             onClick={handleSubmit}
             disabled={pending || !amount.trim() || !accountId}
-            className="bg-foreground text-background rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+            className="bg-brand text-brand-fg rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
           >
             {pending ? "Salvando..." : "Confirmar"}
           </button>

@@ -156,7 +156,7 @@ export function ContactForm({ spaces, contact, onSaved, onCancel }: ContactFormP
           type="button"
           onClick={handleSubmit}
           disabled={pending || !name.trim()}
-          className="bg-foreground text-background self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
+          className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
         >
           {pending ? "Salvando..." : contact ? "Salvar" : "Criar contato"}
         </button>

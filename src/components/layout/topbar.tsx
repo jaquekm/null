@@ -10,11 +10,11 @@ export function TopBar({ email }: { email: string }) {
   const { open: openCapture } = useCaptureDialog();
   const { open: openPalette } = useCommandPalette();
   return (
-    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-black/[.08] bg-white/80 px-4 backdrop-blur dark:border-white/[.08] dark:bg-black/80">
+    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b border-black/[.06] bg-background/70 px-4 backdrop-blur-md dark:border-white/[.06]">
       <button
         type="button"
         onClick={openPalette}
-        className="flex flex-1 items-center gap-2 rounded-full bg-black/[.04] px-3 py-1.5 text-left text-sm text-zinc-500 hover:bg-black/[.06] dark:bg-white/[.06] dark:text-zinc-400 dark:hover:bg-white/[.08]"
+        className="flex min-w-0 max-w-xl flex-1 items-center gap-2 rounded-xl border border-black/[.06] bg-surface px-3 py-2 text-left text-sm text-zinc-500 shadow-sm hover:border-black/[.12] dark:border-white/[.08] dark:text-zinc-400 dark:hover:border-white/[.16]"
       >
         <Search className="h-4 w-4 shrink-0" />
         <span className="flex-1 truncate">Buscar ou executar um comando...</span>
@@ -26,7 +26,7 @@ export function TopBar({ email }: { email: string }) {
       <button
         type="button"
         onClick={() => openCapture()}
-        className="bg-foreground text-background flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+        className="bg-brand text-brand-fg ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-md shadow-violet-600/25 transition-colors hover:bg-brand-hover"
         aria-label="Capturar"
         title="Capturar (Ctrl/Cmd+Shift+Espaço)"
       >

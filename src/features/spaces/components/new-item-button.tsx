@@ -29,7 +29,7 @@ export function NewItemButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+        className="bg-brand text-brand-fg flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
       >
         <Plus className="h-4 w-4" />
         Novo
@@ -52,7 +52,7 @@ export function NewItemButton({
       <button
         type="submit"
         disabled={pending}
-        className="bg-foreground text-background rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+        className="bg-brand text-brand-fg rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
       >
         {pending ? "Criando..." : "Criar"}
       </button>

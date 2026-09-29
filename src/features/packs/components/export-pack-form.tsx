@@ -150,7 +150,7 @@ export function ExportPackForm({ types, views, automations }: Props) {
         type="button"
         onClick={handleSubmit}
         disabled={pending || typeIds.size === 0}
-        className="bg-foreground text-background self-start rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+        className="bg-brand text-brand-fg self-start rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
       >
         {pending ? "Gerando..." : "Baixar JSON"}
       </button>

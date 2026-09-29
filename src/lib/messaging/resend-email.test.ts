@@ -30,13 +30,13 @@ describe("ResendEmailChannel", () => {
     maybeSingleMock.mockResolvedValue({ data: { contact_id: "contact-1" } });
     sendMock.mockResolvedValue({ data: { id: "email-123" }, error: null });
 
-    const channel = new ResendEmailChannel("re_key", "Hub <avisos@hub.example>");
+    const channel = new ResendEmailChannel("re_key", "JKode <avisos@hub.example>");
     const result = await channel.send({ deliveryId: "delivery-1", to: "bia@example.com", text: "Oi Bia, sua consulta é amanhã.", subject: "Consulta" });
 
     expect(result).toEqual({ providerMessageId: "email-123" });
     expect(sendMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        from: "Hub <avisos@hub.example>",
+        from: "JKode <avisos@hub.example>",
         to: "bia@example.com",
         subject: "Consulta",
         replyTo: "dono@example.com",
@@ -48,7 +48,7 @@ describe("ResendEmailChannel", () => {
     maybeSingleMock.mockResolvedValue({ data: { contact_id: "contact-1" } });
     sendMock.mockResolvedValue({ data: { id: "email-123" }, error: null });
 
-    const channel = new ResendEmailChannel("re_key", "Hub <avisos@hub.example>");
+    const channel = new ResendEmailChannel("re_key", "JKode <avisos@hub.example>");
     await channel.send({ deliveryId: "delivery-1", to: "bia@example.com", text: "Oi Bia" });
 
     const html = sendMock.mock.calls[0]![0].html as string;
@@ -60,7 +60,7 @@ describe("ResendEmailChannel", () => {
     maybeSingleMock.mockResolvedValue({ data: { contact_id: null } });
     sendMock.mockResolvedValue({ data: { id: "email-123" }, error: null });
 
-    const channel = new ResendEmailChannel("re_key", "Hub <avisos@hub.example>");
+    const channel = new ResendEmailChannel("re_key", "JKode <avisos@hub.example>");
     await channel.send({ deliveryId: "delivery-1", to: "dono@example.com", text: "Lembrete pessoal" });
 
     const html = sendMock.mock.calls[0]![0].html as string;
@@ -71,7 +71,7 @@ describe("ResendEmailChannel", () => {
     maybeSingleMock.mockResolvedValue({ data: null });
     sendMock.mockResolvedValue({ data: { id: "email-123" }, error: null });
 
-    const channel = new ResendEmailChannel("re_key", "Hub <avisos@hub.example>");
+    const channel = new ResendEmailChannel("re_key", "JKode <avisos@hub.example>");
     await channel.send({ deliveryId: "delivery-1", to: "bia@example.com", text: "Oi" });
 
     expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ subject: "Lembrete" }));
@@ -81,7 +81,7 @@ describe("ResendEmailChannel", () => {
     maybeSingleMock.mockResolvedValue({ data: { contact_id: "contact-1" } });
     sendMock.mockResolvedValue({ data: null, error: { message: "domínio não verificado" } });
 
-    const channel = new ResendEmailChannel("re_key", "Hub <avisos@hub.example>");
+    const channel = new ResendEmailChannel("re_key", "JKode <avisos@hub.example>");
     await expect(channel.send({ deliveryId: "delivery-1", to: "bia@example.com", text: "Oi" })).rejects.toThrow("domínio não verificado");
   });
 });

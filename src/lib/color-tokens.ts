@@ -1,5 +1,5 @@
 /**
- * Paleta categórica única do Hub — usada para diferenciar tags, espaços e
+ * Paleta categórica única do JKode — usada para diferenciar tags, espaços e
  * tipos de objeto visualmente ("achar as coisas pela cor"). Fonte única de
  * verdade: antes disso `COLOR_TOKENS` estava duplicado (e sem uso real das
  * classes) em `tag-management-list.tsx` e `onboarding-form.tsx`.

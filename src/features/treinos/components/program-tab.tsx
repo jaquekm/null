@@ -98,7 +98,7 @@ function ProgramEditor({
       {definition.workouts.map((workout) => (
         <section key={workout.id} className={cardClassName}>
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black text-sm font-bold text-white dark:bg-white dark:text-black">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-sm font-bold text-brand-fg">
               {workout.id}
             </span>
             <input
@@ -197,7 +197,7 @@ function ProgramEditor({
           type="button"
           disabled={pending || !name.trim()}
           onClick={handleSave}
-          className="flex-1 rounded-xl bg-black py-3 font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+          className="flex-1 rounded-xl bg-brand py-3 font-semibold text-brand-fg disabled:opacity-60"
         >
           {pending ? "Salvando…" : "Salvar e usar este programa"}
         </button>
@@ -279,7 +279,7 @@ export function ProgramTab({ programs, onChanged }: { programs: WorkoutProgram[]
           das semanas 1–2 e 3+. Ou monte do zero.
         </p>
         <div className="flex flex-wrap gap-2">
-          <label className="cursor-pointer rounded-lg bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black">
+          <label className="cursor-pointer rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg">
             {pending ? "Lendo…" : "Importar Word (.docx)"}
             <input type="file" accept=".docx,.txt,.md" className="sr-only" disabled={pending} onChange={(e) => handleImport(e.target.files?.[0] ?? null)} />
           </label>

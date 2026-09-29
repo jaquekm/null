@@ -61,7 +61,7 @@ export function ContactsWorkspace({ spaces, initialContacts }: { spaces: Sidebar
           <button type="button" onClick={() => setShowCsv(true)} className="flex items-center gap-1.5 rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]">
             <Upload className="h-4 w-4" /> CSV
           </button>
-          <button type="button" onClick={() => setShowForm(true)} className="bg-foreground text-background flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium">
+          <button type="button" onClick={() => setShowForm(true)} className="bg-brand text-brand-fg flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium">
             <UserPlus className="h-4 w-4" /> Novo contato
           </button>
         </div>

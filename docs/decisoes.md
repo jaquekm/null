@@ -840,3 +840,9 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 
 - **Problema:** o jsdom (usado pela página pública pra dar um DOM ao `generateHTML` e ao DOMPurify) não carrega na Vercel — `ERR_REQUIRE_ESM` numa dependência dele. Todo link `/p/…` de item dava 500 em produção.
 - **Decisão:** dependência nova `@tiptap/static-renderer` (mesma família e versão do Tiptap já usado), feita pra renderizar JSON do Tiptap em HTML no servidor sem DOM. Escapa texto e atributos; o que o escape não cobre (URL `javascript:` em link, `src` perigoso em imagem) sai antes, em `sanitizePublicContent`. O DOMPurify deixou de ser usado nessa rota.
+
+## Subcategoria = tag; espaço sem abas de tipo
+
+- **O quê:** a dona organiza por espaço (Pessoal) → subcategoria (ex.: "Cunhada") → item (ex.: lista "Ideias de presentes"), e quer achar as coisas filtrando por subcategoria, tipo e tipo de lista, não por uma fileira com todos os tipos do sistema.
+- **Decisão:** subcategoria usa as **tags** que já existiam (sem migration, sem hierarquia nova de espaços). Na página do item o campo aparece como "Subcategorias". A página do espaço carrega os itens do espaço (até 1000, sem conteúdo) e filtra no navegador; as visões salvas continuam acessíveis em "Visões avançadas".
+- **Nome:** o sistema passou a se chamar JKode. Nomes internos (tabela `hub_costs`, slug do espaço do manual, cabeçalho `X-Hub-Signature` dos webhooks) não mudaram — só o texto que aparece pra pessoa.

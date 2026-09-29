@@ -25,7 +25,7 @@ export function PropertiesPanel({
   if (fields.length === 0 && !leading) return null;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 rounded-2xl border border-black/[.06] bg-surface p-4 shadow-sm sm:grid-cols-2 dark:border-white/[.06]">
       {leading}
       {fields
         .filter((field) => !field.hidden)
