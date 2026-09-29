@@ -5,12 +5,14 @@ import type { FieldDefinition } from "@/features/types/schemas";
 
 export function PropertiesPanel({
   itemId,
+  typeSlug,
   fields,
   properties,
   updatedAt,
   onSaved,
 }: {
   itemId: string;
+  typeSlug?: string;
   fields: FieldDefinition[];
   properties: Record<string, unknown>;
   updatedAt: string;
@@ -30,6 +32,7 @@ export function PropertiesPanel({
             value={properties[field.key]}
             updatedAt={updatedAt}
             onSaved={onSaved}
+            optionsHref={typeSlug ? `/configuracoes/tipos/${typeSlug}` : undefined}
           />
         ))}
     </div>

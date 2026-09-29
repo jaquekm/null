@@ -28,6 +28,7 @@ export function ItemEditor({ item }: { item: ItemDetail }) {
       {item.type && (
         <PropertiesPanel
           itemId={item.id}
+          typeSlug={item.type.slug}
           fields={item.type.fields}
           properties={item.properties}
           updatedAt={updatedAt}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { updateItemProperty } from "@/features/items/actions";
 import { formatPropertyValue } from "@/features/views/lib/format-property-value";
@@ -22,6 +23,8 @@ export function FieldInput({
   onSaved,
   /** Sem label/descrição — usado nas células da Tabela de visões (1.15), onde o cabeçalho da coluna já é o rótulo. */
   compact = false,
+  /** Página do tipo, onde as opções do campo de seleção são renomeadas/criadas. */
+  optionsHref,
 }: {
   itemId: string;
   field: FieldDefinition;
@@ -29,6 +32,7 @@ export function FieldInput({
   updatedAt: string;
   onSaved: (updatedAt: string) => void;
   compact?: boolean;
+  optionsHref?: string;
 }) {
   const action = updateItemProperty.bind(null, itemId, field.key, updatedAt);
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -44,10 +48,17 @@ export function FieldInput({
   return (
     <div className="flex flex-col gap-1">
       {!compact && (
-        <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          {field.label}
-          {field.required && <span className="ml-0.5 text-red-500">*</span>}
-        </label>
+        <div className="flex items-baseline justify-between gap-2">
+          <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {field.label}
+            {field.required && <span className="ml-0.5 text-red-500">*</span>}
+          </label>
+          {optionsHref && (field.type === "select" || field.type === "multi_select") && (
+            <Link href={optionsHref} className="text-xs text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400">
+              editar opções
+            </Link>
+          )}
+        </div>
       )}
 
       <form action={formAction}>

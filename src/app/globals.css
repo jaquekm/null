@@ -48,6 +48,16 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Popup nativo do <select>: o Chrome no Windows pinta as opções com a cor do
+   texto do <select> (clara no tema escuro) sobre fundo branco quando o
+   <select> é transparente — texto claro no branco, ilegível. Cor explícita
+   nas opções resolve nos dois temas. */
+select option,
+select optgroup {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
 /* Checklist clicável da página pública com permissão `check` (3.11). */
 .share-content .share-check-item {
   display: flex;
