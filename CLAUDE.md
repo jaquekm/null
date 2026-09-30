@@ -20,6 +20,7 @@ permissão limitada e prazo de validade.
 
 - Documentação detalhada: `docs/00-visao-geral.md` e `docs/fase-XX-*.md`
 - Progresso: `docs/PROGRESSO.md`
+- **Onde paramos, pendências e regras combinadas com a dona: `docs/CONTINUIDADE.md` — leia primeiro ao começar uma sessão nova.**
 
 ## Stack
 
@@ -132,7 +133,7 @@ docs/
 
 ## Como trabalhar neste repositório (regras para o Claude Code)
 
-1. Antes de começar uma tarefa, leia `docs/00-visao-geral.md` e o documento da fase correspondente.
+1. Antes de começar uma tarefa, leia `docs/CONTINUIDADE.md`, `docs/00-visao-geral.md` e o documento da fase correspondente.
 2. Trabalhe **uma tarefa por vez** (ex.: "1.6"). Não avance para a próxima sem concluir os critérios de aceite.
 3. Tarefas marcadas **[HUMANO]** exigem ação do dono (criar contas, DNS, chaves). Pare e peça, explicando exatamente o que ele precisa fazer.
 4. Ao terminar uma tarefa: rode `pnpm lint`, `pnpm typecheck` e `pnpm test`. Corrija tudo antes de declarar concluído.
