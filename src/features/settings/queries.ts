@@ -85,3 +85,15 @@ export async function isAiModuleEnabled(supabase: Client, ownerId: string): Prom
   const modules = (data?.modules as { ai?: boolean } | null) ?? {};
   return modules.ai === true;
 }
+
+/**
+ * WhatsApp da própria dona (9.8), em E.164 — `user_settings.preferences.ownerWhatsapp`.
+ * Com ele, lembretes e automações "pra mim" podem sair pelo WhatsApp (antes só
+ * push/e-mail). `null` se não cadastrou.
+ */
+export async function getOwnerWhatsapp(supabase: Client, ownerId: string): Promise<string | null> {
+  const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", ownerId).maybeSingle();
+  const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
+  const phone = preferences.ownerWhatsapp;
+  return typeof phone === "string" && /^\+\d{8,15}$/.test(phone) ? phone : null;
+}

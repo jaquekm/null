@@ -3,14 +3,16 @@ import { AgendaCalendar } from "@/features/agenda/components/agenda-calendar";
 import { getUserTimezone, listCalendarsForPicker } from "@/features/agenda/queries";
 import { EventAlertSetting } from "@/features/reminders/components/event-alert-setting";
 import { getEventAlert } from "@/features/reminders/queries";
+import { getOwnerWhatsapp } from "@/features/settings/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function AgendaPage() {
   const { supabase, user } = await requireOwner();
-  const [calendars, timezone, eventAlert] = await Promise.all([
+  const [calendars, timezone, eventAlert, ownerWhatsapp] = await Promise.all([
     listCalendarsForPicker(supabase, user.id),
     getUserTimezone(supabase, user.id),
     getEventAlert(supabase),
+    getOwnerWhatsapp(supabase, user.id),
   ]);
 
   return (
@@ -32,7 +34,7 @@ export default async function AgendaPage() {
         </p>
       )}
 
-      <EventAlertSetting initialMinutes={eventAlert.minutesBefore} initialChannel={eventAlert.channel} />
+      <EventAlertSetting initialMinutes={eventAlert.minutesBefore} initialChannel={eventAlert.channel} whatsappAvailable={ownerWhatsapp !== null} />
 
       <AgendaCalendar calendars={calendars} timezone={timezone} />
     </div>

@@ -68,13 +68,13 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Fórmulas simples entre colunas (ex.: `quantidade × preço`), com parser puro e testado.
 - Importar e exportar Excel (.xlsx) direto da visão.
 
-## 9.7 — Compartilhar mais que uma página ✅ (em PR)
+## 9.7 — Compartilhar mais que uma página ✅
 
 - Compartilhar um espaço ou uma subcategoria inteira (ex.: "Família"), só leitura por padrão.
 - Aviso pra dona quando alguém comentar ou marcar item num link dela.
 - QR code do link (eventos, listas pra imprimir).
 
-## 9.8 — Automações em frases simples
+## 9.8 — Automações em frases simples ✅ (em PR)
 
 - Editor "Quando [algo acontecer], [fazer algo]" com as opções escritas em português de uso.
 - Receitas prontas pra ativar com um toque (ex.: "quando uma conta vencer amanhã, me avisar no WhatsApp").

@@ -476,38 +476,48 @@ function dayLabel(date: string, today: string): string {
   return y === parts(today)[0] ? base : `${base}/${y}`;
 }
 
-/** "amanhã às 09:00", "toda segunda e quarta às 08:00 (começa amanhã)" — prévia do que foi entendido. */
-export function describeReminderPhrase(parsed: Pick<ParsedReminderPhrase, "date" | "time" | "recurrence">, now: Date, timezone: string): string {
-  const today = formatInTimeZone(now, timezone, "yyyy-MM-dd");
-  const at = `às ${parsed.time}`;
-  const starts = ` (começa ${dayLabel(parsed.date, today)})`;
-  const rec = parsed.recurrence;
+/**
+ * A repetição em português, sem a data de início: "toda segunda às 09:00",
+ * "todo dia 10 às 08:00" — usada também pelas automações de horário (9.8).
+ * `time` nulo deixa só a repetição ("toda segunda"); `yearlyDate` (yyyy-MM-dd)
+ * dá o dia/mês do "todo ano".
+ */
+export function describeRecurrence(rec: RecurrencePreset, time: string | null, yearlyDate?: string): string {
+  const at = time ? ` às ${time}` : "";
   switch (rec.kind) {
     case "once":
-      return `${dayLabel(parsed.date, today)} ${at}`;
+      return time ? `às ${time}` : "uma vez";
     case "daily":
-      return `todo dia ${at}${starts}`;
+      return `todo dia${at}`;
     case "weekdays":
-      return `de segunda a sexta ${at}${starts}`;
+      return `de segunda a sexta${at}`;
     case "weekly": {
       const days = WEEK_ORDER.filter((day) => rec.days.includes(day));
       if (days.length === 1) {
         const day = days[0]!;
-        return `${day === "SA" || day === "SU" ? "todo" : "toda"} ${WEEKDAY_FULL[day]} ${at}${starts}`;
+        return `${day === "SA" || day === "SU" ? "todo" : "toda"} ${WEEKDAY_FULL[day]}${at}`;
       }
-      return `às ${joinPt(days.map((day) => `${WEEKDAY_FULL[day]}s`))} ${at}${starts}`;
+      return `às ${joinPt(days.map((day) => `${WEEKDAY_FULL[day]}s`))}${at}`;
     }
     case "monthly_day":
-      return `todo dia ${rec.day} ${at}${starts}`;
+      return `todo dia ${rec.day}${at}`;
     case "monthly_last_weekday":
-      return `${rec.day === "SA" || rec.day === "SU" ? "no último" : "na última"} ${WEEKDAY_FULL[rec.day]} de cada mês ${at}${starts}`;
+      return `${rec.day === "SA" || rec.day === "SU" ? "no último" : "na última"} ${WEEKDAY_FULL[rec.day]} de cada mês${at}`;
     case "yearly": {
-      const [, m, d] = parts(parsed.date);
-      return `todo ano em ${pad(d)}/${pad(m)} ${at}${starts}`;
+      if (!yearlyDate) return `todo ano${at}`;
+      const [, m, d] = parts(yearlyDate);
+      return `todo ano em ${pad(d)}/${pad(m)}${at}`;
     }
     case "custom":
-      return `recorrência personalizada ${at}${starts}`;
+      return `recorrência personalizada${at}`;
   }
+}
+
+/** "amanhã às 09:00", "toda segunda e quarta às 08:00 (começa amanhã)" — prévia do que foi entendido. */
+export function describeReminderPhrase(parsed: Pick<ParsedReminderPhrase, "date" | "time" | "recurrence">, now: Date, timezone: string): string {
+  const today = formatInTimeZone(now, timezone, "yyyy-MM-dd");
+  if (parsed.recurrence.kind === "once") return `${dayLabel(parsed.date, today)} às ${parsed.time}`;
+  return `${describeRecurrence(parsed.recurrence, parsed.time, parsed.date)} (começa ${dayLabel(parsed.date, today)})`;
 }
 
 /** A frase é um pedido de lembrete ("me lembra de…", "lembrar de…", "lembrete: …", "me avisa…") — a captura rápida usa pra criar lembrete em vez de nota. */

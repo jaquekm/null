@@ -41,6 +41,7 @@ interface FakeState {
   deliveriesLast24h?: number;
   insertError?: { code: string } | null;
   item?: { status: string; deleted_at: string | null } | null;
+  preferences?: Record<string, unknown>;
 }
 
 const optedInContact = {
@@ -64,6 +65,9 @@ function fakeSupabase(state: FakeState = {}) {
     from: (table: string) => {
       if (table === "items") {
         return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: state.item ?? null }) }) }) };
+      }
+      if (table === "user_settings") {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { preferences: state.preferences ?? {} } }) }) }) };
       }
       if (table === "contacts") {
         return { select: () => ({ eq: () => ({ in: () => Promise.resolve({ data: state.contacts ?? [] }) }) }) };
@@ -109,6 +113,43 @@ function fakeSupabase(state: FakeState = {}) {
   };
   return { client: client as never, inserted, deliveryUpdates, reminderUpdates };
 }
+
+describe("dispatchReminderOccurrence — WhatsApp pra mim (9.8)", () => {
+  beforeEach(() => {
+    getMessageChannelMock.mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-15T15:00:30.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("com o número salvo em Notificações: manda pro WhatsApp da dona", async () => {
+    const send = vi.fn().mockResolvedValue({});
+    getMessageChannelMock.mockReturnValue({ send });
+    const { client, inserted } = fakeSupabase({ preferences: { ownerWhatsapp: "+5511988887777" } });
+
+    const result = await dispatchReminderOccurrence(client, "owner-1", fakeReminder({ recipient_type: "me", contact_ids: [], channel: "whatsapp", message_template: "Conta vence amanhã" }));
+
+    expect(result.sent).toBe(1);
+    expect(inserted[0]).toMatchObject({ channel: "whatsapp", destination: "+5511988887777", status: "pending" });
+    expect(getMessageChannelMock).toHaveBeenCalledWith("whatsapp");
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: "+5511988887777", text: "Conta vence amanhã" }));
+  });
+
+  it("sem número salvo: pula sem destino, não tenta mandar", async () => {
+    const send = vi.fn();
+    getMessageChannelMock.mockReturnValue({ send });
+    const { client, inserted } = fakeSupabase({ preferences: {} });
+
+    const result = await dispatchReminderOccurrence(client, "owner-1", fakeReminder({ recipient_type: "me", contact_ids: [], channel: "whatsapp" }));
+
+    expect(result.skipped).toBe(1);
+    expect(inserted[0]).toMatchObject({ channel: "whatsapp", destination: null, status: "skipped" });
+    expect(send).not.toHaveBeenCalled();
+  });
+});
 
 describe("dispatchReminderOccurrence", () => {
   beforeEach(() => {

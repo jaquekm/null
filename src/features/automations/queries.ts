@@ -3,7 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { ViewFilter } from "@/features/views/schemas";
-import type { AutomationAction, AutomationTrigger } from "./schemas";
+import { getEventAlert } from "@/features/reminders/queries";
+import { getOwnerWhatsapp } from "@/features/settings/queries";
+import { z } from "zod";
+import { describeAutomation } from "./lib/describe-automation";
+import { recipeStates, type RecipeAutomationRow, type RecipeKey, type RecipeRuleRow, type RecipeState } from "./lib/recipes";
+import { automationActionSchema, automationTriggerSchema, type AutomationAction, type AutomationTrigger } from "./schemas";
 
 type Client = SupabaseClient<Database>;
 
@@ -13,6 +18,8 @@ export interface AutomationListRow {
   description: string | null;
   enabled: boolean;
   triggerType: string;
+  /** A automação inteira em uma frase (9.8). */
+  sentence: string;
   typeName: string | null;
   spaceName: string | null;
   lastRunAt: string | null;
@@ -20,27 +27,50 @@ export interface AutomationListRow {
   packKey: string | null;
 }
 
-/** Lista pra `/configuracoes/automacoes`: ativar/desativar, última execução e contagem (5.3). */
+/**
+ * Lista pra `/configuracoes/automacoes`: ativar/desativar, última execução e contagem (5.3),
+ * cada uma como frase (9.8). As das receitas prontas (`recipe:*`) ficam de fora — aparecem
+ * nas próprias receitas.
+ */
 export async function listAutomations(supabase: Client, ownerId: string): Promise<AutomationListRow[]> {
-  const { data, error } = await supabase
-    .from("automations")
-    .select("id, name, description, enabled, trigger, last_run_at, run_count, pack_key, object_types(name), spaces(name)")
-    .eq("owner_id", ownerId)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, { data: spaces }] = await Promise.all([
+    supabase
+      .from("automations")
+      .select("id, name, description, enabled, trigger, conditions, actions, last_run_at, run_count, pack_key, object_types(name, fields), spaces(name)")
+      .eq("owner_id", ownerId)
+      .order("created_at", { ascending: false }),
+    supabase.from("spaces").select("id, name").eq("owner_id", ownerId),
+  ]);
   if (error || !data) return [];
 
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    enabled: row.enabled,
-    triggerType: ((row.trigger as { type?: string } | null)?.type as string | undefined) ?? "?",
-    typeName: row.object_types?.name ?? null,
-    spaceName: row.spaces?.name ?? null,
-    lastRunAt: row.last_run_at,
-    runCount: row.run_count,
-    packKey: row.pack_key,
-  }));
+  return data
+    .filter((row) => !row.pack_key?.startsWith("recipe:"))
+    .map((row) => {
+      const trigger = automationTriggerSchema.safeParse(row.trigger);
+      const actions = z.array(automationActionSchema).safeParse(row.actions);
+      const typeName = row.object_types?.name ?? null;
+      const spaceName = row.spaces?.name ?? null;
+      const sentence =
+        trigger.success && actions.success
+          ? describeAutomation(
+              { trigger: trigger.data, conditions: (row.conditions as unknown as ViewFilter[] | null) ?? [], actions: actions.data },
+              { typeName, spaceName, fields: (row.object_types?.fields as unknown as FieldDefinition[] | null) ?? [], spaces: spaces ?? [] },
+            )
+          : row.name;
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        enabled: row.enabled,
+        triggerType: ((row.trigger as { type?: string } | null)?.type as string | undefined) ?? "?",
+        sentence,
+        typeName,
+        spaceName,
+        lastRunAt: row.last_run_at,
+        runCount: row.run_count,
+        packKey: row.pack_key,
+      };
+    });
 }
 
 export interface AutomationDetail {
@@ -126,4 +156,24 @@ export async function listAutomationRuns(supabase: Client, automationId: string,
     detail: row.detail,
     createdAt: row.created_at,
   }));
+}
+
+export interface RecipesOverview {
+  states: Record<RecipeKey, RecipeState>;
+  /** WhatsApp da dona salvo em Notificações (9.8) — sem ele, a opção WhatsApp fica desabilitada. */
+  ownerWhatsapp: string | null;
+}
+
+/** Estado das receitas prontas (9.8): regras marcadas com `config.recipe`, automações `recipe:*` e o aviso de eventos da Agenda. */
+export async function getRecipesOverview(supabase: Client, ownerId: string): Promise<RecipesOverview> {
+  const [{ data: rules }, { data: automations }, eventAlert, ownerWhatsapp] = await Promise.all([
+    supabase.from("reminder_rules").select("id, kind, recipient_type, channel, enabled, config, created_at").eq("owner_id", ownerId),
+    supabase.from("automations").select("id, enabled, pack_key, actions, created_at").eq("owner_id", ownerId).like("pack_key", "recipe:%"),
+    getEventAlert(supabase),
+    getOwnerWhatsapp(supabase, ownerId),
+  ]);
+  return {
+    states: recipeStates({ rules: (rules ?? []) as RecipeRuleRow[], automations: (automations ?? []) as RecipeAutomationRow[], eventAlert }),
+    ownerWhatsapp,
+  };
 }

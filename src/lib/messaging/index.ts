@@ -38,4 +38,9 @@ export function getMessageChannel(kind: MessageChannelKind): MessageChannel | nu
   return cache.get(kind) ?? null;
 }
 
+/** O envio por WhatsApp está configurado no servidor (9.8: avisa na tela quando o número da dona ainda não tem por onde sair). */
+export function isWhatsAppChannelReady(): boolean {
+  return getMessageChannel("whatsapp") !== null;
+}
+
 export type { MessageChannel, MessageChannelAttachment, MessageChannelKind, MessageChannelSendInput } from "./types";

@@ -3,6 +3,8 @@ import { AutomationEditorForm } from "@/features/automations/components/automati
 import { RunHistory } from "@/features/automations/components/run-history";
 import { TestAutomationPanel } from "@/features/automations/components/test-automation-panel";
 import { getAutomation, listAutomationRuns, listTypesWithFields } from "@/features/automations/queries";
+import { getUserTimezone } from "@/features/reminders/queries";
+import { getOwnerWhatsapp } from "@/features/settings/queries";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { requireOwner } from "@/lib/auth";
 
@@ -10,23 +12,27 @@ export default async function AutomacaoDetailPage({ params }: { params: Promise<
   const { id } = await params;
   const { supabase, user } = await requireOwner();
 
-  const [automation, spaces, types] = await Promise.all([
+  const [automation, spaces, types, timezone, ownerWhatsapp] = await Promise.all([
     getAutomation(supabase, user.id, id),
     listActiveSpaces(supabase),
     listTypesWithFields(supabase, user.id),
+    getUserTimezone(supabase, user.id),
+    getOwnerWhatsapp(supabase, user.id),
   ]);
   if (!automation) notFound();
 
   const runs = await listAutomationRuns(supabase, id);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8 p-6">
+    <div className="mx-auto flex max-w-2xl flex-col gap-8 p-4 sm:p-6">
       <h1 className="text-xl font-semibold text-black dark:text-zinc-50">{automation.name || "Automação"}</h1>
 
       <AutomationEditorForm
         automationId={id}
         spaces={spaces}
         types={types}
+        timezone={timezone}
+        whatsappAvailable={ownerWhatsapp !== null}
         initial={{
           name: automation.name,
           description: automation.description,

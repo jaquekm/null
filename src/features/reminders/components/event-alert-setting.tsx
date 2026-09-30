@@ -9,8 +9,19 @@ import { EVENT_ALERT_CHANNEL_LABELS, EVENT_ALERT_CHANNELS, EVENT_ALERT_MINUTES, 
 const selectClassName =
   "rounded-lg border border-black/[.08] bg-surface-muted px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:opacity-60 dark:border-white/[.08]";
 
-/** "Me avisar antes de cada evento" (9.4) — na Agenda; salva ao escolher. */
-export function EventAlertSetting({ initialMinutes, initialChannel }: { initialMinutes: number | null; initialChannel: EventAlertChannel }) {
+/**
+ * "Me avisar antes de cada evento" (9.4) — na Agenda; salva ao escolher.
+ * WhatsApp (9.8) só aparece com o número da dona salvo em Notificações.
+ */
+export function EventAlertSetting({
+  initialMinutes,
+  initialChannel,
+  whatsappAvailable = false,
+}: {
+  initialMinutes: number | null;
+  initialChannel: EventAlertChannel;
+  whatsappAvailable?: boolean;
+}) {
   const [minutes, setMinutes] = useState<number | null>(initialMinutes);
   const [channel, setChannel] = useState<EventAlertChannel>(initialChannel);
   const [pending, startTransition] = useTransition();
@@ -72,7 +83,7 @@ export function EventAlertSetting({ initialMinutes, initialChannel }: { initialM
               aria-label="Canal do aviso"
               className={selectClassName}
             >
-              {EVENT_ALERT_CHANNELS.map((value) => (
+              {EVENT_ALERT_CHANNELS.filter((value) => value !== "whatsapp" || whatsappAvailable || channel === "whatsapp").map((value) => (
                 <option key={value} value={value}>
                   {EVENT_ALERT_CHANNEL_LABELS[value]}
                 </option>
