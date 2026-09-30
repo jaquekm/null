@@ -62,7 +62,7 @@ export function SpaceSettingsForm({ space, otherSpaces }: SpaceSettingsFormProps
   return (
     <details className="rounded-lg border border-black/[.08] dark:border-white/[.08]">
       <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-black dark:text-zinc-50">
-        Configurações do espaço
+        Editar ou excluir este espaço <span className="font-normal text-zinc-500 dark:text-zinc-400">— nome, ícone, cor, arquivar</span>
       </summary>
 
       <div className="flex flex-col gap-4 border-t border-black/[.08] p-4 dark:border-white/[.08]">

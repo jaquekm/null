@@ -12,6 +12,7 @@ vi.mock("../actions", () => ({
   deleteWorkoutSession: vi.fn(),
   saveWeeklyMeasure: vi.fn(),
   deleteWeeklyMeasure: vi.fn(),
+  setHeight: vi.fn(),
   previewProgramImport: vi.fn(),
   saveWorkoutProgram: (input: unknown) => saveWorkoutProgram(input),
   activateWorkoutProgram: vi.fn(),
@@ -42,10 +43,10 @@ const { TreinosWorkspace } = await import("./treinos-workspace");
 
 // Mesmo formato do Word real da dona (trechos).
 const { definition } = parseProgramText(`
-Treino A — Inferiores 1 (quadríceps e joelho) · ~50 min
-A1. Leg press 45° — quadríceps e glúteos
+Treino A — Inferiores 1 (quádriceps e joelho) · ~50 min
+A1. Leg press 45° — quádriceps e glúteos
 Sem. 1–2: 2×12 (RIR 3–4) → Sem. 3+: 3×10–12 (RIR 2) · Intervalo 90–120 s
-A2. Cadeira extensora (amplitude parcial) — quadríceps
+A2. Cadeira extensora (amplitude parcial) — quádriceps
 Sem. 1–2: 2×15 (RIR 3–4) → Sem. 3+: 3×12–15 (RIR 1–2)
 Treino B — Superiores 1 (costas) · ~55 min
 B1. Puxada frontal (pulldown) — dorsais
@@ -64,19 +65,19 @@ afterEach(cleanup);
 
 describe("TreinosWorkspace", () => {
   it("sem programa, abre direto na aba Programa com importar Word e montar do zero", () => {
-    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} heightCm={null} />);
     expect(screen.getByRole("tab", { name: "Programa" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Importar Word (.docx)")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Montar do zero" })).toBeTruthy();
   });
 
   it("registrar: mostra os exercícios do treino do programa, troca de treino e salva com as séries digitadas", async () => {
-    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} heightCm={null} />);
 
     // Semana 1: prescrição da readaptação.
     expect(await screen.findByText("Leg press 45°")).toBeTruthy();
     expect(screen.getByText("2 × 12 reps · RIR 3–4")).toBeTruthy();
-    expect(screen.getByText("Inferiores 1 (quadríceps e joelho)")).toBeTruthy();
+    expect(screen.getByText("Inferiores 1 (quádriceps e joelho)")).toBeTruthy();
 
     // Troca pra B: só a puxada.
     fireEvent.click(screen.getByRole("radio", { name: "B" }));
@@ -98,7 +99,7 @@ describe("TreinosWorkspace", () => {
   });
 
   it("semáforo reage ao check-in", async () => {
-    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} heightCm={null} />);
     expect(await screen.findByText("Verde")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Doente"));
     expect(screen.getByText("Vermelho")).toBeTruthy();
@@ -127,11 +128,11 @@ describe("TreinosWorkspace", () => {
       backPainMorning: null,
       notes: "",
     };
-    render(<TreinosWorkspace programs={[program]} sessions={[session]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[session]} weekly={[]} heightCm={null} />);
     fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
     // Cartão fechado: dia da semana, nome do treino do programa e resumo.
     const card = screen.getByRole("button", { name: /Seg, 28\/09/ });
-    expect(within(card).getByText("Treino A · Inferiores 1 (quadríceps e joelho)")).toBeTruthy();
+    expect(within(card).getByText("Treino A · Inferiores 1 (quádriceps e joelho)")).toBeTruthy();
     expect(within(card).getByText("1 exercício · 2 séries · 920 kg")).toBeTruthy();
     fireEvent.click(card);
     expect(screen.getByText("Leg press 45°")).toBeTruthy();
@@ -161,7 +162,7 @@ describe("TreinosWorkspace", () => {
       backPainMorning: null,
       notes: "bicicleta e esteira 30 min cada",
     };
-    render(<TreinosWorkspace programs={[program]} sessions={[cardio]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[cardio]} weekly={[]} heightCm={null} />);
     fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
     const card = screen.getByRole("button", { name: /Ter, 29\/09/ });
     expect(within(card).getByText("Cardio / descanso ativo")).toBeTruthy();
@@ -170,7 +171,7 @@ describe("TreinosWorkspace", () => {
   });
 
   it("montar do zero: edita treino e exercício e salva o programa em uso", async () => {
-    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} heightCm={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Montar do zero" }));
 
     fireEvent.change(screen.getByLabelText("Nome do treino A"), { target: { value: "Pernas" } });
