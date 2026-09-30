@@ -42,8 +42,8 @@ export function ItemEditor({
 
   const isLista = item.type?.slug === "lista";
   const isHabito = item.type?.slug === "habito";
-  // Validade (9.5): sempre nos documentos; em outros tipos, só se já tiver uma data.
-  const showExpiry = Boolean(today) && (item.type?.slug === "documento" || expiry !== null);
+  // Validade (9.5): sempre nos documentos e receitas (10.7); em outros tipos, só se já tiver uma data.
+  const showExpiry = Boolean(today) && (["documento", "receita"].includes(item.type?.slug ?? "") || expiry !== null);
 
   function handleSaved(nextUpdatedAt: string) {
     setUpdatedAt(nextUpdatedAt);

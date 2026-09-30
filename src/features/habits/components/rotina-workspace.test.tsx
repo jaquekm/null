@@ -8,10 +8,13 @@ type ToggleResult = { ok: true; data: { logged: boolean } } | { ok: false; error
 const toggleHabitLog = vi.fn<(id: string, date: string) => Promise<ToggleResult>>(async () => ({ ok: true, data: { logged: true } }));
 const createHabit = vi.fn(async (input: unknown) => ({ ok: true as const, data: { id: String(input) } }));
 const setHabitDays = vi.fn(async (id: string, days: unknown) => ({ ok: true as const, data: [id, days] }));
+type DeleteResult = { ok: true; data: null } | { ok: false; error: string };
+const deleteHabit = vi.fn<(id: string) => Promise<DeleteResult>>(async () => ({ ok: true, data: null }));
 vi.mock("../actions", () => ({
   toggleHabitLog: (id: string, date: string) => toggleHabitLog(id, date),
   createHabit: (input: unknown) => createHabit(input),
   setHabitDays: (id: string, days: unknown) => setHabitDays(id, days),
+  deleteHabit: (id: string) => deleteHabit(id),
 }));
 const toastError = vi.fn();
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: (m: string) => toastError(m) } }));
@@ -77,6 +80,22 @@ describe("RotinaWorkspace", () => {
     fireEvent.click(editor.querySelector('[aria-label="Sexta"]')!);
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
     await waitFor(() => expect(setHabitDays).toHaveBeenCalledWith("g", ["MO", "WE"]));
+  });
+
+  it("exclui o hábito pelo editor de dias, some da grade; cancelado no confirm não faz nada", async () => {
+    renderRotina();
+    fireEvent.click(screen.getByRole("button", { name: "Academia: mudar os dias (seg, qua, sex)" }));
+
+    vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+    fireEvent.click(screen.getByRole("button", { name: "Excluir hábito" }));
+    expect(deleteHabit).not.toHaveBeenCalled();
+    expect(screen.getByText('Dias de "Academia"')).toBeTruthy();
+
+    vi.spyOn(window, "confirm").mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "Excluir hábito" }));
+    await waitFor(() => expect(deleteHabit).toHaveBeenCalledWith("g"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Academia: mudar os dias/ })).toBeNull());
+    expect(screen.getByRole("button", { name: /Água: mudar os dias/ })).toBeTruthy();
   });
 
   it("sem hábitos, explica e não mostra grade", () => {
