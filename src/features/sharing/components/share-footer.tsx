@@ -10,6 +10,7 @@ import { shareMessage } from "../lib/share-message";
 import type { ShareLinkRow } from "../queries";
 import type { SharePermission } from "../schemas";
 import { ShareDialog } from "./share-dialog";
+import { ShareQrCode } from "./share-qr-code";
 
 const QUICK_PERMISSIONS: { value: SharePermission; label: string; listOnly?: boolean }[] = [
   { value: "view", label: "Só acompanhar" },
@@ -86,6 +87,7 @@ export function ShareFooter({ itemId, title, isList, links }: { itemId: string; 
             <a href={`mailto:?subject=${encodeURIComponent(title || "JKode")}&body=${encodeURIComponent(message)}`} className={`${chipClassName} ${chipOff}`}>
               E-mail
             </a>
+            <ShareQrCode url={url} fileName={`qr-${(title || "lista").toLowerCase().replace(/\s+/g, "-").slice(0, 40)}`} className={`${chipClassName} ${chipOff}`} />
             <button type="button" onClick={() => setUrl(null)} className="text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400">
               Criar outro link
             </button>

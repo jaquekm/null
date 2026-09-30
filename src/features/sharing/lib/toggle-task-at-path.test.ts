@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { injectTaskItemPaths, toggleTaskAtPath, type JSONContentNode } from "./toggle-task-at-path";
+import { injectTaskItemPaths, toggleTaskAtPath, type JSONContentNode, taskTextAtPath } from "./toggle-task-at-path";
 
 function checklist(): JSONContentNode {
   return {
@@ -93,5 +93,42 @@ describe("toggleTaskAtPath", () => {
   it("caminho em formato inválido: null, não lança", () => {
     expect(toggleTaskAtPath(checklist(), "não-é-um-caminho", true)).toBeNull();
     expect(toggleTaskAtPath(checklist(), "1.-1", true)).toBeNull();
+  });
+});
+
+describe("taskTextAtPath", () => {
+  const doc = {
+    type: "doc",
+    content: [
+      {
+        type: "taskList",
+        content: [
+          { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Leite " }, { type: "text", text: "integral", marks: [{ type: "bold" }] }] }] },
+          {
+            type: "taskItem",
+            attrs: { checked: false },
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "Frutas" }] },
+              { type: "taskList", content: [{ type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Maçã" }] }] }] },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("texto do item, juntando as marcas", () => {
+    expect(taskTextAtPath(doc, "0.0")).toBe("Leite integral");
+  });
+
+  it("sem o texto dos sub-itens", () => {
+    expect(taskTextAtPath(doc, "0.1")).toBe("Frutas");
+    expect(taskTextAtPath(doc, "0.1.1.0")).toBe("Maçã");
+  });
+
+  it("caminho que não é item → null", () => {
+    expect(taskTextAtPath(doc, "0")).toBeNull();
+    expect(taskTextAtPath(doc, "9.9")).toBeNull();
+    expect(taskTextAtPath(doc, "x")).toBeNull();
   });
 });

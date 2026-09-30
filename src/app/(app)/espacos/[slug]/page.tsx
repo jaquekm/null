@@ -3,6 +3,7 @@ import { NewCanvasButton } from "@/features/canvas/components/new-canvas-button"
 import { DocumentsToReviewPanel } from "@/features/spaces/components/documents-to-review-panel";
 import { NewItemButton } from "@/features/spaces/components/new-item-button";
 import { SpaceBrowser } from "@/features/spaces/components/space-browser";
+import { ShareSpaceButton } from "@/features/sharing/components/share-space-button";
 import { filtersFromSearchParams } from "@/features/spaces/lib/space-browser";
 import { listOwnerTypeSlugs } from "@/features/templates/queries";
 import { SpaceSettingsForm } from "@/features/spaces/components/space-settings-form";
@@ -32,6 +33,10 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
     listOwnerTypeSlugs(supabase),
   ]);
   const subcategories = [...new Set(browserItems.flatMap((item) => item.tags.map((tag) => tag.name)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const subcategoryOptions = [...new Map(browserItems.flatMap((item) => item.tags).map((tag) => [tag.id, tag])).values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
+  const initialFilters = filtersFromSearchParams(searchParams);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
@@ -51,6 +56,7 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
+          <ShareSpaceButton spaceId={space.id} spaceName={space.name} subcategories={subcategoryOptions} initialTagId={initialFilters.tagId} />
           <NewCanvasButton spaceId={space.id} />
           <NewItemButton spaceId={space.id} types={types} defaultTypeId={typeId} typeSlugs={typeSlugs} subcategories={subcategories} />
         </div>
@@ -58,7 +64,7 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
 
       <DocumentsToReviewPanel documents={documentsToReview} />
 
-      <SpaceBrowser spaceSlug={space.slug} items={browserItems} initialFilters={filtersFromSearchParams(searchParams)} />
+      <SpaceBrowser spaceSlug={space.slug} items={browserItems} initialFilters={initialFilters} />
 
       {/* Visões salvas (tabela, kanban, calendário…) continuam existindo, mas recolhidas: o dia a dia é a busca com filtros acima. */}
       <details className="group rounded-2xl border border-black/[.06] bg-surface p-4 shadow-sm dark:border-white/[.06]">

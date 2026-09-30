@@ -10,8 +10,8 @@ export const SHARE_PERMISSION_LABELS: Record<SharePermission, string> = {
   settle: 'Ver e marcar "Já paguei"',
 };
 
-/** `list`/`report` (enunciado do banco) ainda não têm página pública própria — só `item`, `split` e `bill` (4.10). */
-export const SHARE_RESOURCE_TYPES = ["item", "split", "bill"] as const;
+/** `list`/`report` (enunciado do banco) ainda não têm página pública própria — só `item`, `split` e `bill` (4.10) e `space` (9.7). */
+export const SHARE_RESOURCE_TYPES = ["item", "split", "bill", "space"] as const;
 export type ShareResourceType = (typeof SHARE_RESOURCE_TYPES)[number];
 
 export const SHARE_VALIDITY_OPTIONS = ["1d", "7d", "30d", "90d", "none"] as const;
@@ -42,8 +42,16 @@ export const createShareLinkSchema = z
       .or(z.literal("")),
     contactId: z.string().uuid().optional(),
     label: z.string().trim().max(200).optional(),
+    /** Espaço (9.7): só a subcategoria escolhida; ausente = o espaço inteiro. */
+    tagId: z.string().uuid().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.resourceType === "space" && data.permission !== "view") {
+      ctx.addIssue({ code: "custom", path: ["permission"], message: "Link de espaço é só pra ver." });
+    }
+    if (data.tagId && data.resourceType !== "space") {
+      ctx.addIssue({ code: "custom", path: ["tagId"], message: "Subcategoria só vale pra link de espaço." });
+    }
     if (data.permission === "check" && data.resourceType !== "item") {
       ctx.addIssue({ code: "custom", path: ["permission"], message: "Marcar checklist só vale pra item." });
     }

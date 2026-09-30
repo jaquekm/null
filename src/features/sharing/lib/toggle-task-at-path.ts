@@ -60,3 +60,26 @@ export function toggleTaskAtPath(content: JSONContentNode, path: string, checked
 
   return walk(content, indices);
 }
+
+/**
+ * Texto do `taskItem` em `path` (só o próprio item, sem sub-itens) — pro
+ * aviso "Marcaram “Leite” em Compras" (9.7). `null` se o caminho não
+ * aponta pra um `taskItem`.
+ */
+export function taskTextAtPath(content: JSONContentNode, path: string): string | null {
+  const indices = parsePath(path);
+  if (!indices) return null;
+  let node: JSONContentNode | undefined = content;
+  for (const index of indices) node = node?.content?.[index];
+  if (!node || node.type !== "taskItem") return null;
+
+  const own = (node.content ?? []).filter((child) => child.type !== "taskList" && child.type !== "bulletList" && child.type !== "orderedList");
+  const parts: string[] = [];
+  const collect = (child: JSONContentNode) => {
+    if (typeof child.text === "string") parts.push(child.text);
+    child.content?.forEach(collect);
+  };
+  own.forEach(collect);
+  const text = parts.join("").replace(/\s+/g, " ").trim();
+  return text ? text.slice(0, 200) : null;
+}

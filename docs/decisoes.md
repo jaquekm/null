@@ -869,3 +869,11 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 - **Excel sem dependência nova:** .xlsx é um zip de XML. Montar (uma aba, estilos de data/R$/%) e ler (primeira aba, strings compartilhadas, datas pelo formato da célula) com o JSZip que o projeto já usava na importação é pouco código e testável; a biblioteca popular (SheetJS) no npm está desatualizada e com alerta de segurança na leitura, e as alternativas são pesadas. `.xls` antigo e `.ods` pedem pra salvar como .xlsx/.csv.
 - **Importação na Tabela** casa colunas com campos pelo nome (sem acento/maiúsculas) e valida cada valor de novo no servidor com o schema do campo; valor inválido fica em branco (a linha entra). Não dispara automações nem indexação por item (importar 500 linhas não deve disparar 500 automações).
 - **Campo de dinheiro digitado em reais:** a célula pedia centavos ("2590" pra R$ 25,90) — inviável numa planilha. Agora mostra "25,90" com "R$" e o servidor converte com o `parseBRL` já testado das finanças; continua gravando inteiro em centavos.
+
+## Compartilhar espaço/subcategoria (9.7)
+
+- **Um tipo novo de link, não uma página nova de "pasta":** `share_links.resource_type = 'space'` com `tag_id` opcional (a subcategoria). Reaproveita tudo do link de item — token só em hash, validade, senha, revogar, contagem de acessos, página pública com limite de acessos. Só leitura por regra (schema recusa outra permissão) e sem anexos.
+- **Subcategoria é restrição dentro do espaço**, não "a tag em todos os espaços": é o que a dona faz na tela ("Pessoal → família"). Apagar a subcategoria apaga o link (`on delete cascade`) — sem ela o link passaria a mostrar o espaço inteiro, mais do que ela escolheu mostrar.
+- **Cada item abre em `/p/[token]/i/[id]`** e o servidor confere espaço, subcategoria, lixeira e arquivado a cada abertura — trocar o id no endereço não abre item de fora.
+- **Avisos de marcação:** tabela `share_link_events` (os comentários continuam em `share_comments`). Push no máximo 1 a cada 10 min por link, pra quem marca a lista do mercado inteira não gerar 30 notificações; o cartão "Nos seus links" no Hoje mostra tudo até "Marcar tudo como visto".
+- **QR code no navegador** com a biblioteca `qrcode` que já existia (QR do Pix) — sem dependência nova.

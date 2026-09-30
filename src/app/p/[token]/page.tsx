@@ -9,6 +9,7 @@ import { ReportRunView } from "@/features/reports/components/report-run-view";
 import { PasswordGate } from "@/features/sharing/components/password-gate";
 import { SharePageContent } from "@/features/sharing/components/share-page-content";
 import { SharePaymentContent, type SharePaymentPixInfo } from "@/features/sharing/components/share-payment-content";
+import { SharedSpaceContent } from "@/features/sharing/components/shared-space-content";
 import { getRequestIp } from "@/features/sharing/lib/get-request-ip";
 import { isShareLinkActive } from "@/features/sharing/lib/is-share-link-active";
 import { createRateLimiter } from "@/features/sharing/lib/rate-limit";
@@ -20,6 +21,7 @@ import {
   getPublicBillResource,
   getPublicItemResource,
   getPublicReportRunResource,
+  getPublicSpaceResource,
   getPublicSplitShareResource,
 } from "@/features/sharing/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -90,6 +92,16 @@ export default async function SharePage(props: PageProps<"/p/[token]">) {
         attachments={attachments}
       />
     );
+  }
+
+  if (shareLink.resourceType === "space") {
+    const space = await getPublicSpaceResource(admin, shareLink.ownerId, shareLink.resourceId, shareLink.tagId);
+    if (!space) return <InvalidLinkMessage />;
+
+    const userAgent = (await headers()).get("user-agent");
+    await registerShareLinkView(admin, shareLink.ownerId, shareLink.id, ip, userAgent);
+
+    return <SharedSpaceContent token={token} name={space.name} icon={space.icon} subcategory={space.subcategory} items={space.items} />;
   }
 
   if (shareLink.resourceType === "split") {

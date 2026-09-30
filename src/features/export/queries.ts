@@ -131,7 +131,9 @@ export async function listCanvasesForExport(admin: Client, ownerId: string): Pro
 
 /** Dump JSON cru de uma tabela do dono — camada "sem perder nada" do export completo (7.4), embaixo das visões curadas (Markdown/CSV/ICS/vCard) acima. */
 export async function dumpOwnerTable(admin: Client, ownerId: string, table: keyof Database["public"]["Tables"]): Promise<unknown[]> {
-  const { data, error } = await admin.from(table).select("*").eq("owner_id", ownerId);
+  // `from(table)` genérico sobre todas as tabelas estoura o limite de instanciação do TypeScript (TS2589)
+  // à medida que o schema cresce; o retorno já é `unknown[]`, então o tipo de uma tabela qualquer com `owner_id` basta.
+  const { data, error } = await admin.from(table as "items").select("*").eq("owner_id", ownerId);
   if (error) throw error;
   return data ?? [];
 }
@@ -140,7 +142,7 @@ export async function dumpOwnerTable(admin: Client, ownerId: string, table: keyo
  * Tabelas de dados do usuário incluídas em `dados-brutos/*.json` (7.4).
  * Fora da lista, de propósito: tabelas de auditoria/operacionais
  * (`jobs`, `job_schedules`, `usage_events`, `automation_runs`,
- * `automation_event_log`, `mcp_audit`, `share_link_views`,
+ * `automation_event_log`, `mcp_audit`, `share_link_views`, `share_link_events`,
  * `reminder_deliveries`, `fin_imports`, `backup_runs`), dados derivados que
  * podem ser recalculados (`item_chunks`, os embeddings) e tabelas com
  * credenciais/segredos mesmo que só o hash/cifrado apareça (`api_tokens`,

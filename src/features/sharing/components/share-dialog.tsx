@@ -17,6 +17,7 @@ import {
 } from "../schemas";
 import { ShareLinksList } from "./share-links-list";
 import type { ShareLinkRow } from "../queries";
+import { ShareQrCode } from "./share-qr-code";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -151,6 +152,7 @@ export function ShareDialog({
                   >
                     E-mail
                   </a>
+                  <ShareQrCode url={createdUrl} className="rounded-full border border-black/[.12] px-4 py-1.5 text-sm dark:border-white/[.16]" />
                 </div>
                 <button type="button" onClick={resetForm} className="self-start text-sm text-zinc-500 hover:underline dark:text-zinc-400">
                   Criar outro link

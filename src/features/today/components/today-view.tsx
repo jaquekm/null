@@ -1,6 +1,7 @@
-import { AlarmClock, CalendarClock, CalendarDays, CheckCircle2, Clock3, Dumbbell, Inbox, ListTodo, Receipt, type LucideIcon } from "lucide-react";
+import { AlarmClock, CalendarClock, CalendarDays, Link2, CheckCircle2, Clock3, Dumbbell, Inbox, ListTodo, Receipt, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { MarkLinkActivitySeen } from "@/features/sharing/components/mark-link-activity-seen";
 import { TodayCapture } from "./today-capture";
 
 export interface TodayRow {
@@ -26,6 +27,9 @@ export interface TodayViewProps {
   bills: TodayRow[];
   /** Documentos vencendo ou vencidos há pouco (9.5) — vazio = o cartão nem aparece. */
   expiring?: TodayRow[];
+  /** Comentários e marcações não vistos nos links da dona (9.7) — vazio = o cartão nem aparece. */
+  linkActivity?: TodayRow[];
+  hiddenLinkActivity?: number;
   /** `null` = sem programa de treino ativo (o cartão nem aparece). */
   workout: { done: boolean; letter: string; name: string | null } | null;
   recent: TodayRow[];
@@ -123,6 +127,13 @@ export function TodayView(props: TodayViewProps) {
         <Card icon={Receipt} title="Contas a pagar" href="/financas/contas" linkLabel="Contas">
           <Rows rows={props.bills} empty="Nenhuma conta vencendo nos próximos 7 dias." />
         </Card>
+
+        {props.linkActivity && props.linkActivity.length > 0 && (
+          <Card icon={Link2} title="Nos seus links" href="/configuracoes/compartilhamentos" linkLabel="Links">
+            <Rows rows={props.linkActivity} empty="" more={props.hiddenLinkActivity} />
+            <MarkLinkActivitySeen />
+          </Card>
+        )}
 
         {props.expiring && props.expiring.length > 0 && (
           <Card icon={CalendarClock} title="Vencendo">
