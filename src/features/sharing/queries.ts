@@ -4,6 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { ReportKind } from "@/features/reports/schemas";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { Database } from "@/lib/supabase/database.types";
+import { mergeLinkActivity, type LinkActivity } from "./lib/link-activity";
 
 type Client = SupabaseClient<Database>;
 
@@ -44,7 +45,7 @@ function mapShareLinkRow(row: Record<string, unknown>): ShareLinkRow {
 }
 
 const SHARE_LINK_COLUMNS =
-  "id, resource_type, resource_id, token_prefix, permission, include_attachments, password_hash, expires_at, revoked_at, view_count, last_viewed_at, label, contact_id, created_at";
+  "id, resource_type, resource_id, tag_id, token_prefix, permission, include_attachments, password_hash, expires_at, revoked_at, view_count, last_viewed_at, label, contact_id, created_at";
 
 /** Links de compartilhamento de um item (3.11, diálogo "Compartilhar"). */
 export async function listShareLinksForItem(supabase: Client, itemId: string): Promise<ShareLinkRow[]> {
@@ -68,10 +69,30 @@ export async function listAllShareLinks(supabase: Client): Promise<ShareLinkWith
     .select(`${SHARE_LINK_COLUMNS}, items(title)`)
     .order("created_at", { ascending: false });
 
-  return ((data ?? []) as unknown as (Record<string, unknown> & { items: { title: string } | null })[]).map((row) => ({
-    ...mapShareLinkRow(row),
-    itemTitle: row.items?.title ?? null,
-  }));
+  const rows = (data ?? []) as unknown as (Record<string, unknown> & { items: { title: string } | null })[];
+
+  // Link de espaço (9.7): o nome vem do espaço (e da subcategoria, se o link for só dela).
+  const spaceRows = rows.filter((row) => row.resource_type === "space");
+  const spaceNames = new Map<string, string>();
+  const tagNames = new Map<string, string>();
+  if (spaceRows.length > 0) {
+    const tagIds = [...new Set(spaceRows.map((row) => row.tag_id as string | null).filter((id): id is string => Boolean(id)))];
+    const [{ data: spaces }, { data: tags }] = await Promise.all([
+      supabase.from("spaces").select("id, name").in("id", [...new Set(spaceRows.map((row) => row.resource_id as string))]),
+      tagIds.length > 0 ? supabase.from("tags").select("id, name").in("id", tagIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    ]);
+    for (const space of spaces ?? []) spaceNames.set(space.id, space.name);
+    for (const tag of tags ?? []) tagNames.set(tag.id, tag.name);
+  }
+
+  return rows.map((row) => {
+    if (row.resource_type === "space") {
+      const space = spaceNames.get(row.resource_id as string) ?? "Espaço";
+      const tag = row.tag_id ? tagNames.get(row.tag_id as string) : null;
+      return { ...mapShareLinkRow(row), itemTitle: tag ? `${space} · ${tag}` : `${space} (espaço inteiro)` };
+    }
+    return { ...mapShareLinkRow(row), itemTitle: row.items?.title ?? null };
+  });
 }
 
 export interface ShareLinkAuthRow {
@@ -82,6 +103,8 @@ export interface ShareLinkAuthRow {
   permission: string;
   includeAttachments: boolean;
   showFullSplit: boolean;
+  /** Link de espaço (9.7) restrito a uma subcategoria. */
+  tagId: string | null;
   passwordHash: string | null;
   expiresAt: string | null;
   revokedAt: string | null;
@@ -91,7 +114,7 @@ export interface ShareLinkAuthRow {
 export async function findShareLinkByTokenHash(admin: Client, tokenHash: string): Promise<ShareLinkAuthRow | null> {
   const { data } = await admin
     .from("share_links")
-    .select("id, owner_id, resource_type, resource_id, permission, include_attachments, show_full_split, password_hash, expires_at, revoked_at")
+    .select("id, owner_id, resource_type, resource_id, permission, include_attachments, show_full_split, tag_id, password_hash, expires_at, revoked_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
   if (!data) return null;
@@ -104,6 +127,7 @@ export async function findShareLinkByTokenHash(admin: Client, tokenHash: string)
     permission: data.permission,
     includeAttachments: data.include_attachments,
     showFullSplit: data.show_full_split,
+    tagId: data.tag_id,
     passwordHash: data.password_hash,
     expiresAt: data.expires_at,
     revokedAt: data.revoked_at,
@@ -323,4 +347,169 @@ export async function listItemShareComments(supabase: Client, itemId: string): P
     .order("created_at", { ascending: false });
 
   return (data ?? []).map((row) => ({ id: row.id, authorName: row.author_name, body: row.body, createdAt: row.created_at }));
+}
+
+export interface PublicSpaceItem {
+  id: string;
+  title: string;
+  typeName: string | null;
+  typeIcon: string | null;
+  subcategories: string[];
+  updatedAt: string;
+}
+
+export interface PublicSpaceResource {
+  name: string;
+  icon: string | null;
+  /** Nome da subcategoria quando o link é só dela. */
+  subcategory: string | null;
+  items: PublicSpaceItem[];
+}
+
+/** Até quantos itens a página de um espaço compartilhado lista (9.7). */
+export const PUBLIC_SPACE_ITEM_LIMIT = 500;
+
+/**
+ * Espaço compartilhado (9.7): o nome e a lista de itens ativos (sem lixeira
+ * nem arquivados), com o tipo e as subcategorias de cada um — nada de
+ * conteúdo aqui; cada item abre na própria página do link
+ * (`getPublicSpaceItem`). Com `tagId`, só os itens daquela subcategoria.
+ */
+export async function getPublicSpaceResource(admin: Client, ownerId: string, spaceId: string, tagId: string | null): Promise<PublicSpaceResource | null> {
+  const { data: space } = await admin.from("spaces").select("name, icon").eq("id", spaceId).eq("owner_id", ownerId).is("archived_at", null).maybeSingle();
+  if (!space) return null;
+
+  let subcategory: string | null = null;
+  if (tagId) {
+    const { data: tag } = await admin.from("tags").select("name").eq("id", tagId).eq("owner_id", ownerId).maybeSingle();
+    if (!tag) return null;
+    subcategory = tag.name;
+  }
+
+  let query = admin
+    .from("items")
+    .select(tagId ? "id, title, updated_at, object_types(name, icon), item_tags!inner(tag_id)" : "id, title, updated_at, object_types(name, icon)")
+    .eq("owner_id", ownerId)
+    .eq("space_id", spaceId)
+    .is("deleted_at", null)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false })
+    .limit(PUBLIC_SPACE_ITEM_LIMIT);
+  if (tagId) query = query.eq("item_tags.tag_id", tagId);
+  const { data: rows } = await query;
+  const items = (rows ?? []) as unknown as { id: string; title: string; updated_at: string; object_types: { name: string; icon: string | null } | null }[];
+
+  const tagsByItem = new Map<string, string[]>();
+  if (items.length > 0) {
+    const { data: tagRows } = await admin
+      .from("item_tags")
+      .select("item_id, tags(name)")
+      .eq("owner_id", ownerId)
+      .in(
+        "item_id",
+        items.map((item) => item.id),
+      );
+    for (const row of (tagRows ?? []) as unknown as { item_id: string; tags: { name: string } | null }[]) {
+      if (!row.tags) continue;
+      tagsByItem.set(row.item_id, [...(tagsByItem.get(row.item_id) ?? []), row.tags.name]);
+    }
+  }
+
+  return {
+    name: space.name,
+    icon: space.icon,
+    subcategory,
+    items: items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      typeName: item.object_types?.name ?? null,
+      typeIcon: item.object_types?.icon ?? null,
+      subcategories: (tagsByItem.get(item.id) ?? []).sort(),
+      updatedAt: item.updated_at,
+    })),
+  };
+}
+
+/**
+ * Um item de dentro de um espaço compartilhado (9.7) — só se ele está
+ * mesmo naquele espaço (e na subcategoria do link, quando houver), ativo e
+ * fora da lixeira. Qualquer outro id devolve `null` (link não abre item de
+ * fora só trocando o endereço).
+ */
+export async function getPublicSpaceItem(
+  admin: Client,
+  ownerId: string,
+  spaceId: string,
+  tagId: string | null,
+  itemId: string,
+): Promise<PublicItemResource | null> {
+  const { data } = await admin
+    .from("items")
+    .select("title, content, properties, status, space_id, object_types(fields)")
+    .eq("id", itemId)
+    .eq("owner_id", ownerId)
+    .eq("space_id", spaceId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!data || data.status === "archived") return null;
+
+  if (tagId) {
+    const { data: tagged } = await admin.from("item_tags").select("item_id").eq("item_id", itemId).eq("tag_id", tagId).maybeSingle();
+    if (!tagged) return null;
+  }
+
+  return {
+    title: data.title,
+    content: (data.content as unknown as JSONContent | null) ?? null,
+    properties: (data.properties as Record<string, unknown> | null) ?? {},
+    fields: (data.object_types?.fields as unknown as FieldDefinition[] | null) ?? [],
+  };
+}
+
+/**
+ * "Nos seus links" (9.7): comentários e marcações ainda não vistos nos links
+ * da dona, mais recentes primeiro. Comentário vem de `share_comments` (link
+ * de item); marcação, de `share_link_events`.
+ */
+export async function listUnreadLinkActivity(supabase: Client, limit = 20): Promise<{ items: LinkActivity[]; total: number }> {
+  const [{ data: comments, count: commentCount }, { data: events, count: eventCount }] = await Promise.all([
+    supabase
+      .from("share_comments")
+      .select("id, author_name, body, created_at, share_links!inner(resource_type, resource_id)", { count: "exact" })
+      .is("read_at", null)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("share_link_events")
+      .select("id, kind, detail, item_id, created_at, items(title)", { count: "exact" })
+      .is("read_at", null)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  type CommentRow = { id: string; author_name: string; body: string; created_at: string; share_links: { resource_type: string; resource_id: string } | null };
+  const commentRows = (comments ?? []) as unknown as CommentRow[];
+  const itemIds = [...new Set(commentRows.filter((row) => row.share_links?.resource_type === "item").map((row) => row.share_links!.resource_id))];
+  const titles = new Map<string, string>();
+  if (itemIds.length > 0) {
+    const { data: items } = await supabase.from("items").select("id, title").in("id", itemIds);
+    for (const item of items ?? []) titles.set(item.id, item.title);
+  }
+
+  const fromComments: LinkActivity[] = commentRows.map((row) => {
+    const itemId = row.share_links?.resource_type === "item" ? row.share_links.resource_id : null;
+    return { id: `c:${row.id}`, kind: "comment", author: row.author_name, text: row.body, itemId, itemTitle: itemId ? (titles.get(itemId) ?? null) : null, createdAt: row.created_at };
+  });
+  type EventRow = { id: string; kind: string; detail: string | null; item_id: string | null; created_at: string; items: { title: string } | null };
+  const fromEvents: LinkActivity[] = ((events ?? []) as unknown as EventRow[]).map((row) => ({
+    id: `e:${row.id}`,
+    kind: row.kind === "uncheck" ? "uncheck" : "check",
+    author: null,
+    text: row.detail,
+    itemId: row.item_id,
+    itemTitle: row.items?.title ?? null,
+    createdAt: row.created_at,
+  }));
+
+  return { items: mergeLinkActivity(fromComments, fromEvents).slice(0, limit), total: (commentCount ?? 0) + (eventCount ?? 0) };
 }

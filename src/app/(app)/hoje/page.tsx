@@ -13,6 +13,8 @@ import {
 import { expiryStatus } from "@/features/documents/lib/expiry";
 import { listExpiringItems } from "@/features/documents/queries";
 import { listBills } from "@/features/financas/queries";
+import { linkActivityLabel } from "@/features/sharing/lib/link-activity";
+import { listUnreadLinkActivity } from "@/features/sharing/queries";
 import { countInboxItems, listRecentItems } from "@/features/items/queries";
 import { TodayView, type TodayRow } from "@/features/today/components/today-view";
 import { billsDueSoon, daySummary, formatDayHeader, formatTime, greeting } from "@/features/today/lib/today";
@@ -35,7 +37,7 @@ export default async function TodayPage() {
   const dayRange = computeDayRange(now, timezone);
   const today = dayRange.dateStr;
 
-  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions, expiringItems] = await Promise.all([
+  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions, expiringItems, linkActivity] = await Promise.all([
     listGoogleEventsInRange(supabase, user.id, dayRange.startIso, dayRange.endIsoExclusive),
     listCalendarColors(supabase, user.id),
     listDateFieldsByTypeId(supabase, user.id),
@@ -47,6 +49,7 @@ export default async function TodayPage() {
     listWorkoutPrograms(supabase, user.id).catch(() => []),
     listWorkoutSessions(supabase, user.id).catch(() => []),
     listExpiringItems(supabase, today).catch(() => []),
+    listUnreadLinkActivity(supabase, 6).catch(() => ({ items: [], total: 0 })),
   ]);
 
   const items = await listItemsForDateExtraction(supabase, user.id, [...dateFieldsByTypeId.keys()]);
@@ -79,6 +82,17 @@ export default async function TodayPage() {
     return { id: doc.id, title: doc.title, href: `/itens/${doc.id}`, meta: status.label, danger: status.level === "expired" || status.level === "today" };
   });
 
+  const linkRows: TodayRow[] = linkActivity.items.map((activity) => ({
+    id: activity.id,
+    title: linkActivityLabel(activity),
+    href: activity.itemId ? `/itens/${activity.itemId}` : null,
+    // Hoje: a hora; antes disso: o dia.
+    meta:
+      new Date(activity.createdAt).toLocaleDateString("en-CA", { timeZone: timezone }) === today
+        ? formatTime(activity.createdAt, timezone)
+        : new Date(activity.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: timezone }),
+  }));
+
   const program = programs.find((p) => p.active);
   const letter = program ? nextWorkout(program.definition, sessions) : null;
   const workout =
@@ -97,6 +111,8 @@ export default async function TodayPage() {
       hiddenTasks={overdue.length + dueToday.length - tasks.length}
       bills={billRows}
       expiring={expiring}
+      linkActivity={linkRows}
+      hiddenLinkActivity={linkActivity.total - linkRows.length}
       workout={workout}
       recent={recent.map((item) => ({ id: item.id, title: item.title, href: `/itens/${item.id}` }))}
       inboxCount={inboxCount}

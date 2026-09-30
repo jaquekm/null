@@ -62,13 +62,13 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - OCR (já existe) sugere a data de validade ao anexar a foto/PDF — a dona confirma, nunca automático.
 - Cartão "Vencendo" no Hoje.
 
-## 9.6 — Planilhas de verdade ✅ (em PR)
+## 9.6 — Planilhas de verdade ✅
 
 - Visão de tabela: linha de totais (soma, média, contagem por coluna numérica/dinheiro).
 - Fórmulas simples entre colunas (ex.: `quantidade × preço`), com parser puro e testado.
 - Importar e exportar Excel (.xlsx) direto da visão.
 
-## 9.7 — Compartilhar mais que uma página
+## 9.7 — Compartilhar mais que uma página ✅ (em PR)
 
 - Compartilhar um espaço ou uma subcategoria inteira (ex.: "Família"), só leitura por padrão.
 - Aviso pra dona quando alguém comentar ou marcar item num link dela.

@@ -20,7 +20,7 @@ vi.mock("@/features/settings/queries", () => ({ getOwnerNotificationPreferences:
 /** Builder fake encadeável — resolve pro `result` dado em qualquer ponto da cadeia. */
 function chainable(result: unknown) {
   const builder: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "is", "order", "update", "insert"]) {
+  for (const method of ["select", "eq", "is", "order", "update", "insert", "gte", "limit"]) {
     builder[method] = vi.fn(() => builder);
   }
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
@@ -175,5 +175,39 @@ describe("verifySharePassword — 3.12: mesma resposta pra token inválido/revog
     queueShareLink({ expires_at: "2020-01-01T00:00:00.000Z", password_hash: "irrelevante" });
     const result = await verifySharePassword("token-expirado", "senha123");
     expect(result).toEqual({ ok: false, error: GENERIC_INVALID });
+  });
+});
+
+describe("toggleShareChecklistItem — 9.7: aviso pra dona", () => {
+  function queueToggle(recentEvents: unknown[]) {
+    queueShareLink({ permission: "check" });
+    tableQueues.items = [{ data: { content: CHECKLIST_CONTENT, title: "Mercado" } }, { error: null }];
+    tableQueues.share_link_events = [{ data: recentEvents }, { error: null }];
+  }
+
+  it("registra a marcação com o texto do item e avisa por push", async () => {
+    getOwnerNotificationPreferencesMock.mockResolvedValueOnce({ shareComments: true });
+    queueToggle([]);
+    const result = await toggleShareChecklistItem("token-check", "0.1", true);
+    expect(result).toEqual({ ok: true, data: null });
+    expect(fromMock).toHaveBeenCalledWith("share_link_events");
+    expect(notifyOwnerMock).toHaveBeenCalledWith("owner-1", {
+      title: "Mexeram numa lista que você compartilhou",
+      text: "Marcaram “Comprar pão” em “Mercado”.",
+    });
+  });
+
+  it("outra marcação do mesmo link em menos de 10 min não manda outro push", async () => {
+    // Nem chega a olhar as preferências: o aviso anterior basta.
+    queueToggle([{ id: "evento-anterior" }]);
+    const result = await toggleShareChecklistItem("token-check", "0.0", false);
+    expect(result).toEqual({ ok: true, data: null });
+    expect(notifyOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("aviso desligado nas configurações: registra, mas não manda push", async () => {
+    queueToggle([]);
+    await toggleShareChecklistItem("token-check", "0.0", true);
+    expect(notifyOwnerMock).not.toHaveBeenCalled();
   });
 });

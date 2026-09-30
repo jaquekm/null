@@ -7,7 +7,7 @@ import type { OwnerNotificationPreferences } from "../queries";
 
 const LABELS: Record<keyof OwnerNotificationPreferences, { title: string; description: string }> = {
   remindersPersonal: { title: "Lembretes pessoais", description: "Meus próprios lembretes (\"para mim\") enviados por push." },
-  shareComments: { title: "Comentários em links compartilhados", description: "Quando alguém comenta num item que você compartilhou." },
+  shareComments: { title: "Atividade nos links compartilhados", description: "Quando alguém comenta ou marca um item numa lista que você compartilhou (no máximo um aviso a cada 10 min por link)." },
   jobFailures: { title: "Falhas de jobs", description: "Uma tarefa em segundo plano esgotou as tentativas e falhou." },
   googleReconnect: { title: "Reconexão do Google", description: "A conexão com o Google Calendar caiu e precisa reconectar." },
 };

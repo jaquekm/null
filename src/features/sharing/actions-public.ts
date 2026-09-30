@@ -16,7 +16,7 @@ import { createRateLimiter } from "./lib/rate-limit";
 import { isShareLinkUnlocked, SHARE_AUTH_COOKIE_MAX_AGE_SECONDS, shareAuthCookieName, signShareAuthCookie } from "./lib/share-auth-cookie";
 import { verifySharePassword as checkPasswordHash } from "./lib/share-password";
 import { hashShareToken } from "./lib/share-token";
-import { toggleTaskAtPath, type JSONContentNode } from "./lib/toggle-task-at-path";
+import { taskTextAtPath, toggleTaskAtPath, type JSONContentNode } from "./lib/toggle-task-at-path";
 import { findShareLinkByTokenHash } from "./queries";
 import { shareCommentSchema, sharePasswordFormSchema } from "./schemas";
 
@@ -61,7 +61,7 @@ export async function toggleShareChecklistItem(token: string, path: string, chec
   if (shareLink.permission !== "check" || shareLink.resourceType !== "item") return fail("Essa ação não é permitida por esse link.");
   if (!(await isShareLinkUnlocked(shareLink))) return fail("Não autenticado.");
 
-  const { data: item } = await admin.from("items").select("content").eq("id", shareLink.resourceId).eq("owner_id", shareLink.ownerId).maybeSingle();
+  const { data: item } = await admin.from("items").select("content, title").eq("id", shareLink.resourceId).eq("owner_id", shareLink.ownerId).maybeSingle();
   if (!item) return fail("Item não encontrado.");
 
   const currentContent = (item.content as unknown as JSONContentNode | null) ?? { type: "doc", content: [] };
@@ -75,8 +75,51 @@ export async function toggleShareChecklistItem(token: string, path: string, chec
     .eq("owner_id", shareLink.ownerId);
   if (error) return fail("Não foi possível salvar. Tente de novo.");
 
+  await recordCheckActivity(admin, shareLink.ownerId, shareLink.id, shareLink.resourceId, item.title, checked, taskTextAtPath(currentContent, path));
+
   revalidatePath(`/p/${token}`);
   return ok(null);
+}
+
+/** Um push por link a cada 10 min no máximo — quem marca a lista inteira do mercado não dispara um aviso por item. */
+const CHECK_NOTIFY_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * Aviso de marcação num link (9.7): registra em `share_link_events` (vira o
+ * cartão "Nos seus links" no Hoje) e manda push pra dona se ela quer aviso
+ * de atividade nos links e se não houve outro aviso desse link há pouco.
+ * Falha aqui nunca desfaz a marcação — quem marcou não tem nada a ver com isso.
+ */
+async function recordCheckActivity(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+  shareLinkId: string,
+  itemId: string,
+  itemTitle: string,
+  checked: boolean,
+  taskText: string | null,
+): Promise<void> {
+  try {
+    const since = new Date(Date.now() - CHECK_NOTIFY_WINDOW_MS).toISOString();
+    const { data: recent } = await admin.from("share_link_events").select("id").eq("share_link_id", shareLinkId).gte("created_at", since).limit(1);
+    await admin.from("share_link_events").insert({
+      owner_id: ownerId,
+      share_link_id: shareLinkId,
+      item_id: itemId,
+      kind: checked ? "check" : "uncheck",
+      detail: taskText,
+    });
+    if ((recent ?? []).length > 0) return;
+    const preferences = await getOwnerNotificationPreferences(admin, ownerId);
+    if (!preferences.shareComments) return;
+    const what = taskText ? `“${taskText}”` : "um item";
+    await notifyOwner(ownerId, {
+      title: "Mexeram numa lista que você compartilhou",
+      text: `${checked ? "Marcaram" : "Desmarcaram"} ${what} em “${itemTitle || "Sem título"}”.`,
+    });
+  } catch {
+    // Aviso é melhor esforço.
+  }
 }
 
 /** Permissão `comment` (3.11) — vira `share_comments` e, se configurado, um push pro dono (fecha a preferência deixada inerte na 3.9). */

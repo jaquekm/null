@@ -14,6 +14,7 @@ const GENERIC_ERROR = "Não foi possível criar o link. Tente de novo.";
 
 /** Caminho da página que mostra o link (pra revalidar depois de criar/revogar) — item tem página própria, split/bill só a lista (4.10). */
 function pathForResource(resourceType: string, resourceId: string): string {
+  if (resourceType === "space") return "/espacos";
   if (resourceType === "split") return "/financas/dividir";
   if (resourceType === "bill") return "/financas/contas";
   return `/itens/${resourceId}`;
@@ -33,6 +34,13 @@ export async function createShareLink(input: z.input<typeof createShareLinkSchem
   } else if (resourceType === "split") {
     const { data: share } = await supabase.from("fin_split_shares").select("id").eq("id", resourceId).eq("owner_id", user.id).maybeSingle();
     if (!share) return fail("Participante da divisão não encontrado.");
+  } else if (resourceType === "space") {
+    const { data: space } = await supabase.from("spaces").select("id").eq("id", resourceId).eq("owner_id", user.id).is("archived_at", null).maybeSingle();
+    if (!space) return fail("Espaço não encontrado.");
+    if (parsed.data.tagId) {
+      const { data: tag } = await supabase.from("tags").select("id").eq("id", parsed.data.tagId).eq("owner_id", user.id).maybeSingle();
+      if (!tag) return fail("Subcategoria não encontrada.");
+    }
   } else {
     const { data: bill } = await supabase.from("fin_bills").select("id").eq("id", resourceId).eq("owner_id", user.id).maybeSingle();
     if (!bill) return fail("Conta não encontrada.");
@@ -48,7 +56,9 @@ export async function createShareLink(input: z.input<typeof createShareLinkSchem
     token_hash: hash,
     token_prefix: prefix,
     permission: parsed.data.permission,
-    include_attachments: parsed.data.includeAttachments,
+    // Link de espaço nunca leva anexos (seriam os de todos os itens de uma vez).
+    include_attachments: resourceType === "space" ? false : parsed.data.includeAttachments,
+    tag_id: resourceType === "space" ? (parsed.data.tagId ?? null) : null,
     show_full_split: parsed.data.showFullSplit,
     password_hash: passwordHash,
     expires_at: computeShareExpiresAt(parsed.data.validity),
@@ -57,7 +67,7 @@ export async function createShareLink(input: z.input<typeof createShareLinkSchem
   });
   if (error) return fail(GENERIC_ERROR);
 
-  revalidatePath(pathForResource(resourceType, resourceId));
+  revalidatePath(pathForResource(resourceType, resourceId), resourceType === "space" ? "layout" : undefined);
   revalidatePath("/configuracoes/compartilhamentos");
   return ok({ url: `${serverEnv.APP_URL}/p/${token}` });
 }
@@ -76,5 +86,18 @@ export async function revokeShareLink(id: string): Promise<Result<null>> {
 
   if (data) revalidatePath(pathForResource(data.resource_type, data.resource_id));
   revalidatePath("/configuracoes/compartilhamentos");
+  return ok(null);
+}
+
+/** "Marcar como visto" do cartão "Nos seus links" (9.7): comentários e marcações não vistos passam a vistos. */
+export async function markLinkActivitySeen(): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+  const now = new Date().toISOString();
+  const [comments, events] = await Promise.all([
+    supabase.from("share_comments").update({ read_at: now }).eq("owner_id", user.id).is("read_at", null),
+    supabase.from("share_link_events").update({ read_at: now }).eq("owner_id", user.id).is("read_at", null),
+  ]);
+  if (comments.error || events.error) return fail("Não foi possível marcar como visto. Tente de novo.");
+  revalidatePath("/hoje");
   return ok(null);
 }

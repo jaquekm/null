@@ -2927,6 +2927,54 @@ export type Database = {
           },
         ]
       }
+      share_link_events: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: string
+          item_id: string | null
+          kind: string
+          owner_id: string
+          read_at: string | null
+          share_link_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          item_id?: string | null
+          kind: string
+          owner_id?: string
+          read_at?: string | null
+          share_link_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          item_id?: string | null
+          kind?: string
+          owner_id?: string
+          read_at?: string | null
+          share_link_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_link_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "share_link_events_share_link_id_fkey"
+            columns: ["share_link_id"]
+            isOneToOne: false
+            referencedRelation: "share_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       share_link_views: {
         Row: {
           created_at: string
@@ -2978,6 +3026,7 @@ export type Database = {
           resource_type: string
           revoked_at: string | null
           show_full_split: boolean
+          tag_id: string | null
           token_hash: string
           token_prefix: string
           view_count: number
@@ -2997,6 +3046,7 @@ export type Database = {
           resource_type: string
           revoked_at?: string | null
           show_full_split?: boolean
+          tag_id?: string | null
           token_hash: string
           token_prefix: string
           view_count?: number
@@ -3016,6 +3066,7 @@ export type Database = {
           resource_type?: string
           revoked_at?: string | null
           show_full_split?: boolean
+          tag_id?: string | null
           token_hash?: string
           token_prefix?: string
           view_count?: number
@@ -3026,6 +3077,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "share_links_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
             referencedColumns: ["id"]
           },
         ]
