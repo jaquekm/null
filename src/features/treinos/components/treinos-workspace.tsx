@@ -18,7 +18,17 @@ const TABS: [Tab, string][] = [
   ["programa", "Programa"],
 ];
 
-export function TreinosWorkspace({ programs, sessions, weekly }: { programs: WorkoutProgram[]; sessions: WorkoutSession[]; weekly: WeeklyMeasure[] }) {
+export function TreinosWorkspace({
+  programs,
+  sessions,
+  weekly,
+  heightCm,
+}: {
+  programs: WorkoutProgram[];
+  sessions: WorkoutSession[];
+  weekly: WeeklyMeasure[];
+  heightCm: number | null;
+}) {
   const router = useRouter();
   const active = programs.find((p) => p.active) ?? null;
   // Sem programa ainda, a primeira coisa a fazer é montar/importar um.
@@ -58,8 +68,8 @@ export function TreinosWorkspace({ programs, sessions, weekly }: { programs: Wor
           </p>
         ))}
       {tab === "historico" && <HistoryTab programs={programs} sessions={sessions} weekly={weekly} onChanged={refresh} />}
-      {tab === "graficos" && <ChartsTab program={active?.definition ?? null} sessions={sessions} weekly={weekly} />}
-      {tab === "semanal" && <WeeklyTab weekly={weekly} sessions={sessions} onChanged={refresh} />}
+      {tab === "graficos" && <ChartsTab program={active?.definition ?? null} sessions={sessions} weekly={weekly} heightCm={heightCm} />}
+      {tab === "semanal" && <WeeklyTab weekly={weekly} sessions={sessions} heightCm={heightCm} onChanged={refresh} />}
       {tab === "programa" && <ProgramTab programs={programs} onChanged={refresh} />}
     </div>
   );

@@ -79,6 +79,13 @@ export async function listWeeklyMeasures(supabase: Client, ownerId: string): Pro
   }));
 }
 
+/** Altura pro IMC (10.6) — `null` = a dona ainda não informou. */
+export async function getHeightCm(supabase: Client, ownerId: string): Promise<number | null> {
+  const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", ownerId).maybeSingle();
+  const preferences = (data?.preferences as { heightCm?: number } | null) ?? {};
+  return typeof preferences.heightCm === "number" && preferences.heightCm > 0 ? preferences.heightCm : null;
+}
+
 export interface WorkoutProgram {
   id: string;
   name: string;

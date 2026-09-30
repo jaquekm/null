@@ -3,15 +3,49 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { addDaysToDateString, todayInTimezone } from "@/lib/dates";
-import { deleteWeeklyMeasure, saveWeeklyMeasure } from "../actions";
+import { deleteWeeklyMeasure, saveWeeklyMeasure, setHeight } from "../actions";
 import { sessionsInWeek } from "../lib/csv-export";
+import { bmiCategory, calculateBmi } from "../lib/bmi";
 import { parseDecimal } from "../lib/rules";
 import type { WeeklyMeasure, WorkoutSession } from "../queries";
 import { Field, cardClassName, formatShortDate, inputClassName } from "./ui";
 
-export function WeeklyTab({ weekly, sessions, onChanged }: { weekly: WeeklyMeasure[]; sessions: WorkoutSession[]; onChanged: () => void }) {
+export function WeeklyTab({
+  weekly,
+  sessions,
+  heightCm: initialHeightCm,
+  onChanged,
+}: {
+  weekly: WeeklyMeasure[];
+  sessions: WorkoutSession[];
+  heightCm: number | null;
+  onChanged: () => void;
+}) {
   const [form, setForm] = useState({ weekStart: todayInTimezone(), weight: "", waist: "", steps: "" });
+  const [heightCm, setHeightCm] = useState(initialHeightCm);
   const [pending, startTransition] = useTransition();
+
+  const latestWeight = [...weekly].reverse().find((w) => w.weightKg !== null)?.weightKg ?? null;
+  const bmi = heightCm && latestWeight ? calculateBmi(latestWeight, heightCm) : null;
+
+  function handleEditHeight() {
+    const input = window.prompt("Sua altura (em cm)", heightCm ? String(heightCm) : "");
+    if (input == null) return;
+    const parsedHeight = input.trim() === "" ? null : Number(input);
+    if (parsedHeight != null && (!Number.isFinite(parsedHeight) || parsedHeight <= 0)) {
+      toast.error("Altura inválida.");
+      return;
+    }
+    const previousHeight = heightCm;
+    setHeightCm(parsedHeight);
+    startTransition(async () => {
+      const result = await setHeight({ heightCm: parsedHeight });
+      if (!result.ok) {
+        setHeightCm(previousHeight);
+        toast.error(result.error);
+      }
+    });
+  }
 
   function handleSave() {
     startTransition(async () => {
@@ -44,6 +78,20 @@ export function WeeklyTab({ weekly, sessions, onChanged }: { weekly: WeeklyMeasu
       <section className={cardClassName}>
         <h2 className="font-semibold">Registro semanal</h2>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">Peso: média de 3–4 pesagens em jejum na semana. Cintura: na altura do umbigo. Salvar a mesma semana de novo substitui.</p>
+
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <button type="button" onClick={handleEditHeight} className="text-zinc-500 hover:underline dark:text-zinc-400">
+            Altura: {heightCm ? `${heightCm} cm` : "não informada"}
+          </button>
+          {bmi != null ? (
+            <span className="font-medium text-black dark:text-zinc-100">
+              IMC: {bmi.toLocaleString("pt-BR")} — {bmiCategory(bmi)}
+            </span>
+          ) : (
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">Informe a altura e um peso pra ver o IMC.</span>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <Field label="Início da semana">
             <input type="date" className={inputClassName} value={form.weekStart} onChange={(e) => setForm({ ...form, weekStart: e.target.value })} />

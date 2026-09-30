@@ -49,6 +49,10 @@ export const weeklyInputSchema = z
   .refine((w) => w.weightKg !== null || w.waistCm !== null || w.stepsAvg !== null, "Preencha ao menos um campo.");
 export type WeeklyInput = z.infer<typeof weeklyInputSchema>;
 
+/** Altura pra calcular o IMC (10.6) — muda raramente, guardada em `user_settings.preferences`, não numa linha por semana. */
+export const setHeightSchema = z.object({ heightCm: z.number().positive().max(300).nullable() });
+export type SetHeightInput = z.infer<typeof setHeightSchema>;
+
 export const programInputSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1, "Dê um nome ao programa.").max(120),
