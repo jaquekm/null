@@ -15,6 +15,11 @@ const initialState: Result<{ updatedAt: string } | null> = { ok: true, data: nul
 
 const NOT_YET_EDITABLE: FieldDefinition["type"][] = ["relation", "contact", "file"];
 
+/** Campos que ainda não têm como editar na página do item — ficam escondidos lá em vez de mostrar "Disponível em breve". */
+export function isFieldEditableOnItem(type: FieldDefinition["type"]): boolean {
+  return !NOT_YET_EDITABLE.includes(type);
+}
+
 export function FieldInput({
   itemId,
   field,

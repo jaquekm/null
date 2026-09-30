@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -119,6 +120,10 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
   const participantIds = Array.isArray(item.properties.participantes) ? item.properties.participantes.filter((id): id is string => typeof id === "string") : [];
   const meetingParticipants = isMeeting ? await listMeetingParticipants(supabase, participantIds) : [];
   const meetingDate = typeof item.properties.data === "string" ? item.properties.data : null;
+  // "Não é uma lista? Virar nota": o tipo Nota do espaço do item, senão o global.
+  const noteTypeId = types.find((type) => type.slug === "nota")?.id ?? null;
+  const moreOpen = subitems.length > 0 || itemTransactions.length > 0 || itemBills.length > 0;
+
   const meetingDateLabel = meetingDate
     ? new Date(meetingDate.length === 10 ? `${meetingDate}T12:00:00Z` : meetingDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: timezone })
     : null;
@@ -145,7 +150,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         )}
       </div>
 
-      <ItemEditor key={item.updatedAt} item={item} timezone={timezone} today={today} expirySuggestion={expirySuggestion} />
+      <ItemEditor key={item.updatedAt} item={item} timezone={timezone} today={today} expirySuggestion={expirySuggestion} noteTypeId={noteTypeId} />
 
       {isMeeting && (
         <MeetingPanel
@@ -202,6 +207,10 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         <QuickReminder title={item.title || "Sem título"} timezone={timezone} itemId={item.id} sourceType="item" sourceId={item.id} />
       </div>
 
+      <AttachmentList itemId={item.id} attachments={attachments} />
+
+      <ItemShareComments comments={shareComments} />
+
       <ItemActionsBar
         itemId={item.id}
         status={item.status}
@@ -213,50 +222,74 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         types={types}
       />
 
-      <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
-        <div className="flex gap-1">
-          <dt>Criado:</dt>
-          <dd>{new Date(item.createdAt).toLocaleString("pt-BR")}</dd>
+      {/* O que não é do dia a dia fica guardado aqui (a dona: "tem coisas que não sei o que fazem ali"). */}
+      <details open={moreOpen} className="group rounded-2xl border border-black/[.06] bg-surface px-4 py-3 shadow-sm dark:border-white/[.06]">
+        <summary className="cursor-pointer list-none select-none">
+          <span className="text-sm font-medium text-black dark:text-zinc-50">Mais ferramentas</span>
+          <span className="block text-xs text-zinc-500 dark:text-zinc-400">Dinheiro ligado a este item, subitens, IA, histórico de versões e quem menciona este item.</span>
+        </summary>
+        <div className="mt-4 flex flex-col gap-6">
+          <ToolHint text="Registrar um gasto ou recebimento ligado a este item (ex.: o salário, uma compra).">
+            <ItemFinancePanel
+              itemId={item.id}
+              itemTitle={item.title || "Sem título"}
+              today={today}
+              accounts={financeAccounts}
+              categories={financeCategories}
+              contacts={financeContacts}
+              transactions={itemTransactions}
+              bills={itemBills}
+            />
+          </ToolHint>
+          <ToolHint text="Itens dentro deste — etapas, partes, anexos maiores.">
+            <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
+          </ToolHint>
+          <ToolHint text="Outros itens que citam este com [[ ]] no texto.">
+            <BacklinksPanel backlinks={backlinks} />
+          </ToolHint>
+          <RelatedItemsPanel itemId={item.id} relatedItems={relatedItems} />
+          <ToolHint text="Com IA: perguntar sobre o item, resumir, tirar tarefas do texto ou preencher os campos.">
+            <div className="flex flex-col gap-4">
+              <ItemAskPanel itemId={item.id} relatedItemIds={relatedItems.map((related) => related.id)} />
+              <SummarizeItemPanel itemId={item.id} />
+              <ExtractTasksPanel itemId={item.id} />
+              {item.type && <FillPropertiesPanel itemId={item.id} />}
+            </div>
+          </ToolHint>
+          <CanvasRefsSection refs={canvasRefs} />
+          <ToolHint text="Cópias salvas automaticamente — dá pra ver e voltar a uma versão anterior.">
+            <VersionsPanel
+              itemId={item.id}
+              versions={versions}
+              fields={item.type?.fields ?? []}
+              currentContent={item.content}
+              currentProperties={item.properties}
+            />
+          </ToolHint>
+          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+            <div className="flex gap-1">
+              <dt>Criado:</dt>
+              <dd>{new Date(item.createdAt).toLocaleString("pt-BR")}</dd>
+            </div>
+            <div className="flex gap-1">
+              <dt>Atualizado:</dt>
+              <dd>{new Date(item.updatedAt).toLocaleString("pt-BR")}</dd>
+            </div>
+          </dl>
         </div>
-        <div className="flex gap-1">
-          <dt>Atualizado:</dt>
-          <dd>{new Date(item.updatedAt).toLocaleString("pt-BR")}</dd>
-        </div>
-      </dl>
-
-      <AttachmentList itemId={item.id} attachments={attachments} />
-
-      <ItemFinancePanel
-        itemId={item.id}
-        itemTitle={item.title || "Sem título"}
-        today={today}
-        accounts={financeAccounts}
-        categories={financeCategories}
-        contacts={financeContacts}
-        transactions={itemTransactions}
-        bills={itemBills}
-      />
-
-      <ItemShareComments comments={shareComments} />
-
-      <SubitemsSection parentId={item.id} spaceId={item.space?.id ?? null} subitems={subitems} />
-      <BacklinksPanel backlinks={backlinks} />
-      <RelatedItemsPanel itemId={item.id} relatedItems={relatedItems} />
-      <ItemAskPanel itemId={item.id} relatedItemIds={relatedItems.map((related) => related.id)} />
-      <SummarizeItemPanel itemId={item.id} />
-      <ExtractTasksPanel itemId={item.id} />
-      {item.type && <FillPropertiesPanel itemId={item.id} />}
-      <CanvasRefsSection refs={canvasRefs} />
-      <VersionsPanel
-        itemId={item.id}
-        versions={versions}
-        fields={item.type?.fields ?? []}
-        currentContent={item.content}
-        currentProperties={item.properties}
-      />
+      </details>
 
       {/* No fim da página, depois de tudo: é o último passo natural — terminei a lista, mando pra quem quer acompanhar. */}
       <ShareFooter itemId={item.id} title={item.title} isList={item.type?.slug === "lista"} links={shareLinks} />
+    </div>
+  );
+}
+
+function ToolHint({ text, children }: { text: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {children}
+      <p className="text-xs text-zinc-400 dark:text-zinc-500">{text}</p>
     </div>
   );
 }

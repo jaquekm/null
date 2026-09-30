@@ -35,8 +35,8 @@ function toEventInput(entry: AgendaEntry): EventInput {
 /** `/agenda` (3.6): FullCalendar com as três fontes que já existem (eventos do Google, prazos de itens, lembretes). */
 export function AgendaCalendar({ calendars, timezone }: { calendars: CalendarOption[]; timezone: string }) {
   const calendarRef = useRef<FullCalendar>(null);
-  const sourcesRef = useRef<AgendaSources>({ events: true, items: true, reminders: true });
-  const [sources, setSources] = useState<AgendaSources>({ events: true, items: true, reminders: true });
+  const sourcesRef = useRef<AgendaSources>({ events: true, items: true, reminders: true, routine: true });
+  const [sources, setSources] = useState<AgendaSources>({ events: true, items: true, reminders: true, routine: true });
   const [dialog, setDialog] = useState<DialogState>(null);
 
   function toggleSource(kind: keyof AgendaSources) {
@@ -113,6 +113,10 @@ export function AgendaCalendar({ calendars, timezone }: { calendars: CalendarOpt
         <label className="flex items-center gap-1.5">
           <input type="checkbox" checked={sources.reminders} onChange={() => toggleSource("reminders")} />
           Lembretes
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input type="checkbox" checked={sources.routine ?? true} onChange={() => toggleSource("routine")} />
+          Rotina
         </label>
       </div>
 

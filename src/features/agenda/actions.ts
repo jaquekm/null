@@ -8,6 +8,8 @@ import type { AgendaEntry } from "./lib/agenda-entry";
 import { buildGoogleEventEntries } from "./lib/build-google-event-entries";
 import { buildReminderEntries } from "./lib/build-reminder-entries";
 import { extractItemDateEntries } from "./lib/extract-item-date-entries";
+import { buildRoutineEntries } from "@/features/routine/lib/routine-blocks";
+import { listRoutineBlocks } from "@/features/routine/queries";
 import {
   getPrimaryCalendarId,
   getUserTimezone,
@@ -22,6 +24,8 @@ export interface AgendaSources {
   events: boolean;
   items: boolean;
   reminders: boolean;
+  /** Blocos fixos da Rotina (10.2). Opcional pra quem ainda chama sem ele. */
+  routine?: boolean;
 }
 
 /** Busca unificada pro `/agenda` (3.6) — chamada pelo cliente sempre que a visão/intervalo do calendário muda. */
@@ -46,6 +50,11 @@ export async function fetchAgendaEvents(startIso: string, endIso: string, source
   if (sources.reminders) {
     const reminders = await listRemindersInRange(supabase, user.id, startIso, endIso);
     entries.push(...buildReminderEntries(reminders));
+  }
+
+  if (sources.routine) {
+    const [blocks, timezone] = await Promise.all([listRoutineBlocks(supabase, user.id), getUserTimezone(supabase, user.id)]);
+    entries.push(...buildRoutineEntries(blocks, startIso, endIso, timezone));
   }
 
   return entries;

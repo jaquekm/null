@@ -1,4 +1,4 @@
-export type AgendaSourceKind = "google-event" | "item-date" | "reminder";
+export type AgendaSourceKind = "google-event" | "item-date" | "reminder" | "routine";
 
 /** Cor por fonte (3.6) — eventos do Google usam a cor do próprio calendário; as outras duas fontes têm uma cor fixa, só pra diferenciar visualmente. */
 export const ITEM_DATE_COLOR = "#d97706";

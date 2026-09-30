@@ -164,17 +164,19 @@ export async function getItemVersion(supabase: Client, itemId: string, versionId
 export interface TypeOptionWithFields {
   id: string;
   name: string;
+  /** Pra achar um tipo pelo papel (ex.: "Não é uma lista? Virar nota" procura `nota`). */
+  slug?: string;
   fields: FieldDefinition[];
 }
 
 export async function listObjectTypesForPicker(supabase: Client): Promise<TypeOptionWithFields[]> {
   const { data, error } = await supabase
     .from("object_types")
-    .select("id, name, fields")
+    .select("id, name, slug, fields")
     .is("archived_at", null)
     .order("position", { ascending: true });
   if (error) throw error;
-  return data.map((t) => ({ id: t.id, name: t.name, fields: (t.fields as unknown as FieldDefinition[] | null) ?? [] }));
+  return data.map((t) => ({ id: t.id, name: t.name, slug: t.slug, fields: (t.fields as unknown as FieldDefinition[] | null) ?? [] }));
 }
 
 export interface InboxItemRow {

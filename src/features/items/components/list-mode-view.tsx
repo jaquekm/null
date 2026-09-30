@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { QuickReminder } from "@/features/reminders/components/quick-reminder";
 import { updateItemContent } from "../actions";
 import { toggleChecklistItem } from "../lib/checklist";
+import { hasConvertibleLines, listNoteLines, noteLinesToListItems } from "../lib/list-notes";
 import {
   addItemToSection,
   addSection,
@@ -74,6 +75,7 @@ export function ListModeView({
   onSaved,
   onContentChange,
   timezone,
+  onEditText,
 }: {
   itemId: string;
   style: ListStyle;
@@ -83,6 +85,8 @@ export function ListModeView({
   onContentChange: (content: JSONContent) => void;
   /** Com o fuso, cada linha ganha o sininho "Me lembrar" (9.4). */
   timezone?: string;
+  /** "Editar texto": troca pro editor completo. */
+  onEditText?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +95,7 @@ export function ListModeView({
   const [targetGroup, setTargetGroup] = useState<number | null>(null);
 
   const entries = useMemo(() => listEntries(content), [content]);
+  const notes = useMemo(() => listNoteLines(content, style), [content, style]);
   const sections = useMemo(() => listSections(content), [content]);
 
   function save(nextContent: JSONContent) {
@@ -311,6 +316,49 @@ export function ListModeView({
 
   return (
     <div className="flex flex-col gap-2">
+      {notes.length > 0 && (
+        <section aria-label="Texto da lista" className="flex flex-col gap-2 rounded-2xl border border-black/[.06] bg-surface px-4 py-3 shadow-sm dark:border-white/[.06]">
+          <div className="flex flex-col gap-1 text-[15px] leading-relaxed text-zinc-800 dark:text-zinc-200">
+            {notes.map((line, i) =>
+              line.kind === "heading" ? (
+                <p key={i} className="font-semibold text-black dark:text-zinc-50">
+                  {line.text}
+                </p>
+              ) : (
+                <p key={i} className="break-words">
+                  {line.kind === "bullet" && <span className="mr-1.5 text-zinc-400">•</span>}
+                  {line.text}
+                </p>
+              ),
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 border-t border-black/[.06] pt-2 dark:border-white/[.06]">
+            {onEditText && (
+              <button
+                type="button"
+                onClick={onEditText}
+                className="rounded-lg px-2.5 py-1 text-xs font-medium text-brand-text hover:bg-brand-soft"
+              >
+                Editar texto
+              </button>
+            )}
+            {hasConvertibleLines(content, style) && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (!window.confirm("Cada linha do texto vira um item da lista (com caixinha). Continuar?")) return;
+                  save(noteLinesToListItems(content));
+                }}
+                className="rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-black/[.05] disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/[.08]"
+              >
+                Transformar as linhas em itens da lista
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {body}
 
       {style === "priority" && sections.length > 1 && (
