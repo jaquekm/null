@@ -4,7 +4,7 @@ import type { BacklinkRow } from "../queries";
 export function BacklinksPanel({ backlinks }: { backlinks: BacklinkRow[] }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium text-black dark:text-zinc-50">Backlinks</h2>
+      <h2 className="text-sm font-medium text-black dark:text-zinc-50">Mencionado em</h2>
       {backlinks.length === 0 ? (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           Nenhum item ainda menciona este. Use <code>[[</code> no editor para mencionar.

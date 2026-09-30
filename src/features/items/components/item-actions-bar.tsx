@@ -28,7 +28,7 @@ export function ItemActionsBar({
   pinned: boolean;
   spaceId: string | null;
   typeId: string | null;
-  /** Só pra condicionar "Duplicar como nova" (5.9, pack Listas) ao tipo Lista — mesmo critério de outras ações condicionais por `slug`. */
+  /** Só pra condicionar "Nova cópia desmarcada" (antes "Duplicar como nova") (5.9, pack Listas) ao tipo Lista — mesmo critério de outras ações condicionais por `slug`. */
   typeSlug?: string | null;
   spaces: SidebarSpace[];
   types: TypeOptionWithFields[];
@@ -78,37 +78,31 @@ export function ItemActionsBar({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          aria-label="Espaço"
-          value={spaceId ?? ""}
-          disabled={pending}
-          onChange={(e) => run(() => moveItem(itemId, e.target.value || null))}
-          className={selectClassName}
-        >
-          <option value="">Sem espaço (inbox)</option>
-          {spaces.map((space) => (
-            <option key={space.id} value={space.id}>
-              {space.icon ? `${space.icon} ` : ""}
-              {space.name}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Espaço — onde este item fica</span>
+          <select aria-label="Espaço" value={spaceId ?? ""} disabled={pending} onChange={(e) => run(() => moveItem(itemId, e.target.value || null))} className={selectClassName}>
+            <option value="">Sem espaço (inbox)</option>
+            {spaces.map((space) => (
+              <option key={space.id} value={space.id}>
+                {space.icon ? `${space.icon} ` : ""}
+                {space.name}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <select
-          aria-label="Tipo"
-          value={typeId ?? ""}
-          disabled={pending}
-          onChange={(e) => run(() => changeItemType(itemId, e.target.value || null))}
-          className={selectClassName}
-        >
-          <option value="">Sem tipo</option>
-          {types.map((type) => (
-            <option key={type.id} value={type.id}>
-              {type.name}
-            </option>
-          ))}
-        </select>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Tipo — Nota, Lista, Tarefa…</span>
+          <select aria-label="Tipo" value={typeId ?? ""} disabled={pending} onChange={(e) => run(() => changeItemType(itemId, e.target.value || null))} className={selectClassName}>
+            <option value="">Sem tipo</option>
+            {types.map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -116,6 +110,7 @@ export function ItemActionsBar({
           type="button"
           disabled={pending}
           onClick={() => run(() => togglePin(itemId, !pinned))}
+          title="Fica no topo do espaço"
           className={buttonClassName}
         >
           {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
@@ -126,27 +121,35 @@ export function ItemActionsBar({
           type="button"
           disabled={pending}
           onClick={() => run(() => setItemStatus(itemId, status === "archived" ? "active" : "archived"))}
+          title={status === "archived" ? "Volta a aparecer no espaço" : "Some das listas, mas continua guardado e aparece na busca"}
           className={buttonClassName}
         >
           {status === "archived" ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
           {status === "archived" ? "Restaurar" : "Arquivar"}
         </button>
 
-        <button type="button" disabled={pending} onClick={handleDuplicate} className={buttonClassName}>
+        <button type="button" disabled={pending} onClick={handleDuplicate} title="Cria uma cópia igual, com o mesmo conteúdo" className={buttonClassName}>
           <Copy className="h-4 w-4" />
           Duplicar
         </button>
 
         {typeSlug === "lista" && (
-          <button type="button" disabled={pending} onClick={handleDuplicateAsNewList} className={buttonClassName}>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={handleDuplicateAsNewList}
+            title="Cópia da lista com todos os itens desmarcados — pra lista que se repete, como compras"
+            className={buttonClassName}
+          >
             <ListChecks className="h-4 w-4" />
-            Duplicar como nova
+            Nova cópia desmarcada
           </button>
         )}
 
         <button
           type="button"
           onClick={() => void navigator.clipboard.writeText(window.location.href)}
+          title="Copia o endereço desta página (só abre com o seu login — pra outra pessoa, use Compartilhar)"
           className={buttonClassName}
         >
           <LinkIcon className="h-4 w-4" />

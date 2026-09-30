@@ -80,7 +80,7 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Receitas prontas pra ativar com um toque (ex.: "quando uma conta vencer amanhã, me avisar no WhatsApp").
 - Depende do agendador ligado.
 
-## 9.9 — Celular em primeiro lugar ✅ (em PR)
+## 9.9 — Celular em primeiro lugar ✅
 
 - Captura por voz (transcrição já existe) direto do botão "+".
 - Atalhos do app instalado (PWA shortcuts) pra Capturar, Hoje e Agenda.

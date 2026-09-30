@@ -89,3 +89,33 @@ describe("ListModeView", () => {
     expect(listSections(await saved()).map((s) => s.title)).toEqual(["Saúde", "Família"]);
   });
 });
+
+describe("ListModeView — texto fora da lista", () => {
+  const withText = doc(
+    { type: "paragraph", content: [{ type: "text", text: "Salário PJ de setembro" }] },
+    { type: "paragraph", content: [{ type: "text", text: "Cliente A" }] },
+  );
+
+  it("mostra o texto escrito em vez de sumir com ele", () => {
+    renderList("rating", withText);
+    expect(screen.getByText("Salário PJ de setembro")).toBeTruthy();
+    expect(screen.getByText("Cliente A")).toBeTruthy();
+  });
+
+  it("'Editar texto' leva pro editor; 'Transformar as linhas' vira itens da lista", async () => {
+    const onEditText = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<ListModeView itemId="i1" style="rating" content={withText} updatedAt="t1" onSaved={vi.fn()} onContentChange={vi.fn()} onEditText={onEditText} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar texto" }));
+    expect(onEditText).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Transformar as linhas em itens da lista" }));
+    expect(listEntries(await saved()).map((e) => e.text)).toEqual(["Salário PJ de setembro", "Cliente A"]);
+  });
+
+  it("sem texto solto, não mostra o quadro", () => {
+    renderList("checklist", doc(list(item("Leite"))));
+    expect(screen.queryByRole("region", { name: "Texto da lista" })).toBeNull();
+  });
+});

@@ -1,13 +1,15 @@
 "use client";
 
 import type { JSONContent } from "@tiptap/core";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { HabitTracker } from "@/features/habits/components/habit-tracker";
 import type { HabitLog } from "@/features/habits/lib/habit-log";
 import { expiryOf } from "@/features/documents/lib/expiry";
 import { ItemContentEditor } from "./editor/item-content-editor";
 import { ExpiryField } from "./expiry-field";
-import { listStyleOf } from "../lib/list-styles";
+import { changeItemType } from "../actions";
+import { LIST_STYLE_INFO, listStyleOf } from "../lib/list-styles";
 import { ListModeView } from "./list-mode-view";
 import { ListStylePicker } from "./list-style-picker";
 import type { ItemDetail } from "../queries";
@@ -19,8 +21,11 @@ export function ItemEditor({
   timezone,
   today,
   expirySuggestion = null,
+  noteTypeId = null,
 }: {
   item: ItemDetail;
+  /** Tipo "Nota" da dona — "Não é uma lista? Virar nota" (troca o tipo, o texto fica). */
+  noteTypeId?: string | null;
   timezone?: string;
   /** Hoje (yyyy-MM-dd) no fuso da dona — pra mostrar quanto falta pra vencer. */
   today?: string;
@@ -32,6 +37,8 @@ export function ItemEditor({
   const [listMode, setListMode] = useState(item.type?.slug === "lista");
   const [listStyle, setListStyle] = useState(listStyleOf(item.properties));
   const [expiry, setExpiry] = useState(expiryOf(item.properties));
+  const router = useRouter();
+  const [converting, startConverting] = useTransition();
 
   const isLista = item.type?.slug === "lista";
   const isHabito = item.type?.slug === "habito";
@@ -93,13 +100,52 @@ export function ItemEditor({
       )}
 
       {isLista && (
-        <button
-          type="button"
-          onClick={() => setListMode((value) => !value)}
-          className="self-start rounded-lg border border-black/[.12] px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
-        >
-          {listMode ? "Editor completo" : "Modo lista"}
-        </button>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Mostrar como</span>
+            <div role="radiogroup" aria-label="Mostrar como" className="inline-flex rounded-lg border border-black/[.1] p-0.5 dark:border-white/[.12]">
+              {(
+                [
+                  [true, "Lista"],
+                  [false, "Texto"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="radio"
+                  aria-checked={listMode === value}
+                  onClick={() => setListMode(value)}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                    listMode === value ? "bg-brand text-brand-fg" : "text-zinc-600 hover:bg-black/[.04] dark:text-zinc-300 dark:hover:bg-white/[.06]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {noteTypeId && (
+              <button
+                type="button"
+                disabled={converting}
+                onClick={() =>
+                  startConverting(async () => {
+                    const result = await changeItemType(item.id, noteTypeId);
+                    if (result.ok) router.refresh();
+                  })
+                }
+                className="text-xs text-zinc-500 underline-offset-2 hover:underline disabled:opacity-60 dark:text-zinc-400"
+              >
+                Não é uma lista? Virar nota
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {listMode
+              ? `${LIST_STYLE_INFO[listStyle].description} Seu texto fica em cima da lista.`
+              : "Escreva à vontade. As linhas com caixinha (digite [ ] no começo) viram os itens da lista."}
+          </p>
+        </div>
       )}
 
       {isLista && listMode ? (
@@ -111,6 +157,7 @@ export function ItemEditor({
           onSaved={handleSaved}
           onContentChange={setContent}
           timezone={timezone}
+          onEditText={() => setListMode(false)}
         />
       ) : (
         <ItemContentEditor
