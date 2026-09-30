@@ -62,6 +62,19 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
         </div>
       </header>
 
+      {/* Editar/excluir logo no topo — antes ficava só no fim da página, depois da lista inteira de itens, e a dona não achava. */}
+      <SpaceSettingsForm
+        space={{
+          id: space.id,
+          name: space.name,
+          icon: space.icon,
+          color: space.color,
+          description: space.description,
+          archived_at: space.archived_at,
+        }}
+        otherSpaces={otherSpaces}
+      />
+
       <DocumentsToReviewPanel documents={documentsToReview} />
 
       <SpaceBrowser spaceSlug={space.slug} items={browserItems} initialFilters={initialFilters} />
@@ -76,18 +89,6 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
           <ViewSwitcher key={`${space.id}:${typeId ?? "all"}`} spaceId={space.id} typeId={typeId ?? null} initialViews={views} />
         </div>
       </details>
-
-      <SpaceSettingsForm
-        space={{
-          id: space.id,
-          name: space.name,
-          icon: space.icon,
-          color: space.color,
-          description: space.description,
-          archived_at: space.archived_at,
-        }}
-        otherSpaces={otherSpaces}
-      />
     </div>
   );
 }
