@@ -6,6 +6,7 @@ import { FilterBar } from "@/features/views/components/filter-bar";
 import type { ViewFilter } from "@/features/views/schemas";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { createAutomation, updateAutomation } from "../actions";
+import { describeAutomation } from "../lib/describe-automation";
 import type { AutomationInput, AutomationAction, AutomationTrigger } from "../schemas";
 import type { TypeWithFields } from "../queries";
 import { ActionFields } from "./action-fields";
@@ -28,10 +29,17 @@ interface Props {
   };
   spaces: SidebarSpace[];
   types: TypeWithFields[];
+  /** Fuso da dona — o "toda sexta às 17h" do gatilho de horário é nele (9.8). */
+  timezone?: string;
+  /** WhatsApp da dona cadastrado (9.8). */
+  whatsappAvailable?: boolean;
 }
 
-/** Editor "Quando [gatilho] Se [condições] Então [ações]" (5.3). */
-export function AutomationEditorForm({ automationId, initial, spaces, types }: Props) {
+/**
+ * Editor "Quando [gatilho] Se [condições] Então [ações]" (5.3), com as opções
+ * em português de uso e a automação inteira lida como frase, ao vivo (9.8).
+ */
+export function AutomationEditorForm({ automationId, initial, spaces, types, timezone = "America/Sao_Paulo", whatsappAvailable = false }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +55,10 @@ export function AutomationEditorForm({ automationId, initial, spaces, types }: P
 
   const selectedType = types.find((type) => type.id === typeId);
   const fields = selectedType?.fields ?? [];
+  const sentence = describeAutomation(
+    { trigger, conditions, actions },
+    { typeName: selectedType?.name ?? null, spaceName: spaces.find((space) => space.id === spaceId)?.name ?? null, fields, spaces },
+  );
 
   function updateAction(index: number, action: AutomationAction) {
     setActions((prev) => prev.map((a, i) => (i === index ? action : a)));
@@ -60,8 +72,13 @@ export function AutomationEditorForm({ automationId, initial, spaces, types }: P
 
   function handleSubmit() {
     setError(null);
+    if (trigger.type === "schedule" && !trigger.rrule.trim()) {
+      setError("Escreva quando repete — ex.: toda sexta às 17h.");
+      return;
+    }
     const input: AutomationInput = {
-      name,
+      // Sem nome, a própria frase vira o nome.
+      name: name.trim() || sentence.replace(/\.$/, "").slice(0, 120),
       description: description || undefined,
       enabled,
       spaceId: spaceId || null,
@@ -93,8 +110,19 @@ export function AutomationEditorForm({ automationId, initial, spaces, types }: P
 
   return (
     <div className="flex flex-col gap-5">
+      <div aria-live="polite" className="rounded-2xl border border-brand/30 bg-brand-soft px-4 py-3">
+        <p className="text-brand-text text-xs font-semibold tracking-wide uppercase">Em uma frase</p>
+        <p className="mt-1 text-[15px] leading-snug text-black dark:text-zinc-50">{sentence}</p>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        <input placeholder="Nome da automação" value={name} onChange={(event) => setName(event.target.value)} className={`${inputClassName} min-w-0 flex-1`} />
+        <input
+          aria-label="Nome da automação"
+          placeholder="Nome (opcional — sem nome, vale a frase)"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className={`${inputClassName} min-w-0 flex-1`}
+        />
         <label className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
           <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
           Ativa
@@ -107,41 +135,55 @@ export function AutomationEditorForm({ automationId, initial, spaces, types }: P
         className={`${inputClassName} min-h-14`}
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
-        <span>Aplica-se ao tipo</span>
-        <select value={typeId} onChange={(event) => setTypeId(event.target.value)} className={inputClassName}>
-          <option value="">Qualquer tipo</option>
-          {types.map((type) => (
-            <option key={type.id} value={type.id}>
-              {type.name}
-            </option>
-          ))}
-        </select>
-        <span>no espaço</span>
-        <select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} className={inputClassName}>
-          <option value="">Qualquer espaço</option>
-          {spaces.map((space) => (
-            <option key={space.id} value={space.id}>
-              {space.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <TriggerFields trigger={trigger} fields={fields} timezone={timezone} onChange={setTrigger} />
 
-      <TriggerFields trigger={trigger} fields={fields} onChange={setTrigger} />
+      {/* Horário que se repete não depende de item — tipo, espaço e condições não se aplicam. */}
+      {trigger.type !== "schedule" && (
+        <>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
+          <span>Só itens do tipo</span>
+          <select value={typeId} onChange={(event) => setTypeId(event.target.value)} className={inputClassName}>
+            <option value="">Qualquer tipo</option>
+            {types.map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+          <span>em</span>
+          <select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} className={inputClassName}>
+            <option value="">Qualquer espaço</option>
+            {spaces.map((space) => (
+              <option key={space.id} value={space.id}>
+                {space.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-black dark:text-zinc-50">Se (opcional)</span>
-        <FilterBar filters={conditions} fields={fields} onChange={setConditions} />
-      </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-black dark:text-zinc-50">Só se (opcional)</span>
+          <FilterBar filters={conditions} fields={fields} onChange={setConditions} />
+        </div>
+        </>
+      )}
 
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-black dark:text-zinc-50">Então</span>
         {actions.map((action, index) => (
-          <ActionFields key={index} action={action} fields={fields} types={types} spaces={spaces} onChange={(next) => updateAction(index, next)} onRemove={() => removeAction(index)} />
+          <ActionFields
+            key={index}
+            action={action}
+            fields={fields}
+            types={types}
+            spaces={spaces}
+            whatsappAvailable={whatsappAvailable}
+            onChange={(next) => updateAction(index, next)}
+            onRemove={() => removeAction(index)}
+          />
         ))}
         <button type="button" onClick={addAction} className="self-start text-sm text-zinc-500 underline dark:text-zinc-400">
-          Adicionar ação
+          E também…
         </button>
       </div>
 

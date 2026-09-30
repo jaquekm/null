@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getOwnerWhatsapp } from "@/features/settings/queries";
 import { serverEnv } from "@/lib/env";
 import { getMessageChannel, type MessageChannelKind } from "@/lib/messaging";
 import type { Database, Tables } from "@/lib/supabase/database.types";
@@ -38,8 +39,9 @@ function resolveChannel(reminder: ReminderRow, isThirdParty: boolean, contact: R
   return "push"; // "auto" pra "eu" usa push (3.9) — o dono não tem `preferred_channel` como os contatos.
 }
 
-function resolveDestination(channel: string, isThirdParty: boolean, contact: RecipientContact | null, ownerId: string): string | null {
-  if (channel === "whatsapp") return isThirdParty ? (contact?.phone_e164 ?? null) : null;
+function resolveDestination(channel: string, isThirdParty: boolean, contact: RecipientContact | null, ownerId: string, ownerWhatsapp: string | null): string | null {
+  // WhatsApp "pra mim" (9.8) vai pro número salvo em Notificações; sem número, fica sem destino (pulado).
+  if (channel === "whatsapp") return isThirdParty ? (contact?.phone_e164 ?? null) : ownerWhatsapp;
   if (channel === "email") return isThirdParty ? (contact?.email ?? null) : serverEnv.OWNER_EMAIL;
   if (channel === "push") return isThirdParty ? null : ownerId; // push é só pro dono (3.9)
   return null;
@@ -142,9 +144,11 @@ export async function dispatchReminderOccurrence(
     Object.entries((reminder.variables ?? {}) as Record<string, unknown>).map(([key, value]) => [key, String(value)]),
   );
 
+  let ownerWhatsapp: string | null | undefined;
   for (const recipient of recipients) {
     const channel = resolveChannel(reminder, isThirdParty, recipient.contact);
-    const destination = resolveDestination(channel, isThirdParty, recipient.contact, ownerId);
+    if (!isThirdParty && channel === "whatsapp" && ownerWhatsapp === undefined) ownerWhatsapp = await getOwnerWhatsapp(supabase, ownerId);
+    const destination = resolveDestination(channel, isThirdParty, recipient.contact, ownerId, ownerWhatsapp ?? null);
     const channelOptIn = resolveChannelOptIn(channel, isThirdParty, recipient.contact);
     const deliveriesLast24h =
       isThirdParty && recipient.contactId ? await countDeliveriesLast24h(supabase, ownerId, recipient.contactId, occurrenceAt) : 0;

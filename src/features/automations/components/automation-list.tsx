@@ -6,17 +6,7 @@ import { useState, useTransition } from "react";
 import { deleteAutomation, toggleAutomation } from "../actions";
 import type { AutomationListRow } from "../queries";
 
-const TRIGGER_LABELS: Record<string, string> = {
-  item_created: "Item criado",
-  property_changed: "Propriedade mudou",
-  status_changed: "Status mudou",
-  date_reached: "Data chegou",
-  no_activity: "Sem atividade",
-  schedule: "Horário recorrente",
-  tag_added: "Tag adicionada",
-};
-
-/** Lista de `/configuracoes/automacoes` (5.3): ativar/desativar, última execução, contagem. */
+/** Lista de `/configuracoes/automacoes` (5.3): ativar/desativar, última execução, contagem — cada automação como frase (9.8). */
 export function AutomationList({ automations }: { automations: AutomationListRow[] }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -42,7 +32,7 @@ export function AutomationList({ automations }: { automations: AutomationListRow
   }
 
   if (automations.length === 0) {
-    return <p className="text-sm text-zinc-500 dark:text-zinc-400">Nenhuma automação ainda.</p>;
+    return <p className="text-sm text-zinc-500 dark:text-zinc-400">Nenhuma automação sua ainda — comece por uma receita acima ou crie a sua.</p>;
   }
 
   return (
@@ -51,14 +41,12 @@ export function AutomationList({ automations }: { automations: AutomationListRow
         <li key={automation.id} className="flex flex-col gap-2 rounded-lg border border-black/[.08] p-4 dark:border-white/[.08]">
           <div className="flex items-start justify-between gap-3">
             <Link href={`/configuracoes/automacoes/${automation.id}`} className="min-w-0 flex-1">
-              <p className="font-medium text-black dark:text-zinc-50">{automation.name}</p>
-              {automation.description && <p className="text-sm text-zinc-500 dark:text-zinc-400">{automation.description}</p>}
+              <p className="leading-snug text-black dark:text-zinc-50">{automation.sentence}</p>
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                {TRIGGER_LABELS[automation.triggerType] ?? automation.triggerType}
-                {automation.typeName && ` · ${automation.typeName}`}
-                {automation.spaceName && ` · ${automation.spaceName}`}
+                {automation.name}
                 {automation.packKey && ` · pack: ${automation.packKey}`}
               </p>
+              {automation.description && <p className="text-xs text-zinc-500 dark:text-zinc-400">{automation.description}</p>}
             </Link>
             <div className="flex shrink-0 items-center gap-2">
               <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">

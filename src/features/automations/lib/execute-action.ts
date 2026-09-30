@@ -202,6 +202,26 @@ export async function executeAction(action: AutomationAction, ctx: ExecuteAction
       const templateContext = ctx.item ? { title: ctx.item.title, properties: ctx.item.properties } : undefined;
       const title = resolveTemplateValue(action.title, { today: new Date(), item: templateContext }) as string;
       const body = resolveTemplateValue(action.body, { today: new Date(), item: templateContext }) as string;
+      if (action.channel === "whatsapp") {
+        // WhatsApp da dona (9.8) vai pela fila de lembretes: `dispatch_reminders` resolve o número
+        // salvo em Notificações e registra a entrega (status do N8N volta pelo webhook).
+        const { error } = await supabase.from("reminders").insert({
+          owner_id: ownerId,
+          title,
+          message_template: `${title}\n${body}`,
+          channel: "whatsapp",
+          recipient_type: "me",
+          contact_ids: [],
+          send_at: new Date().toISOString(),
+          timezone: await getUserTimezone(supabase, ownerId),
+          source_type: "automation",
+          source_id: ctx.automationId,
+          item_id: ctx.item?.id ?? null,
+          variables: {} as unknown as Json,
+        });
+        if (error) return fail(error.message);
+        return ok({ channel: "whatsapp" });
+      }
       await notifyOwner(ownerId, { title, text: body });
       return ok();
     }

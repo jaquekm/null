@@ -49,6 +49,6 @@ describe("eventAlertState", () => {
 
   it("canal automático ou WhatsApp vira notificação (a dona não tem WhatsApp cadastrado)", () => {
     expect(eventAlertState([rule({ channel: "auto" })]).channel).toBe("push");
-    expect(eventAlertState([rule({ channel: "whatsapp" })]).channel).toBe("push");
+    expect(eventAlertState([rule({ channel: "whatsapp" })]).channel).toBe("whatsapp");
   });
 });

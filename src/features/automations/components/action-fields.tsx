@@ -4,19 +4,21 @@ import { X } from "lucide-react";
 import type { FieldDefinition } from "@/features/types/schemas";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { automationActionTypes, type AutomationAction } from "../schemas";
+import { DurationInput } from "./duration-input";
 
+/** Opções do "…fazer isto" no português de uso (9.8). */
 const ACTION_LABELS: Record<(typeof automationActionTypes)[number], string> = {
-  set_property: "Definir propriedade",
-  add_tag: "Adicionar tag",
-  remove_tag: "Remover tag",
-  move_to_space: "Mover de espaço",
-  create_item: "Criar item",
-  create_checklist: "Adicionar checklist",
-  create_reminder: "Criar lembrete",
-  notify_me: "Notificar você",
-  create_bill: "Criar conta",
-  create_review_cards: "Criar flashcards de revisão",
-  call_webhook: "Chamar webhook",
+  notify_me: "me avisar",
+  create_reminder: "criar um lembrete",
+  add_tag: "adicionar uma tag",
+  remove_tag: "tirar uma tag",
+  set_property: "mudar um campo",
+  move_to_space: "mover pra outro espaço",
+  create_item: "criar outro item",
+  create_checklist: "adicionar uma checklist",
+  create_bill: "criar uma conta a pagar ou receber",
+  create_review_cards: "criar flashcards de revisão",
+  call_webhook: "chamar um webhook (avançado)",
 };
 
 const inputClassName =
@@ -54,17 +56,24 @@ interface Props {
   fields: FieldDefinition[];
   types: { id: string; name: string }[];
   spaces: SidebarSpace[];
+  /** WhatsApp da dona cadastrado (9.8) — sem ele, "no WhatsApp" fica desabilitado. */
+  whatsappAvailable?: boolean;
   onChange: (action: AutomationAction) => void;
   onRemove: () => void;
 }
 
 /** Uma linha de "Então [ação]" (5.3) — campos específicos variam por tipo de ação. */
-export function ActionFields({ action, fields, types, spaces, onChange, onRemove }: Props) {
+export function ActionFields({ action, fields, types, spaces, whatsappAvailable = false, onChange, onRemove }: Props) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] p-3 dark:border-white/[.08]">
       <div className="flex items-center justify-between gap-2">
-        <select value={action.type} onChange={(event) => onChange(defaultAction(event.target.value as (typeof automationActionTypes)[number]))} className={inputClassName}>
-          {automationActionTypes.map((type) => (
+        <select
+          aria-label="O que fazer"
+          value={action.type}
+          onChange={(event) => onChange(defaultAction(event.target.value as (typeof automationActionTypes)[number]))}
+          className={inputClassName}
+        >
+          {(Object.keys(ACTION_LABELS) as (typeof automationActionTypes)[number][]).map((type) => (
             <option key={type} value={type}>
               {ACTION_LABELS[type]}
             </option>
@@ -190,13 +199,8 @@ export function ActionFields({ action, fields, types, spaces, onChange, onRemove
               ))}
             </select>
           )}
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">daqui (min)</span>
-          <input
-            type="number"
-            value={action.offsetMinutes}
-            onChange={(event) => onChange({ ...action, offsetMinutes: Number(event.target.value) })}
-            className={`${inputClassName} w-20`}
-          />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">daqui a</span>
+          <DurationInput minutes={action.offsetMinutes} onChange={(offsetMinutes) => onChange({ ...action, offsetMinutes })} />
           <input
             placeholder="Mensagem"
             value={action.message}
@@ -208,8 +212,50 @@ export function ActionFields({ action, fields, types, spaces, onChange, onRemove
 
       {action.type === "notify_me" && (
         <div className="flex flex-col gap-1.5">
-          <input placeholder="Título" value={action.title} onChange={(event) => onChange({ ...action, title: event.target.value })} className={inputClassName} />
-          <input placeholder="Corpo" value={action.body} onChange={(event) => onChange({ ...action, body: event.target.value })} className={inputClassName} />
+          <div role="radiogroup" aria-label="Por onde avisar" className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ["push", "por notificação"],
+                ["whatsapp", "no WhatsApp"],
+              ] as const
+            ).map(([value, label]) => {
+              const selected = (action.channel ?? "push") === value;
+              const blocked = value === "whatsapp" && !whatsappAvailable && !selected;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={blocked}
+                  title={blocked ? "Cadastre seu WhatsApp em Configurações → Notificações" : undefined}
+                  onClick={() => {
+                    const { channel: _previous, ...rest } = action;
+                    onChange(value === "whatsapp" ? { ...rest, channel: "whatsapp" } : rest);
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
+                    selected ? "border-brand bg-brand text-brand-fg" : "border-black/[.1] text-zinc-600 dark:border-white/[.12] dark:text-zinc-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            aria-label="Título do aviso"
+            placeholder="Título do aviso — ex.: 🔥 Urgente"
+            value={action.title}
+            onChange={(event) => onChange({ ...action, title: event.target.value })}
+            className={inputClassName}
+          />
+          <input
+            aria-label="Texto do aviso"
+            placeholder="Texto — {{title}} vira o nome do item"
+            value={action.body}
+            onChange={(event) => onChange({ ...action, body: event.target.value })}
+            className={inputClassName}
+          />
         </div>
       )}
 

@@ -2,16 +2,16 @@
  * "Me avisar antes de cada evento" (9.4): um controle simples na Agenda em
  * cima da regra automática que já existe (`reminder_rules.kind='event_before'`
  * com `recipient_type='me'`, 3.10) — escolher o quanto antes e o canal cria,
- * ajusta ou desliga essa regra. Lembrete pra dona só sai por notificação
- * (push) ou e-mail: o sistema ainda não guarda o WhatsApp dela.
+ * ajusta ou desliga essa regra. WhatsApp (9.8) usa o número salvo em
+ * Notificações.
  */
 export const EVENT_ALERT_MINUTES = [10, 30, 60, 120, 1440] as const;
 export type EventAlertMinutes = (typeof EVENT_ALERT_MINUTES)[number];
 
-export const EVENT_ALERT_CHANNELS = ["push", "email"] as const;
+export const EVENT_ALERT_CHANNELS = ["push", "whatsapp", "email"] as const;
 export type EventAlertChannel = (typeof EVENT_ALERT_CHANNELS)[number];
 
-export const EVENT_ALERT_CHANNEL_LABELS: Record<EventAlertChannel, string> = { push: "notificação", email: "e-mail" };
+export const EVENT_ALERT_CHANNEL_LABELS: Record<EventAlertChannel, string> = { push: "notificação", whatsapp: "WhatsApp", email: "e-mail" };
 
 export const EVENT_ALERT_RULE_NAME = "Aviso antes dos eventos";
 export const EVENT_ALERT_MESSAGE = "⏰ {{titulo}} começa às {{hora}}\n{{link}}";
@@ -47,6 +47,6 @@ export function eventAlertState(rules: EventAlertRuleRow[]): EventAlertState {
   if (!rule) return { ruleId: null, minutesBefore: null, channel: "push" };
   const config = (rule.config ?? {}) as { minutesBefore?: unknown };
   const minutes = typeof config.minutesBefore === "number" && config.minutesBefore > 0 ? config.minutesBefore : 30; // padrão da regra (3.10)
-  const channel: EventAlertChannel = rule.channel === "email" ? "email" : "push";
+  const channel: EventAlertChannel = rule.channel === "email" || rule.channel === "whatsapp" ? rule.channel : "push";
   return { ruleId: rule.id, minutesBefore: rule.enabled ? minutes : null, channel };
 }

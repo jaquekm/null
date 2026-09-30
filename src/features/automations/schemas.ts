@@ -58,7 +58,13 @@ export const automationActionSchema = z.discriminatedUnion("type", [
     offsetMinutes: z.number().default(0),
     message: z.string().min(1),
   }),
-  z.object({ type: z.literal("notify_me"), title: z.string().min(1), body: z.string().min(1) }),
+  z.object({
+    type: z.literal("notify_me"),
+    title: z.string().min(1),
+    body: z.string().min(1),
+    // 9.8: "me avisar no WhatsApp" — sem o campo (automações antigas) é notificação.
+    channel: z.enum(["push", "whatsapp"]).optional(),
+  }),
   z.object({
     type: z.literal("create_bill"),
     direction: z.enum(["payable", "receivable"]),

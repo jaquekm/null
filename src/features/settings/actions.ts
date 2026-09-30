@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { normalizePhoneToE164 } from "@/features/contacts/lib/normalize-phone";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
@@ -73,4 +75,29 @@ export async function setOwnerNotificationPreferences(preferences: OwnerNotifica
 
   revalidatePath("/configuracoes/notificacoes");
   return ok(null);
+}
+
+/**
+ * "Seu WhatsApp" (9.8, `/configuracoes/notificacoes`) — número da própria dona pra
+ * receber lembretes e avisos de automações no WhatsApp. Vazio apaga.
+ */
+export async function setOwnerWhatsapp(raw: string): Promise<Result<{ phone: string | null }>> {
+  const parsed = z.string().max(40).safeParse(raw);
+  if (!parsed.success) return fail("Número inválido.");
+  const phone = parsed.data.trim() ? normalizePhoneToE164(parsed.data) : null;
+  if (parsed.data.trim() && !phone) return fail("Número inválido. Use DDD + número, ex.: (11) 98888-7777.");
+
+  const { supabase, user } = await requireOwner();
+  const { data: current } = await supabase.from("user_settings").select("preferences").eq("owner_id", user.id).maybeSingle();
+  const updated = { ...((current?.preferences as Record<string, unknown> | null) ?? {}), ownerWhatsapp: phone };
+
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ owner_id: user.id, preferences: updated as unknown as Json }, { onConflict: "owner_id" });
+  if (error) return fail("Não foi possível salvar.");
+
+  revalidatePath("/configuracoes/notificacoes");
+  revalidatePath("/configuracoes/automacoes");
+  revalidatePath("/agenda");
+  return ok({ phone });
 }

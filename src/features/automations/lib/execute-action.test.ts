@@ -164,6 +164,20 @@ describe("executeAction", () => {
     expect(notifyOwner).toHaveBeenCalledWith(OWNER_ID, { title: "Oi Oportunidade X", text: "corpo" });
   });
 
+  it("notify_me no WhatsApp entra na fila de lembretes pra dona, sem push", async () => {
+    const fake = new FakeSupabase();
+    const result = await executeAction({ type: "notify_me", title: "🔥 Urgente", body: "{{title}}", channel: "whatsapp" }, baseCtx(fake));
+    expect(result.ok).toBe(true);
+    expect(notifyOwner).not.toHaveBeenCalled();
+    expect(fake.rowsOf("reminders")[0]).toMatchObject({
+      channel: "whatsapp",
+      recipient_type: "me",
+      message_template: "🔥 Urgente\nOportunidade X",
+      source_type: "automation",
+      item_id: "item-1",
+    });
+  });
+
   it("create_bill usa o campo de valor e cria conta a receber vinculada ao item", async () => {
     const fake = new FakeSupabase();
     const result = await executeAction(
