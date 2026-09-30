@@ -7,7 +7,14 @@ import type { FieldDefinition } from "@/features/types/schemas";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
-import { getTypeFields, queryViewItems, type ViewItemRow } from "./queries";
+import type { ColumnSummary } from "./lib/column-totals";
+import { getUserTimezone } from "@/features/reminders/queries";
+import { buildPropertiesSchema } from "@/features/types/schemas";
+import { wallClockToIso } from "@/lib/dates";
+import { buildXlsx } from "@/lib/xlsx/write";
+import { buildExportSheet, exportableFields } from "./lib/sheet-export";
+import { MAX_IMPORT_ROWS } from "./lib/sheet-import";
+import { getTypeFields, listViewRowsForExport, queryViewItems, type ViewItemRow } from "./queries";
 import { viewConfigSchema, viewKinds, type ViewConfig, type ViewFilter, type ViewKind, type ViewSort } from "./schemas";
 
 const GENERIC_ERROR = "Não foi possível salvar a visão. Tente de novo.";
@@ -19,12 +26,16 @@ export interface GetViewItemsParams {
   sort: ViewSort[];
   page: number;
   pageSize?: number;
+  /** Tabela (9.6): trazer a linha de totais. */
+  withTotals?: boolean;
 }
 
 export interface GetViewItemsResult {
   fields: FieldDefinition[];
   rows: ViewItemRow[];
   total: number;
+  totals?: Record<string, ColumnSummary>;
+  totalsPartial?: boolean;
   /** Filtro que o banco recusou — a visão mostra o aviso em vez de derrubar a página inteira. */
   error?: string;
 }
@@ -38,8 +49,8 @@ export async function getViewItems(params: GetViewItemsParams): Promise<GetViewI
   const { supabase } = await requireOwner();
   const fields = params.typeId ? await getTypeFields(supabase, params.typeId) : [];
   try {
-    const { rows, total } = await queryViewItems(supabase, { ...params, fields });
-    return { fields, rows, total };
+    const { rows, total, totals, totalsPartial } = await queryViewItems(supabase, { ...params, fields });
+    return { fields, rows, total, totals, totalsPartial };
   } catch {
     return { fields, rows: [], total: 0, error: "Não foi possível aplicar esses filtros. Revise ou remova o último filtro." };
   }
@@ -234,4 +245,105 @@ export async function updateViewConfig(viewId: string, config: ViewConfig): Prom
   if (error) return fail(GENERIC_ERROR);
 
   return ok(null);
+}
+
+const exportSchema = z.object({
+  spaceId: z.string().uuid().nullable().optional(),
+  typeId: z.string().uuid().nullable().optional(),
+  filters: z.array(z.object({ field: z.string(), op: z.string(), value: z.unknown().optional() })).max(50),
+  sort: z.array(z.object({ field: z.string(), dir: z.enum(["asc", "desc"]) })).max(10),
+  visibleFields: z.array(z.string()).max(200).optional(),
+  name: z.string().trim().max(120),
+});
+
+/**
+ * "Baixar Excel" da Tabela (9.6): o mesmo filtro e ordem da tela, até
+ * `EXPORT_ROW_LIMIT` linhas, com título + colunas visíveis. Volta o arquivo
+ * em base64 pro navegador salvar (é pequeno — só título e propriedades).
+ */
+export async function exportViewSpreadsheet(input: z.input<typeof exportSchema>): Promise<Result<{ base64: string; fileName: string; truncated: boolean }>> {
+  const parsed = exportSchema.safeParse(input);
+  if (!parsed.success) return fail("Não foi possível exportar esta visão.");
+
+  const { supabase, user } = await requireOwner();
+  const fields = parsed.data.typeId ? await getTypeFields(supabase, parsed.data.typeId) : [];
+  try {
+    const { rows, truncated } = await listViewRowsForExport(supabase, {
+      spaceId: parsed.data.spaceId ?? null,
+      typeId: parsed.data.typeId ?? null,
+      filters: parsed.data.filters as ViewFilter[],
+      sort: parsed.data.sort,
+      fields,
+    });
+    const timezone = await getUserTimezone(supabase, user.id);
+    const columns = exportableFields(fields, parsed.data.visibleFields);
+    const bytes = await buildXlsx(buildExportSheet(parsed.data.name || "Planilha", rows, columns, timezone));
+    const base = (parsed.data.name || "planilha").replace(/[\\/:*?"<>|]+/g, " ").trim() || "planilha";
+    return ok({ base64: Buffer.from(bytes).toString("base64"), fileName: `${base}.xlsx`, truncated });
+  } catch {
+    return fail("Não foi possível exportar esta visão. Tente de novo.");
+  }
+}
+
+const importSchema = z.object({
+  spaceId: z.string().uuid(),
+  typeId: z.string().uuid(),
+  rows: z
+    .array(z.object({ title: z.string().trim().min(1).max(500), properties: z.record(z.string(), z.unknown()) }))
+    .min(1, "A planilha não tem linhas pra importar.")
+    .max(MAX_IMPORT_ROWS, `No máximo ${MAX_IMPORT_ROWS} linhas por vez.`),
+});
+
+/**
+ * "Importar planilha" na Tabela (9.6): cria um item por linha, no espaço e
+ * tipo da visão. O navegador já leu o arquivo e casou as colunas
+ * (`planSheetImport`); aqui cada valor é validado de novo pelo schema do
+ * campo — o que não passar fica de fora (a linha entra do mesmo jeito).
+ */
+export async function importSpreadsheetRows(input: z.input<typeof importSchema>): Promise<Result<{ created: number; droppedValues: number }>> {
+  const parsed = importSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Planilha inválida.");
+
+  const { supabase, user } = await requireOwner();
+  const fields = await getTypeFields(supabase, parsed.data.typeId);
+  if (fields.length === 0) return fail("Tipo não encontrado.");
+  const timezone = await getUserTimezone(supabase, user.id);
+  const schemaByKey = new Map(fields.filter((field) => field.type !== "rollup" && field.type !== "formula").map((field) => [field.key, buildPropertiesSchema([{ ...field, required: false }])]));
+  const datetimeKeys = new Set(fields.filter((field) => field.type === "datetime").map((field) => field.key));
+
+  let droppedValues = 0;
+  const records = parsed.data.rows.map((row) => {
+    const properties: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(row.properties)) {
+      const schema = schemaByKey.get(key);
+      if (!schema) {
+        droppedValues += 1;
+        continue;
+      }
+      const value = datetimeKeys.has(key) && typeof raw === "string" ? wallClockToIso(raw, timezone) : raw;
+      const check = schema.safeParse({ [key]: value });
+      if (check.success) properties[key] = value;
+      else droppedValues += 1;
+    }
+    return {
+      owner_id: user.id,
+      space_id: parsed.data.spaceId,
+      type_id: parsed.data.typeId,
+      title: row.title,
+      status: "active",
+      properties: properties as unknown as Json,
+    };
+  });
+
+  let created = 0;
+  for (let i = 0; i < records.length; i += 500) {
+    const { error } = await supabase.from("items").insert(records.slice(i, i + 500));
+    if (error) {
+      if (created > 0) revalidatePath("/espacos");
+      return fail(created > 0 ? `Importei ${created} linhas, mas o resto falhou. Tente de novo com o que faltou.` : "Não foi possível importar a planilha.");
+    }
+    created += Math.min(500, records.length - i);
+  }
+  revalidatePath("/espacos");
+  return ok({ created, droppedValues });
 }

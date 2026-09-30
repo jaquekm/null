@@ -32,6 +32,14 @@ export function formatPropertyValue(value: unknown, field: FieldDefinition): str
     case "rollup":
       return field.rollupOp === "percent" ? `${value}%` : String(value);
 
+    case "formula": {
+      const number = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(number)) return "—";
+      if (field.formulaFormat === "money") return (number / 100).toLocaleString("pt-BR", { style: "currency", currency: field.currency ?? "BRL" });
+      if (field.formulaFormat === "percent") return `${number.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+      return number.toLocaleString("pt-BR", { maximumFractionDigits: 4 });
+    }
+
     case "date": {
       const [year, month, day] = String(value).split("-");
       return year && month && day ? `${day}/${month}/${year}` : String(value);

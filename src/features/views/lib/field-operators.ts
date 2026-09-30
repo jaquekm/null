@@ -29,6 +29,7 @@ export function operatorsForFieldType(type: FieldType): FilterOperator[] {
     case "file":
       return ["any_of", "empty", "not_empty"];
     case "rollup":
+    case "formula":
       // Computado em runtime, não é uma coluna de banco — não dá pra filtrar/ordenar no servidor (5.8).
       return [];
     default: {

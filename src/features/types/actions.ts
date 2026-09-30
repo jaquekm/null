@@ -7,6 +7,7 @@ import { fail, ok, type Result } from "@/lib/result";
 import { slugify } from "@/lib/slugify";
 import type { Json } from "@/lib/supabase/database.types";
 import { canChangeFieldType } from "./lib/field-compat";
+import { FORMULA_FORMATS, validateFormula } from "./lib/formula";
 import { uniqueFieldKey } from "./lib/field-key";
 import { objectTypeInputSchema } from "./object-type-schemas";
 import { fieldDefinitionSchema, fieldTypes, type FieldDefinition, type SelectOption } from "./schemas";
@@ -151,6 +152,8 @@ const fieldFormSchema = z.object({
   min: z.coerce.number().optional(),
   max: z.coerce.number().optional(),
   showInCard: z.boolean(),
+  formula: z.string().trim().max(300, "Fórmula muito longa.").optional(),
+  formulaFormat: z.enum(FORMULA_FORMATS).optional(),
 });
 
 function readFieldForm(formData: FormData) {
@@ -166,7 +169,18 @@ function readFieldForm(formData: FormData) {
     min: formData.get("min") || undefined,
     max: formData.get("max") || undefined,
     showInCard: formData.get("showInCard") === "on",
+    formula: formData.get("formula") || undefined,
+    formulaFormat: formData.get("formulaFormat") || undefined,
   };
+}
+
+/** Campo "Fórmula" (9.6): a conta tem que fechar com os campos do tipo — erro em português se não. */
+function formulaConfig(form: z.infer<typeof fieldFormSchema>, fields: FieldDefinition[], key: string): Result<Pick<FieldDefinition, "formula" | "formulaFormat">> {
+  if (form.type !== "formula") return ok({});
+  if (!form.formula) return fail("Escreva a fórmula (ex.: quantidade × preço).");
+  const error = validateFormula(form.formula, fields, key);
+  if (error) return fail(error);
+  return ok({ formula: form.formula, formulaFormat: form.formulaFormat ?? "number" });
 }
 
 function parseOptions(optionsJson: string | undefined): SelectOption[] | undefined {
@@ -201,7 +215,11 @@ export async function addField(typeId: string, _prevState: Result<null>, formDat
     existingFields.map((f) => f.key),
   );
 
+  const formula = formulaConfig(parsedForm.data, existingFields, key);
+  if (!formula.ok) return formula;
+
   const candidate = fieldDefinitionSchema.safeParse({
+    ...formula.data,
     key,
     label: parsedForm.data.label,
     type: parsedForm.data.type,
@@ -252,7 +270,11 @@ export async function updateField(
     );
   }
 
+  const formula = formulaConfig(parsedForm.data, existingFields, fieldKey);
+  if (!formula.ok) return formula;
+
   const candidate = fieldDefinitionSchema.safeParse({
+    ...formula.data,
     key: fieldKey,
     label: parsedForm.data.label,
     type: parsedForm.data.type,

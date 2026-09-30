@@ -15,6 +15,7 @@ import {
 } from "@/features/documents/lib/expiry";
 import { requireOwner } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
+import { parseBRL } from "@/lib/money";
 import { wallClockToIso } from "@/lib/dates";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Json } from "@/lib/supabase/database.types";
@@ -88,16 +89,25 @@ export async function updateItemTitle(
   return ok({ updatedAt: data.updated_at });
 }
 
+const INVALID_MONEY = Symbol("invalid-money");
+
 function parseRawFieldValue(field: FieldDefinition, raw: FormDataEntryValue | null, timezone: string): unknown {
   switch (field.type) {
     case "datetime":
       return typeof raw === "string" && raw !== "" ? wallClockToIso(raw, timezone) : undefined;
     case "checkbox":
       return raw === "on" || raw === "true";
+    case "money":
+      // Em reais, como se digita ("1.234,56", "R$ 25,90") → centavos inteiros.
+      if (raw === null || raw === "") return undefined;
+      try {
+        return parseBRL(String(raw));
+      } catch {
+        return INVALID_MONEY;
+      }
     case "number":
     case "percent":
     case "rating":
-    case "money":
     case "duration":
       if (raw === null || raw === "") return undefined;
       return Number(raw);
@@ -139,6 +149,7 @@ export async function updateItemProperty(
   if (!field) return fail("Campo não encontrado neste tipo.");
 
   const rawValue = parseRawFieldValue(field, formData.get("value"), await getUserTimezone(supabase, user.id));
+  if (rawValue === INVALID_MONEY) return fail("Valor inválido — escreva em reais, ex.: 25,90.");
   const schema = buildPropertiesSchema([field]);
   const parsed = schema.safeParse({ [fieldKey]: rawValue });
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? GENERIC_ERROR);

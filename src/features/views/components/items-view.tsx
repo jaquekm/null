@@ -12,7 +12,9 @@ import { FilterBar } from "./filter-bar";
 import { GalleryView } from "./gallery-view";
 import { KanbanView } from "./kanban-view";
 import { ListView } from "./list-view";
+import { SpreadsheetActions } from "./spreadsheet-actions";
 import { TableView } from "./table-view";
+import { isTotalable, type ColumnSummary, type TotalAgg } from "../lib/column-totals";
 import { TimelineView } from "./timeline-view";
 
 /** Id da visão provisória mostrada quando o espaço/tipo ainda não tem nenhuma salva. */
@@ -53,6 +55,11 @@ export function ItemsView({
   const [startField, setStartField] = useState<string | undefined>(view.config.startField);
   const [endField, setEndField] = useState<string | undefined>(view.config.endField);
   const [dependsOnField, setDependsOnField] = useState<string | undefined>(view.config.dependsOnField);
+  const [totalsConfig, setTotalsConfig] = useState<Record<string, TotalAgg>>(view.config.totals ?? {});
+  const [totals, setTotals] = useState<Record<string, ColumnSummary> | undefined>(undefined);
+  const [totalsPartial, setTotalsPartial] = useState(false);
+  // Tabela (9.6): editar uma célula recalcula fórmulas e totais no servidor.
+  const [reloadTick, setReloadTick] = useState(0);
   const [page, setPage] = useState(1);
   const [dirty, setDirty] = useState(false);
 
@@ -69,14 +76,16 @@ export function ItemsView({
 
   useEffect(() => {
     startLoading(async () => {
-      const result = await getViewItems({ spaceId, typeId, filters, sort, page, pageSize });
+      const result = await getViewItems({ spaceId, typeId, filters, sort, page, pageSize, withTotals: view.kind === "table" });
       setFields(result.fields);
+      setTotals(result.totals);
+      setTotalsPartial(result.totalsPartial ?? false);
       setRows(result.rows);
       setRowsVersion((v) => v + 1);
       setTotal(result.total);
       setQueryError(result.error ?? null);
     });
-  }, [spaceId, typeId, filters, sort, page, pageSize]);
+  }, [spaceId, typeId, filters, sort, page, pageSize, view.kind, reloadTick]);
 
   function updateFilters(next: ViewFilter[]) {
     setFilters(next);
@@ -121,6 +130,12 @@ export function ItemsView({
 
   function handleItemSaved(itemId: string, updatedAt: string) {
     setRows((current) => current.map((row) => (row.id === itemId ? { ...row, updatedAt } : row)));
+    if (view.kind === "table" && fields.some((field) => field.type === "formula" || isTotalable(field))) setReloadTick((tick) => tick + 1);
+  }
+
+  function updateTotalAgg(fieldKey: string, agg: TotalAgg) {
+    setTotalsConfig((current) => ({ ...current, [fieldKey]: agg }));
+    setDirty(true);
   }
 
   function handleSaveConfig() {
@@ -135,6 +150,9 @@ export function ItemsView({
         startField,
         endField,
         dependsOnField,
+        // Antes o salvar apagava a soma do Kanban (não vinha pra cá).
+        sumField: view.config.sumField,
+        totals: Object.keys(totalsConfig).length > 0 ? totalsConfig : undefined,
       };
       let viewId = view.id;
       if (viewId === FALLBACK_VIEW_ID) {
@@ -188,6 +206,19 @@ export function ItemsView({
           </button>
         )}
       </div>
+
+      {view.kind === "table" && (
+        <SpreadsheetActions
+          spaceId={spaceId ?? null}
+          typeId={typeId ?? null}
+          viewName={view.name}
+          fields={fields}
+          filters={filters}
+          sort={sort}
+          visibleFields={visibleFields}
+          onImported={() => setReloadTick((tick) => tick + 1)}
+        />
+      )}
 
       {view.kind === "kanban" && (
         <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -281,6 +312,11 @@ export function ItemsView({
           visibleFields={visibleFields}
           onVisibleFieldsChange={updateVisibleFields}
           onItemSaved={handleItemSaved}
+          total={total}
+          totals={totals}
+          totalsPartial={totalsPartial}
+          totalAggs={totalsConfig}
+          onTotalAggChange={updateTotalAgg}
         />
       ) : view.kind === "kanban" && groupField && spaceId && typeId ? (
         <KanbanView key={rowsVersion} rows={rows} fields={fields} groupField={groupField} spaceId={spaceId} typeId={typeId} sumField={fields.find((f) => f.key === view.config.sumField)} />

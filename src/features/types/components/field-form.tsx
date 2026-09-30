@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import type { Result } from "@/lib/result";
 import { addField, updateField } from "../actions";
+import { FORMULA_FORMATS, FORMULA_FORMAT_LABELS, FORMULA_INPUT_TYPES, validateFormula } from "../lib/formula";
 import { fieldTypes, type FieldDefinition, type FieldType } from "../schemas";
 
 const FIELD_TYPE_LABELS: Record<FieldType, string> = {
@@ -25,6 +26,7 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   file: "Arquivo",
   duration: "Duração",
   rollup: "Calculado (rollup)",
+  formula: "Fórmula (conta entre campos)",
 };
 
 /**
@@ -35,6 +37,7 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
  * exaustivo; um campo `rollup` já existente continua sendo exibido normal).
  */
 const CREATABLE_FIELD_TYPES = fieldTypes.filter((type) => type !== "rollup");
+// "Fórmula" (9.6) entra na lista — a config é só a conta e o "mostrar como".
 
 const HAS_OPTIONS: FieldType[] = ["select", "multi_select"];
 const HAS_RANGE: FieldType[] = ["number", "percent", "rating"];
@@ -57,12 +60,15 @@ export function FieldForm({
   typeId,
   existingField,
   otherTypes,
+  siblingFields = [],
   onCancel,
   onSaved,
 }: {
   typeId: string;
   existingField?: FieldDefinition;
   otherTypes: { id: string; name: string }[];
+  /** Os outros campos do tipo — a fórmula (9.6) só pode usar estes. */
+  siblingFields?: FieldDefinition[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -76,6 +82,10 @@ export function FieldForm({
       { id: crypto.randomUUID(), label: "" },
     ],
   );
+
+  const [formula, setFormula] = useState(existingField?.formula ?? "");
+  const numericSiblings = siblingFields.filter((field) => field.key !== existingField?.key && FORMULA_INPUT_TYPES.includes(field.type));
+  const formulaError = fieldType === "formula" && formula.trim() ? validateFormula(formula, siblingFields, existingField?.key) : null;
 
   const [handledState, setHandledState] = useState(state);
   if (state !== handledState) {
@@ -159,6 +169,56 @@ export function FieldForm({
         </div>
       )}
 
+      {fieldType === "formula" && (
+        <div className="flex flex-col gap-1.5">
+          <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Fórmula
+            <input
+              name="formula"
+              value={formula}
+              onChange={(e) => setFormula(e.target.value)}
+              placeholder="Ex.: quantidade × preço"
+              maxLength={300}
+              autoComplete="off"
+              className={`${inputClassName} font-mono`}
+            />
+          </label>
+          {numericSiblings.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              Campos:
+              {numericSiblings.map((field) => (
+                <button
+                  key={field.key}
+                  type="button"
+                  onClick={() => setFormula((current) => `${current}${current && !/[\s(+\-*/×÷]$/.test(current) ? " " : ""}${field.label}`)}
+                  className="rounded-full border border-black/[.12] px-2 py-0.5 hover:border-brand hover:text-brand-text dark:border-white/[.16]"
+                >
+                  {field.label}
+                </button>
+              ))}
+              <span className="text-zinc-400">· use + − × ÷ e parênteses</span>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-700 dark:text-amber-400">Crie antes os campos de número, dinheiro ou porcentagem que a conta vai usar.</p>
+          )}
+          {formulaError && (
+            <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+              {formulaError}
+            </p>
+          )}
+          <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Mostrar como
+            <select name="formulaFormat" defaultValue={existingField?.formulaFormat ?? "number"} className={inputClassName}>
+              {FORMULA_FORMATS.map((format) => (
+                <option key={format} value={format}>
+                  {FORMULA_FORMAT_LABELS[format]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       {HAS_RANGE.includes(fieldType) && (
         <div className="flex gap-2">
           <input
@@ -200,10 +260,12 @@ export function FieldForm({
       )}
 
       <div className="flex flex-wrap gap-4 text-sm text-zinc-700 dark:text-zinc-200">
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" name="required" defaultChecked={existingField?.required} />
-          Obrigatório
-        </label>
+        {fieldType !== "formula" && (
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" name="required" defaultChecked={existingField?.required} />
+            Obrigatório
+          </label>
+        )}
         {HAS_MULTIPLE.includes(fieldType) && (
           <label className="flex items-center gap-1.5">
             <input type="checkbox" name="multiple" defaultChecked={existingField?.multiple} />
@@ -225,7 +287,7 @@ export function FieldForm({
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || Boolean(formulaError)}
           className="bg-brand text-brand-fg rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-60"
         >
           {pending ? "Salvando..." : "Salvar campo"}

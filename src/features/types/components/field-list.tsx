@@ -73,6 +73,7 @@ export function FieldList({
                     typeId={typeId}
                     existingField={field}
                     otherTypes={otherTypes}
+                    siblingFields={items}
                     onCancel={() => setEditingKey(null)}
                     onSaved={() => {
                       setEditingKey(null);
@@ -101,6 +102,7 @@ export function FieldList({
         <FieldForm
           typeId={typeId}
           otherTypes={otherTypes}
+          siblingFields={items}
           onCancel={() => setAdding(false)}
           onSaved={() => setAdding(false)}
         />
