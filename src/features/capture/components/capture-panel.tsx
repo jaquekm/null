@@ -22,6 +22,7 @@ export function CapturePanel({
   initialText,
   initialTypeId,
   redirectOnSave = false,
+  autoStartDictation = false,
   onDone,
 }: {
   spaces: SidebarSpace[];
@@ -29,6 +30,7 @@ export function CapturePanel({
   initialText?: string;
   initialTypeId?: string;
   redirectOnSave?: boolean;
+  autoStartDictation?: boolean;
   onDone?: () => void;
 }) {
   const router = useRouter();
@@ -70,6 +72,7 @@ export function CapturePanel({
         initialText={initialText}
         initialTypeId={initialTypeId}
         redirectOnSave={redirectOnSave}
+        autoStartDictation={autoStartDictation}
         onDone={onDone}
       />
 

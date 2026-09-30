@@ -17,11 +17,13 @@ export default async function CapturarPage(props: PageProps<"/capturar">) {
   const text = typeof searchParams.text === "string" ? searchParams.text : "";
   const url = typeof searchParams.url === "string" ? searchParams.url : "";
   const initialText = [title, text, url].filter(Boolean).join("\n");
+  // Atalho "Falar" do app instalado (9.9): abre já ouvindo.
+  const voice = searchParams.voz === "1";
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4 p-6">
-      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Capturar</h1>
-      <CapturePanel spaces={spaces} types={types} initialText={initialText} redirectOnSave />
+    <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 sm:p-6">
+      <h1 className="text-xl font-semibold text-black dark:text-zinc-50">{voice ? "Falar" : "Capturar"}</h1>
+      <CapturePanel spaces={spaces} types={types} initialText={initialText} autoStartDictation={voice} redirectOnSave />
     </div>
   );
 }

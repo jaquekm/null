@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
 import { CaptureDialogProvider } from "@/features/capture/components/capture-dialog-provider";
+import { OfflineSync } from "@/features/capture/components/offline-sync";
 import { CommandPaletteProvider } from "@/features/command-palette/components/command-palette-provider";
 import { DailyNoteShortcut } from "@/features/daily-note/components/daily-note-shortcut";
 import { countInboxItems, listObjectTypesForPicker } from "@/features/items/queries";
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <div className="flex min-h-dvh">
           <Sidebar spaces={spaces} inboxCount={inboxCount} failedJobsCount={failedJobsCount} />
           <div className="flex min-w-0 flex-1 flex-col">
+            <OfflineSync />
             <TopBar email={email} />
             <main className="flex-1 overflow-y-auto pb-20 md:pb-0">{children}</main>
           </div>
