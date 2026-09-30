@@ -896,3 +896,8 @@ Registre aqui toda escolha que desvia do plano ou que o plano deixou em aberto (
 
 - **Texto de uma Lista nunca some:** o modo lista mostra os itens com caixinha e, em cima, o resto do texto (parágrafos, tópicos). Nada é convertido sozinho — "Transformar as linhas em itens da lista" é um botão, com confirmação (e as Versões guardam o antes).
 - **Menos coisa à vista:** o que é do dia a dia fica aberto (texto, subcategorias, lembrete, anexos, comentários, espaço/tipo, ações); o resto vai pra "Mais ferramentas", que abre sozinho quando já tem conteúdo (subitem, lançamento). Campos de tipo sem editor ainda (contato, relação, arquivo) não aparecem na página do item em vez de mostrar "Disponível em breve".
+
+## Rotina (10.1)
+
+- **Hábitos continuam sendo itens do tipo Hábito:** a grade da Rotina lê e grava o mesmo `properties.log` do registro da 5.12 (e a frequência em `properties.frequency`, no formato do pack), então marcar na Rotina, no item ou no Hoje é a mesma coisa — sem tabela nova nem migration. Hábito arquivado ou na lixeira sai da grade.
+- **"Começou em":** o dia em que o hábito foi criado (ou o registro mais antigo, se a dona marcou dias anteriores). Antes disso não conta como falta — senão todo hábito novo nasceria com o mapa vermelho.

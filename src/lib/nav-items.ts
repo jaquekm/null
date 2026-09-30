@@ -4,6 +4,7 @@ import {
   Bell,
   Calendar,
   CalendarCheck,
+  CalendarRange,
   GraduationCap,
   Inbox,
   Network,
@@ -27,6 +28,8 @@ export const SEARCH_ITEM: NavItem = { href: "/buscar", label: "Busca avançada",
 const HOJE: NavItem = { href: "/hoje", label: "Hoje", icon: Sun };
 const INBOX: NavItem = { href: "/inbox", label: "Inbox", icon: Inbox };
 const AGENDA: NavItem = { href: "/agenda", label: "Agenda", icon: Calendar };
+/** Hábitos da semana e consistência (10.1). */
+const ROTINA: NavItem = { href: "/rotina", label: "Rotina", icon: CalendarRange };
 const LEMBRETES: NavItem = { href: "/lembretes", label: "Lembretes", icon: Bell };
 const FINANCAS: NavItem = {
   href: "/financas",
@@ -79,6 +82,7 @@ export const NAV_ITEMS: NavItem[] = [
   HOJE,
   INBOX,
   AGENDA,
+  ROTINA,
   LEMBRETES,
   FINANCAS,
   CONTATOS,
