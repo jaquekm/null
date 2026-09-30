@@ -3,6 +3,7 @@
 import { LogOut, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/(app)/actions";
+import { clearOfflinePages } from "@/lib/offline-cache";
 
 export function UserMenu({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
@@ -35,7 +36,7 @@ export function UserMenu({ email }: { email: string }) {
           <p className="truncate px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">
             {email}
           </p>
-          <form action={signOut}>
+          <form action={signOut} onSubmit={clearOfflinePages}>
             <button
               type="submit"
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-black/[.04] dark:text-zinc-200 dark:hover:bg-white/[.06]"

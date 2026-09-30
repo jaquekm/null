@@ -80,6 +80,17 @@ export async function createReminder(input: z.input<typeof reminderInputSchema>)
  * servidor (a prévia do navegador é só prévia). O que sobrar da frase vira o
  * título; senão, o título do item. A mensagem leva o link do item.
  */
+/**
+ * Relógio usado pra ler a frase: o de quando foi escrita (captura sem internet, 9.9), desde que seja
+ * do passado recente (até 7 dias) — senão, agora. Nunca do futuro.
+ */
+function reminderReferenceTime(referenceAt: string | undefined, now: Date): Date {
+  if (!referenceAt) return now;
+  const reference = new Date(referenceAt);
+  const age = now.getTime() - reference.getTime();
+  return age >= 0 && age <= 7 * 24 * 60 * 60 * 1000 ? reference : now;
+}
+
 export async function createReminderFromPhrase(
   input: z.input<typeof quickReminderInputSchema>,
 ): Promise<Result<{ id: string; description: string }>> {
@@ -89,9 +100,9 @@ export async function createReminderFromPhrase(
   const { supabase, user } = await requireOwner();
   const timezone = await getUserTimezone(supabase, user.id);
   const now = new Date();
-  const when = parseReminderPhrase(parsed.data.phrase, now, timezone);
+  const when = parseReminderPhrase(parsed.data.phrase, reminderReferenceTime(parsed.data.referenceAt, now), timezone);
   if (!when) return fail("Não entendi quando. Tente “amanhã 9h” ou “toda segunda”.", { phrase: ["Não entendi quando."] });
-  if (when.isPast) return fail("Esse horário já passou — escolha outro.", { phrase: ["Esse horário já passou."] });
+  if (when.isPast || when.sendAt.getTime() <= now.getTime()) return fail("Esse horário já passou — escolha outro.", { phrase: ["Esse horário já passou."] });
 
   const itemId = parsed.data.itemId ?? null;
   const link = itemId ? `${serverEnv.APP_URL}/itens/${itemId}` : "";

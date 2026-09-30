@@ -63,6 +63,8 @@ export const quickReminderInputSchema = z.object({
   itemId: z.string().uuid().nullable().optional(),
   sourceType: z.string().trim().max(50).optional(),
   sourceId: z.string().uuid().optional(),
+  /** Quando a frase foi escrita (9.9: captura feita sem internet, enviada depois) — "daqui a 2 horas" conta daí. */
+  referenceAt: z.string().datetime({ offset: true }).optional(),
 });
 
 export const REMINDER_STATUSES = ["scheduled", "paused", "completed", "canceled"] as const;

@@ -74,13 +74,13 @@ vencimento das tarefas 9.4, 9.5 e 9.8).
 - Aviso pra dona quando alguém comentar ou marcar item num link dela.
 - QR code do link (eventos, listas pra imprimir).
 
-## 9.8 — Automações em frases simples ✅ (em PR)
+## 9.8 — Automações em frases simples ✅
 
 - Editor "Quando [algo acontecer], [fazer algo]" com as opções escritas em português de uso.
 - Receitas prontas pra ativar com um toque (ex.: "quando uma conta vencer amanhã, me avisar no WhatsApp").
 - Depende do agendador ligado.
 
-## 9.9 — Celular em primeiro lugar
+## 9.9 — Celular em primeiro lugar ✅ (em PR)
 
 - Captura por voz (transcrição já existe) direto do botão "+".
 - Atalhos do app instalado (PWA shortcuts) pra Capturar, Hoje e Agenda.

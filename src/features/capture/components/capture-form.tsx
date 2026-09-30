@@ -1,14 +1,20 @@
 "use client";
 
-import { BellRing, Paperclip } from "lucide-react";
+import { BellRing, CloudOff, Mic, Paperclip, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { uploadAttachment } from "@/features/attachments/lib/upload-file";
 import { createReminderFromPhrase } from "@/features/reminders/actions";
 import { describeReminderPhrase, isReminderRequest, parseReminderPhrase } from "@/features/reminders/lib/parse-reminder-phrase";
 import type { SidebarSpace } from "@/features/spaces/queries";
+import { useOnline } from "@/lib/use-online";
 import { capture } from "../actions";
+import { joinDictation } from "../lib/dictation";
+import { addQueuedCapture } from "../lib/offline-capture-db";
+import { isNetworkError, pendingCapturesLabel } from "../lib/offline-captures";
+import { useDictation } from "./use-dictation";
+import { usePendingCaptures } from "./use-pending-captures";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -19,6 +25,7 @@ export function CaptureForm({
   initialText = "",
   initialTypeId = "",
   redirectOnSave = false,
+  autoStartDictation = false,
   onDone,
 }: {
   spaces: SidebarSpace[];
@@ -26,6 +33,8 @@ export function CaptureForm({
   initialText?: string;
   initialTypeId?: string;
   redirectOnSave?: boolean;
+  /** Atalho "Falar" do app instalado (9.9): já abre ouvindo. */
+  autoStartDictation?: boolean;
   onDone?: () => void;
 }) {
   const router = useRouter();
@@ -35,6 +44,20 @@ export function CaptureForm({
   const [file, setFile] = useState<File | null>(null);
   const [pending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const online = useOnline();
+  const pendingCount = usePendingCaptures();
+
+  // Ditado (9.9): cada trecho fechado entra no texto; o resto da captura (tags, "me lembra de…") vale igual.
+  const handleFinalSpeech = useCallback((spoken: string) => setText((current) => joinDictation(current, spoken)), []);
+  const handleSpeechError = useCallback((message: string) => toast.error(message), []);
+  const dictation = useDictation({ onFinal: handleFinalSpeech, onError: handleSpeechError });
+  const { supported: dictationSupported, start: startDictation } = dictation;
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoStartDictation || !dictationSupported || autoStarted.current) return;
+    autoStarted.current = true;
+    startDictation();
+  }, [autoStartDictation, dictationSupported, startDictation]);
 
   // "me lembra de … amanhã 9h" (9.4) vira lembrete em vez de nota. Prévia no
   // fuso do aparelho; o servidor lê a frase de novo no fuso da dona.
@@ -48,12 +71,41 @@ export function CaptureForm({
   }, [text]);
   const asReminder = Boolean(reminder?.parsed) && !file;
 
+  /** Sem internet (9.9): guarda no aparelho e envia quando voltar (`OfflineSync`). */
+  async function saveOffline() {
+    if (file) {
+      toast.error("Sem internet: anexo precisa de conexão. Tire o anexo pra guardar só o texto.");
+      return;
+    }
+    try {
+      await addQueuedCapture({ text, spaceId: spaceId || null, typeId: typeId || null });
+    } catch {
+      toast.error("Sem internet e não consegui guardar no aparelho. Copie o texto antes de fechar.");
+      return;
+    }
+    setText("");
+    onDone?.();
+    toast.success("Sem internet — guardei no aparelho e envio quando a conexão voltar.");
+  }
+
   function handleSubmit() {
     if (!text.trim() || pending) return;
+    if (dictation.listening) dictation.stop();
+
+    if (!online) {
+      startTransition(saveOffline);
+      return;
+    }
 
     if (asReminder) {
       startTransition(async () => {
-        const result = await createReminderFromPhrase({ phrase: text });
+        let result: Awaited<ReturnType<typeof createReminderFromPhrase>>;
+        try {
+          result = await createReminderFromPhrase({ phrase: text });
+        } catch (error) {
+          if (isNetworkError(error)) return saveOffline();
+          throw error;
+        }
         if (!result.ok) {
           toast.error(result.error);
           return;
@@ -68,7 +120,13 @@ export function CaptureForm({
     }
 
     startTransition(async () => {
-      const result = await capture(text, spaceId || null, typeId || null);
+      let result: Awaited<ReturnType<typeof capture>>;
+      try {
+        result = await capture(text, spaceId || null, typeId || null);
+      } catch (error) {
+        if (isNetworkError(error)) return saveOffline();
+        throw error;
+      }
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -98,6 +156,13 @@ export function CaptureForm({
 
   return (
     <div className="flex flex-col gap-3">
+      {!online && (
+        <p role="status" className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+          <CloudOff className="h-4 w-4 shrink-0" aria-hidden />
+          Sem internet — o que você capturar fica guardado e vai quando a conexão voltar.
+        </p>
+      )}
+      <div className="relative">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -111,8 +176,29 @@ export function CaptureForm({
         autoFocus
         rows={6}
         disabled={pending}
-        className={`${inputClassName} w-full resize-none`}
+        className={`${inputClassName} w-full resize-none ${dictationSupported ? "pr-14" : ""}`}
       />
+      {dictationSupported && (
+        <button
+          type="button"
+          onClick={() => (dictation.listening ? dictation.stop() : dictation.start())}
+          disabled={pending}
+          aria-pressed={dictation.listening}
+          aria-label={dictation.listening ? "Parar de ouvir" : "Falar"}
+          title={dictation.listening ? "Parar de ouvir" : "Falar — o que você disser vira texto"}
+          className={`absolute right-2 bottom-2 flex h-11 w-11 items-center justify-center rounded-full shadow-md transition-colors disabled:opacity-60 ${
+            dictation.listening ? "animate-pulse bg-red-600 text-white" : "bg-brand text-brand-fg"
+          }`}
+        >
+          {dictation.listening ? <Square className="h-4 w-4" fill="currentColor" /> : <Mic className="h-5 w-5" />}
+        </button>
+      )}
+      </div>
+      {dictation.listening && (
+        <p aria-live="polite" className="-mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Ouvindo…{dictation.interim && <span className="italic"> {dictation.interim}</span>}
+        </p>
+      )}
 
       {reminder && (
         <p role="status" className="flex items-start gap-2 rounded-xl bg-brand-soft px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200">
@@ -169,8 +255,14 @@ export function CaptureForm({
         disabled={pending || !text.trim()}
         className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
       >
-        {pending ? "Salvando..." : asReminder ? "Criar lembrete" : "Capturar"}
+        {pending ? "Salvando..." : !online ? "Guardar no aparelho" : asReminder ? "Criar lembrete" : "Capturar"}
       </button>
+      {pendingCount > 0 && (
+        <p className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <CloudOff className="h-3.5 w-3.5" aria-hidden />
+          {pendingCapturesLabel(pendingCount)}
+        </p>
+      )}
     </div>
   );
 }
