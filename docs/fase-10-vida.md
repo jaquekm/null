@@ -19,7 +19,7 @@ ligado, igual finanças.
 - **Consistência:** mapa de calor das últimas 16 semanas e sequência de dias ("12 dias seguidos"),
   geral e por hábito.
 
-## 10.2 — Rotina por horário
+## 10.2 — Rotina por horário ✅
 
 - Blocos fixos da semana (6h acordar, 8h academia, 13h almoço), editáveis numa grade de horário.
 - Aparecem na Agenda e no Hoje ("agora: Academia"), sem virar evento do Google.

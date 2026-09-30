@@ -34,6 +34,8 @@ export interface TodayViewProps {
   workout: { done: boolean; letter: string; name: string | null } | null;
   recent: TodayRow[];
   inboxCount: number;
+  /** Rotina por horário (10.2): "Agora: Academia (8h–9h) · Depois: 13h Almoço". `null`/ausente = sem blocos hoje. */
+  routine?: { current: string | null; next: string | null } | null;
 }
 
 function Card({ icon: Icon, title, href, linkLabel, children }: { icon: LucideIcon; title: string; href?: string; linkLabel?: string; children: ReactNode }) {
@@ -107,6 +109,25 @@ export function TodayView(props: TodayViewProps) {
         <p className="text-sm font-medium text-brand-text first-letter:uppercase">{props.dateLabel}</p>
         <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl dark:text-zinc-50">{props.hello}!</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">{props.summary}</p>
+        {props.routine && (props.routine.current || props.routine.next) && (
+          <Link
+            href="/rotina?ver=horarios"
+            className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 self-start rounded-2xl bg-teal-50 px-3 py-1 text-sm text-teal-900 hover:opacity-90 dark:bg-teal-950 dark:text-teal-100"
+          >
+            <Clock3 className="h-4 w-4" aria-hidden />
+            {props.routine.current && (
+              <span>
+                <strong>Agora:</strong> {props.routine.current}
+              </span>
+            )}
+            {props.routine.current && props.routine.next && <span aria-hidden>·</span>}
+            {props.routine.next && (
+              <span>
+                <strong>Depois:</strong> {props.routine.next}
+              </span>
+            )}
+          </Link>
+        )}
       </header>
 
       <TodayCapture />

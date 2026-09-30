@@ -1,3 +1,4 @@
+import { formatInTimeZone } from "date-fns-tz";
 import { buildGoogleEventEntries } from "@/features/agenda/lib/build-google-event-entries";
 import { computeDayRange } from "@/features/agenda/lib/day-range";
 import { extractItemDateEntries } from "@/features/agenda/lib/extract-item-date-entries";
@@ -21,6 +22,8 @@ import { billsDueSoon, daySummary, formatDayHeader, formatTime, greeting } from 
 import { findWorkout } from "@/features/treinos/lib/program";
 import { nextWorkout } from "@/features/treinos/lib/rules";
 import { listWorkoutPrograms, listWorkoutSessions } from "@/features/treinos/queries";
+import { describeBlockTime, formatHour, routineNow } from "@/features/routine/lib/routine-blocks";
+import { listRoutineBlocks } from "@/features/routine/queries";
 import { requireOwner } from "@/lib/auth";
 import { formatBRL } from "@/lib/money";
 
@@ -37,7 +40,7 @@ export default async function TodayPage() {
   const dayRange = computeDayRange(now, timezone);
   const today = dayRange.dateStr;
 
-  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions, expiringItems, linkActivity] = await Promise.all([
+  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions, expiringItems, linkActivity, routineBlocks] = await Promise.all([
     listGoogleEventsInRange(supabase, user.id, dayRange.startIso, dayRange.endIsoExclusive),
     listCalendarColors(supabase, user.id),
     listDateFieldsByTypeId(supabase, user.id),
@@ -50,6 +53,7 @@ export default async function TodayPage() {
     listWorkoutSessions(supabase, user.id).catch(() => []),
     listExpiringItems(supabase, today).catch(() => []),
     listUnreadLinkActivity(supabase, 6).catch(() => ({ items: [], total: 0 })),
+    listRoutineBlocks(supabase, user.id).catch(() => []),
   ]);
 
   const items = await listItemsForDateExtraction(supabase, user.id, [...dateFieldsByTypeId.keys()]);
@@ -100,6 +104,12 @@ export default async function TodayPage() {
 
   const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: timezone }).format(now));
 
+  const nowRoutine = routineNow(routineBlocks, today, formatInTimeZone(now, timezone, "HH:mm"));
+  const routine = {
+    current: nowRoutine.current ? `${nowRoutine.current.title} (${describeBlockTime(nowRoutine.current)})` : null,
+    next: nowRoutine.next ? `${formatHour(nowRoutine.next.start)} ${nowRoutine.next.title}` : null,
+  };
+
   return (
     <TodayView
       dateLabel={formatDayHeader(today)}
@@ -116,6 +126,7 @@ export default async function TodayPage() {
       workout={workout}
       recent={recent.map((item) => ({ id: item.id, title: item.title, href: `/itens/${item.id}` }))}
       inboxCount={inboxCount}
+      routine={routine}
     />
   );
 }
