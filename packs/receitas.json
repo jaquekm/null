@@ -1,0 +1,34 @@
+{
+  "key": "receitas",
+  "version": "1.0.0",
+  "name": "Receitas",
+  "description": "Receitas de cozinha com ingredientes e porções, pra usar no cardápio da semana.",
+  "icon": "🍳",
+  "requires": [],
+  "types": [
+    {
+      "ref": "recipe",
+      "name": "Receita",
+      "plural": "Receitas",
+      "slug": "receita-culinaria",
+      "icon": "🍳",
+      "defaultView": "list",
+      "fields": [
+        { "key": "porcoes", "label": "Porções", "type": "number", "min": 1, "showInCard": true }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "receitas_lista",
+      "typeRef": "recipe",
+      "name": "Receitas",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["porcoes"] }
+    }
+  ],
+  "automations": [],
+  "reminderRules": [],
+  "sampleItems": []
+}
