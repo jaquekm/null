@@ -89,8 +89,8 @@ async function readPreferences(supabase: Client, ownerId: string): Promise<Recor
 /**
  * "Acaba em 5 dias" (10.5): soma o remédio na lista de compras — a mesma
  * lembrada em `preferences.shoppingListItemId` (9.7: não existe um jeito de
- * achar "a" lista de compras programáticamente, então guardamos o id da
- * última usada). Sem o pacote Listas instalado, só não soma — o aviso continua
+ * achar "a" lista de compras programaticamente, então guardamos o id da
+ * última usada). Sem o pack Listas instalado, só não soma — o aviso continua
  * aparecendo na tela mesmo assim.
  */
 async function addMedicationToShoppingList(supabase: Client, ownerId: string, medicationTitle: string): Promise<boolean> {

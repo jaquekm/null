@@ -43,10 +43,10 @@ const { TreinosWorkspace } = await import("./treinos-workspace");
 
 // Mesmo formato do Word real da dona (trechos).
 const { definition } = parseProgramText(`
-Treino A — Inferiores 1 (quádriceps e joelho) · ~50 min
-A1. Leg press 45° — quádriceps e glúteos
+Treino A — Inferiores 1 (quadríceps e joelho) · ~50 min
+A1. Leg press 45° — quadríceps e glúteos
 Sem. 1–2: 2×12 (RIR 3–4) → Sem. 3+: 3×10–12 (RIR 2) · Intervalo 90–120 s
-A2. Cadeira extensora (amplitude parcial) — quádriceps
+A2. Cadeira extensora (amplitude parcial) — quadríceps
 Sem. 1–2: 2×15 (RIR 3–4) → Sem. 3+: 3×12–15 (RIR 1–2)
 Treino B — Superiores 1 (costas) · ~55 min
 B1. Puxada frontal (pulldown) — dorsais
@@ -77,7 +77,7 @@ describe("TreinosWorkspace", () => {
     // Semana 1: prescrição da readaptação.
     expect(await screen.findByText("Leg press 45°")).toBeTruthy();
     expect(screen.getByText("2 × 12 reps · RIR 3–4")).toBeTruthy();
-    expect(screen.getByText("Inferiores 1 (quádriceps e joelho)")).toBeTruthy();
+    expect(screen.getByText("Inferiores 1 (quadríceps e joelho)")).toBeTruthy();
 
     // Troca pra B: só a puxada.
     fireEvent.click(screen.getByRole("radio", { name: "B" }));
@@ -132,7 +132,7 @@ describe("TreinosWorkspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
     // Cartão fechado: dia da semana, nome do treino do programa e resumo.
     const card = screen.getByRole("button", { name: /Seg, 28\/09/ });
-    expect(within(card).getByText("Treino A · Inferiores 1 (quádriceps e joelho)")).toBeTruthy();
+    expect(within(card).getByText("Treino A · Inferiores 1 (quadríceps e joelho)")).toBeTruthy();
     expect(within(card).getByText("1 exercício · 2 séries · 920 kg")).toBeTruthy();
     fireEvent.click(card);
     expect(screen.getByText("Leg press 45°")).toBeTruthy();
