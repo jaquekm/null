@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reportScheduleToRRule } from "@/features/reports/lib/schedule-presets";
 import type { Job } from "../types";
 
@@ -96,6 +96,15 @@ function fakeSupabase(due: Record<string, unknown>[]) {
 }
 
 describe("scheduleReports", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("definição vencida: enfileira generate_report e recalcula next_run_at", async () => {
     const { client, updates } = fakeSupabase([definitionRow()]);
 

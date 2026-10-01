@@ -27,6 +27,9 @@ export default async function CardapioPage({ searchParams }: PageProps<"/cardapi
         <div>
           <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Cardápio da semana</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">O que comer em cada dia — preenche sozinho, sem pressa.</p>
+          <Link href="/receitas" className="text-sm font-medium text-brand-text hover:underline">
+            Receitas
+          </Link>
         </div>
         <nav aria-label="Semana" className="flex items-center gap-1">
           <Link
