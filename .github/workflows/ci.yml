@@ -28,7 +28,7 @@ jobs:
       - run: pnpm test
 
       # Versão fixa: `latest` consulta a API do GitHub a cada execução e já derrubou o CI por "rate limit exceeded".
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.118.0
 
