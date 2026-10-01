@@ -4,7 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { createHabit, setHabitDays, toggleHabitLog } from "../actions";
+import { createHabit, deleteHabit, setHabitDays, toggleHabitLog } from "../actions";
 import { isHabitLogged } from "../lib/habit-log";
 import {
   dayCompletion,
@@ -41,8 +41,11 @@ export function RotinaWorkspace({ habits: serverHabits, today, weekStart }: { ha
   // Marcações feitas aqui por cima do que veio do servidor — quando a página recarrega, o servidor já tem o mesmo valor.
   const [overrides, setOverrides] = useState<Record<string, Record<string, boolean>>>({});
   const [editing, setEditing] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
-  const habits = serverHabits.map((habit) => (overrides[habit.id] ? { ...habit, log: { ...habit.log, ...overrides[habit.id] } } : habit));
+  const habits = serverHabits
+    .filter((habit) => !deletedIds.has(habit.id))
+    .map((habit) => (overrides[habit.id] ? { ...habit, log: { ...habit.log, ...overrides[habit.id] } } : habit));
   const dates = weekDates(weekStart);
   const currentMonday = startOfWeek(today);
   const isCurrentWeek = weekStart === currentMonday;
@@ -185,7 +188,17 @@ export function RotinaWorkspace({ habits: serverHabits, today, weekStart }: { ha
           </p>
         )}
 
-        {editingHabit && <HabitDaysEditor key={editingHabit.id} habit={editingHabit} onClose={() => setEditing(null)} />}
+        {editingHabit && (
+          <HabitDaysEditor
+            key={editingHabit.id}
+            habit={editingHabit}
+            onClose={() => setEditing(null)}
+            onDeleted={() => {
+              setDeletedIds((current) => new Set(current).add(editingHabit.id));
+              setEditing(null);
+            }}
+          />
+        )}
       </section>
 
       <NewHabitForm />
@@ -200,9 +213,10 @@ function initialDays(frequency: unknown): Weekday[] {
   return days ? WEEKDAYS.filter((d) => days.has(d)) : [];
 }
 
-function HabitDaysEditor({ habit, onClose }: { habit: HabitForWeek; onClose: () => void }) {
+function HabitDaysEditor({ habit, onClose, onDeleted }: { habit: HabitForWeek; onClose: () => void; onDeleted: () => void }) {
   const [days, setDays] = useState<Weekday[]>(() => initialDays(habit.frequency));
   const [pending, startTransition] = useTransition();
+  const [deleting, startDeleteTransition] = useTransition();
 
   function save() {
     startTransition(async () => {
@@ -213,6 +227,19 @@ function HabitDaysEditor({ habit, onClose }: { habit: HabitForWeek; onClose: () 
       }
       toast.success("Dias salvos.");
       onClose();
+    });
+  }
+
+  function handleDelete() {
+    if (!window.confirm(`Excluir o hábito "${habit.title}"? O histórico de dias marcados vai pra lixeira junto.`)) return;
+    startDeleteTransition(async () => {
+      const result = await deleteHabit(habit.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Hábito excluído.");
+      onDeleted();
     });
   }
 
@@ -227,6 +254,14 @@ function HabitDaysEditor({ habit, onClose }: { habit: HabitForWeek; onClose: () 
         </button>
         <button type="button" onClick={onClose} className="rounded-lg border border-black/[.12] px-4 py-1.5 text-sm dark:border-white/[.16]">
           Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="rounded-lg border border-red-200 px-4 py-1.5 text-sm text-red-600 disabled:opacity-60 dark:border-red-900 dark:text-red-400"
+        >
+          Excluir hábito
         </button>
         <Link href={`/itens/${habit.id}`} className="ml-auto text-sm text-zinc-500 hover:underline dark:text-zinc-400">
           Abrir o hábito →

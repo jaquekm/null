@@ -1,0 +1,98 @@
+{
+  "key": "saude-registros",
+  "version": "1.0.0",
+  "name": "Saúde — registros médicos",
+  "description": "Consultas, exames, receitas e sintomas por data, num espaço só.",
+  "icon": "🩺",
+  "requires": [],
+  "types": [
+    {
+      "ref": "appointment",
+      "name": "Consulta",
+      "plural": "Consultas",
+      "slug": "consulta",
+      "icon": "🩺",
+      "defaultView": "list",
+      "fields": [
+        { "key": "data", "label": "Data", "type": "date", "required": true, "showInCard": true },
+        { "key": "medico", "label": "Médico", "type": "text", "showInCard": true },
+        { "key": "especialidade", "label": "Especialidade", "type": "text", "showInCard": true },
+        { "key": "local", "label": "Local", "type": "text" }
+      ]
+    },
+    {
+      "ref": "medical_test",
+      "name": "Exame",
+      "plural": "Exames",
+      "slug": "exame",
+      "icon": "🧪",
+      "defaultView": "list",
+      "fields": [
+        { "key": "data", "label": "Data", "type": "date", "required": true, "showInCard": true },
+        { "key": "tipo", "label": "Tipo", "type": "text", "showInCard": true, "description": "Ex.: Hemograma, Raio-X, Ultrassom." }
+      ]
+    },
+    {
+      "ref": "prescription",
+      "name": "Receita",
+      "plural": "Receitas",
+      "slug": "receita",
+      "icon": "📋",
+      "defaultView": "list",
+      "fields": [
+        { "key": "data", "label": "Data", "type": "date", "required": true, "showInCard": true },
+        { "key": "medico", "label": "Médico", "type": "text", "showInCard": true }
+      ]
+    },
+    {
+      "ref": "symptom",
+      "name": "Sintoma",
+      "plural": "Sintomas",
+      "slug": "sintoma",
+      "icon": "🤒",
+      "defaultView": "calendar",
+      "fields": [
+        { "key": "data", "label": "Data", "type": "date", "required": true, "showInCard": true },
+        { "key": "sintoma", "label": "Sintoma", "type": "text", "showInCard": true },
+        { "key": "intensidade", "label": "Intensidade", "type": "rating", "min": 1, "max": 5, "showInCard": true }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "consultas_lista",
+      "typeRef": "appointment",
+      "name": "Consultas",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "data", "dir": "asc" }], "visibleFields": ["medico", "especialidade"] }
+    },
+    {
+      "ref": "exames_lista",
+      "typeRef": "medical_test",
+      "name": "Exames",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "data", "dir": "desc" }], "visibleFields": ["tipo"] }
+    },
+    {
+      "ref": "receitas_lista",
+      "typeRef": "prescription",
+      "name": "Receitas",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "data", "dir": "desc" }], "visibleFields": ["medico"] }
+    },
+    {
+      "ref": "sintomas_calendario",
+      "typeRef": "symptom",
+      "name": "Sintomas",
+      "kind": "calendar",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [], "dateField": "data" }
+    }
+  ],
+  "automations": [],
+  "reminderRules": [],
+  "sampleItems": []
+}

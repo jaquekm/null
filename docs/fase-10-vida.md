@@ -24,12 +24,12 @@ ligado, igual finanças.
 - Blocos fixos da semana (6h acordar, 8h academia, 13h almoço), editáveis numa grade de horário.
 - Aparecem na Agenda e no Hoje ("agora: Academia"), sem virar evento do Google.
 
-## 10.3 — Modo foco
+## 10.3 — Modo foco ✅
 
 - Cronômetro (pomodoro 25/5 ou livre) ligado a uma tarefa ou projeto; guarda o tempo gasto.
 - Resumo "onde foi meu tempo" na semana.
 
-## 10.4 — Água
+## 10.4 — Água ✅
 
 - Meta diária e "+250 ml" no Hoje; histórico da semana.
 

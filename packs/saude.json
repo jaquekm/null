@@ -1,0 +1,34 @@
+{
+  "key": "saude",
+  "version": "1.0.0",
+  "name": "Saúde",
+  "description": "Vitaminas, remédios e outros cuidados de saúde do dia a dia.",
+  "icon": "💊",
+  "requires": [],
+  "types": [
+    {
+      "ref": "medication",
+      "name": "Remédio",
+      "plural": "Remédios",
+      "slug": "remedio",
+      "icon": "💊",
+      "defaultView": "list",
+      "fields": [
+        { "key": "dose", "label": "Dose", "type": "text", "showInCard": true, "description": "Ex.: 500 mg, 1 comprimido." }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "remedios_lista",
+      "typeRef": "medication",
+      "name": "Remédios",
+      "kind": "list",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["dose"] }
+    }
+  ],
+  "automations": [],
+  "reminderRules": [],
+  "sampleItems": []
+}

@@ -1,13 +1,14 @@
 import { TreinosWorkspace } from "@/features/treinos/components/treinos-workspace";
-import { listWeeklyMeasures, listWorkoutPrograms, listWorkoutSessions } from "@/features/treinos/queries";
+import { getHeightCm, listWeeklyMeasures, listWorkoutPrograms, listWorkoutSessions } from "@/features/treinos/queries";
 import { requireOwner } from "@/lib/auth";
 
 export default async function TreinosPage() {
   const { supabase, user } = await requireOwner();
-  const [programs, sessions, weekly] = await Promise.all([
+  const [programs, sessions, weekly, heightCm] = await Promise.all([
     listWorkoutPrograms(supabase, user.id),
     listWorkoutSessions(supabase, user.id),
     listWeeklyMeasures(supabase, user.id),
+    getHeightCm(supabase, user.id),
   ]);
 
   return (
@@ -19,7 +20,7 @@ export default async function TreinosPage() {
           {programs.find((p) => p.active) ? ` · programa: ${programs.find((p) => p.active)!.name}` : ""}
         </p>
       </header>
-      <TreinosWorkspace programs={programs} sessions={sessions} weekly={weekly} />
+      <TreinosWorkspace programs={programs} sessions={sessions} weekly={weekly} heightCm={heightCm} />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { CanvasRefsSection } from "@/features/canvas/components/canvas-refs-sect
 import { CanvasWorkspace } from "@/features/canvas/components/canvas-workspace";
 import { ensureCanvas, listCanvasEdges, listCanvasesContainingItem, listCanvasNodes } from "@/features/canvas/queries";
 import { listContacts } from "@/features/contacts/queries";
+import { FocusTimer } from "@/features/focus/components/focus-timer";
 import { ItemFinancePanel } from "@/features/financas/components/item-finance-panel";
 import { listAccounts, listBillsForItem, listCategories, listTransactionsForItem } from "@/features/financas/queries";
 import { BacklinksPanel } from "@/features/items/components/backlinks-panel";
@@ -112,7 +113,7 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
     listBillsForItem(supabase, item.id, today),
     listCanvasesContainingItem(supabase, item.id),
     listRelatedItems(supabase, item.id),
-    item.type?.slug === "documento" ? suggestExpiryForItem(supabase, item.id).catch(() => null) : Promise.resolve(null),
+    ["documento", "receita"].includes(item.type?.slug ?? "") ? suggestExpiryForItem(supabase, item.id).catch(() => null) : Promise.resolve(null),
   ]);
 
   // Reunião (9.3): participantes (campo `participantes`, ids de contatos) e data pro painel de envio e tarefas.
@@ -166,6 +167,8 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
       )}
 
       {item.type?.slug && ["plano-de-estudo", "curso", "livro"].includes(item.type.slug) && <StudyTimer itemId={item.id} />}
+
+      {item.type?.slug && ["tarefa", "projeto"].includes(item.type.slug) && <FocusTimer itemId={item.id} />}
 
       {item.type?.slug === "proposta" && (
         <a

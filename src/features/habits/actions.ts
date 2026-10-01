@@ -94,6 +94,18 @@ export async function setHabitDays(itemId: string, days: unknown): Promise<Resul
   return ok(null);
 }
 
+/** "Excluir hábito" direto na Rotina (ajuste pedido pela dona — antes só dava pra excluir abrindo o item). Exclusão lógica, igual a qualquer item (vai pra lixeira). */
+export async function deleteHabit(itemId: string): Promise<Result<null>> {
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase.from("items").update({ deleted_at: new Date().toISOString() }).eq("id", itemId).eq("owner_id", user.id);
+  if (error) return fail("Não foi possível excluir o hábito.");
+
+  revalidatePath("/rotina");
+  revalidatePath("/hoje");
+  return ok(null);
+}
+
 async function findHabitTypeId(supabase: Awaited<ReturnType<typeof requireOwner>>["supabase"]): Promise<string | null> {
   const { data } = await supabase.from("object_types").select("id").eq("slug", "habito").is("archived_at", null).order("created_at", { ascending: true }).limit(1);
   return data?.[0]?.id ?? null;

@@ -1745,6 +1745,47 @@ export type Database = {
           },
         ]
       }
+      focus_sessions: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          ended_at: string | null
+          id: string
+          item_id: string | null
+          mode: string
+          owner_id: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          item_id?: string | null
+          mode?: string
+          owner_id?: string
+          started_at: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          item_id?: string | null
+          mode?: string
+          owner_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_sessions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_connections: {
         Row: {
           access_token_encrypted: string | null
@@ -2259,6 +2300,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meal_logs: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          meals: Json
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          id?: string
+          meals?: Json
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          meals?: Json
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      meal_plans: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          plan: Json
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          plan?: Json
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          plan?: Json
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: []
       }
       mcp_audit: {
         Row: {
@@ -3456,6 +3551,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      water_logs: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          owner_id: string
+          total_ml: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          id?: string
+          owner_id?: string
+          total_ml?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          owner_id?: string
+          total_ml?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       workout_programs: {
         Row: {

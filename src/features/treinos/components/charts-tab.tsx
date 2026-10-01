@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { todayInTimezone } from "@/lib/dates";
 import { exerciseProgress, formatMinutes, trainingStats, weeklyCounts } from "../lib/chart-data";
+import { bmiSeries } from "../lib/bmi";
 import { programExercises, type ProgramDefinition } from "../lib/program";
 import { exerciseHistory } from "../lib/rules";
 import type { WeeklyMeasure, WorkoutSession } from "../queries";
@@ -81,7 +82,17 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
   );
 }
 
-export function ChartsTab({ program, sessions, weekly }: { program: ProgramDefinition | null; sessions: WorkoutSession[]; weekly: WeeklyMeasure[] }) {
+export function ChartsTab({
+  program,
+  sessions,
+  weekly,
+  heightCm,
+}: {
+  program: ProgramDefinition | null;
+  sessions: WorkoutSession[];
+  weekly: WeeklyMeasure[];
+  heightCm: number | null;
+}) {
   const today = todayInTimezone();
   const stats = trainingStats(sessions, today);
   const weeks = weeklyCounts(sessions, today);
@@ -103,6 +114,8 @@ export function ChartsTab({ program, sessions, weekly }: { program: ProgramDefin
   const weight = weekly.map((w) => ({ label: formatShortDate(w.weekStart), value: w.weightKg }));
   const waist = weekly.map((w) => ({ label: formatShortDate(w.weekStart), value: w.waistCm }));
   const hasBody = weekly.some((w) => w.weightKg !== null || w.waistCm !== null);
+  const bmi = bmiSeries(weekly, heightCm).map((b) => ({ label: formatShortDate(b.weekStart), value: b.bmi }));
+  const hasBmi = heightCm != null && bmi.some((b) => b.value !== null);
 
   if (sessions.length === 0) {
     return <Hint>Registre seu primeiro treino na aba Registrar e a evolução aparece aqui.</Hint>;
@@ -207,7 +220,7 @@ export function ChartsTab({ program, sessions, weekly }: { program: ProgramDefin
         )}
       </Section>
 
-      <Section title="Corpo" subtitle="Peso médio e cintura, da aba Semanal">
+      <Section title="Corpo" subtitle="Peso médio, cintura e IMC, da aba Semanal">
         {hasBody && weekly.length >= 2 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -218,6 +231,14 @@ export function ChartsTab({ program, sessions, weekly }: { program: ProgramDefin
               <p className="mb-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">Cintura (cm)</p>
               <TrendChart data={waist} unit="cm" height={140} />
             </div>
+            {hasBmi ? (
+              <div>
+                <p className="mb-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">IMC</p>
+                <TrendChart data={bmi} unit="" height={140} />
+              </div>
+            ) : (
+              <Hint>Informe sua altura na aba Semanal pra ver o IMC.</Hint>
+            )}
           </div>
         ) : (
           <Hint>Registre peso e cintura na aba Semanal por 2 semanas para ver a tendência.</Hint>

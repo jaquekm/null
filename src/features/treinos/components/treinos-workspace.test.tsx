@@ -12,6 +12,7 @@ vi.mock("../actions", () => ({
   deleteWorkoutSession: vi.fn(),
   saveWeeklyMeasure: vi.fn(),
   deleteWeeklyMeasure: vi.fn(),
+  setHeight: vi.fn(),
   previewProgramImport: vi.fn(),
   saveWorkoutProgram: (input: unknown) => saveWorkoutProgram(input),
   activateWorkoutProgram: vi.fn(),
@@ -64,14 +65,14 @@ afterEach(cleanup);
 
 describe("TreinosWorkspace", () => {
   it("sem programa, abre direto na aba Programa com importar Word e montar do zero", () => {
-    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} heightCm={null} />);
     expect(screen.getByRole("tab", { name: "Programa" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Importar Word (.docx)")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Montar do zero" })).toBeTruthy();
   });
 
   it("registrar: mostra os exercícios do treino do programa, troca de treino e salva com as séries digitadas", async () => {
-    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} heightCm={null} />);
 
     // Semana 1: prescrição da readaptação.
     expect(await screen.findByText("Leg press 45°")).toBeTruthy();
@@ -98,7 +99,7 @@ describe("TreinosWorkspace", () => {
   });
 
   it("semáforo reage ao check-in", async () => {
-    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[]} weekly={[]} heightCm={null} />);
     expect(await screen.findByText("Verde")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Doente"));
     expect(screen.getByText("Vermelho")).toBeTruthy();
@@ -127,7 +128,7 @@ describe("TreinosWorkspace", () => {
       backPainMorning: null,
       notes: "",
     };
-    render(<TreinosWorkspace programs={[program]} sessions={[session]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[session]} weekly={[]} heightCm={null} />);
     fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
     // Cartão fechado: dia da semana, nome do treino do programa e resumo.
     const card = screen.getByRole("button", { name: /Seg, 28\/09/ });
@@ -161,7 +162,7 @@ describe("TreinosWorkspace", () => {
       backPainMorning: null,
       notes: "bicicleta e esteira 30 min cada",
     };
-    render(<TreinosWorkspace programs={[program]} sessions={[cardio]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[program]} sessions={[cardio]} weekly={[]} heightCm={null} />);
     fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
     const card = screen.getByRole("button", { name: /Ter, 29\/09/ });
     expect(within(card).getByText("Cardio / descanso ativo")).toBeTruthy();
@@ -170,7 +171,7 @@ describe("TreinosWorkspace", () => {
   });
 
   it("montar do zero: edita treino e exercício e salva o programa em uso", async () => {
-    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} />);
+    render(<TreinosWorkspace programs={[]} sessions={[]} weekly={[]} heightCm={null} />);
     fireEvent.click(screen.getByRole("button", { name: "Montar do zero" }));
 
     fireEvent.change(screen.getByLabelText("Nome do treino A"), { target: { value: "Pernas" } });

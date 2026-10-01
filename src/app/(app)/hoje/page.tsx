@@ -17,13 +17,21 @@ import { listBills } from "@/features/financas/queries";
 import { linkActivityLabel } from "@/features/sharing/lib/link-activity";
 import { listUnreadLinkActivity } from "@/features/sharing/queries";
 import { countInboxItems, listRecentItems } from "@/features/items/queries";
+import { isHabitLogged } from "@/features/habits/lib/habit-log";
+import { isScheduled } from "@/features/habits/lib/habit-week";
+import { listRotinaHabits } from "@/features/habits/queries";
+import type { TodayHabit } from "@/features/habits/components/today-habits-card";
+import { getMealsForToday } from "@/features/meals/queries";
 import { TodayView, type TodayRow } from "@/features/today/components/today-view";
 import { billsDueSoon, daySummary, formatDayHeader, formatTime, greeting } from "@/features/today/lib/today";
 import { findWorkout } from "@/features/treinos/lib/program";
-import { nextWorkout } from "@/features/treinos/lib/rules";
+import { nextWorkout, programWeek } from "@/features/treinos/lib/rules";
 import { listWorkoutPrograms, listWorkoutSessions } from "@/features/treinos/queries";
 import { describeBlockTime, formatHour, routineNow } from "@/features/routine/lib/routine-blocks";
 import { listRoutineBlocks } from "@/features/routine/queries";
+import { getMedicalSummaryForToday } from "@/features/medical/queries";
+import { listMedications } from "@/features/medications/queries";
+import { getWaterData } from "@/features/water/queries";
 import { requireOwner } from "@/lib/auth";
 import { formatBRL } from "@/lib/money";
 
@@ -40,7 +48,25 @@ export default async function TodayPage() {
   const dayRange = computeDayRange(now, timezone);
   const today = dayRange.dateStr;
 
-  const [events, calendarColors, dateFieldsByTypeId, reminders, bills, inboxCount, recent, programs, sessions, expiringItems, linkActivity, routineBlocks] = await Promise.all([
+  const [
+    events,
+    calendarColors,
+    dateFieldsByTypeId,
+    reminders,
+    bills,
+    inboxCount,
+    recent,
+    programs,
+    sessions,
+    expiringItems,
+    linkActivity,
+    routineBlocks,
+    water,
+    medications,
+    medical,
+    rotinaHabits,
+    meals,
+  ] = await Promise.all([
     listGoogleEventsInRange(supabase, user.id, dayRange.startIso, dayRange.endIsoExclusive),
     listCalendarColors(supabase, user.id),
     listDateFieldsByTypeId(supabase, user.id),
@@ -54,6 +80,11 @@ export default async function TodayPage() {
     listExpiringItems(supabase, today).catch(() => []),
     listUnreadLinkActivity(supabase, 6).catch(() => ({ items: [], total: 0 })),
     listRoutineBlocks(supabase, user.id).catch(() => []),
+    getWaterData(supabase, user.id, today).catch(() => ({ goalMl: 2000, todayMl: 0, history: [] })),
+    listMedications(supabase).catch(() => []),
+    getMedicalSummaryForToday(supabase, user.id, today).catch(() => ({ hasAny: false, space: null, nextConsulta: null })),
+    listRotinaHabits(supabase, timezone).catch(() => ({ hasHabitType: false, habits: [] })),
+    getMealsForToday(supabase, user.id, today).catch(() => ({})),
   ]);
 
   const items = await listItemsForDateExtraction(supabase, user.id, [...dateFieldsByTypeId.keys()]);
@@ -97,10 +128,26 @@ export default async function TodayPage() {
         : new Date(activity.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: timezone }),
   }));
 
+  const medicalNextLabel = medical.nextConsulta
+    ? `${medical.nextConsulta.title} · ${medical.nextConsulta.date.slice(8, 10)}/${medical.nextConsulta.date.slice(5, 7)}`
+    : null;
+
+  const habitsToday: TodayHabit[] = rotinaHabits.habits
+    .filter((habit) => isScheduled(habit, today))
+    .map((habit) => ({ id: habit.id, title: habit.title, done: isHabitLogged(habit.log, today) }));
+
   const program = programs.find((p) => p.active);
   const letter = program ? nextWorkout(program.definition, sessions) : null;
   const workout =
-    program && letter ? { done: sessions.some((s) => s.date === today), letter, name: findWorkout(program.definition, letter)?.name ?? null } : null;
+    program && letter
+      ? {
+          done: sessions.some((s) => s.date === today),
+          letter,
+          name: findWorkout(program.definition, letter)?.name ?? null,
+          programId: program.id,
+          week: programWeek(sessions, today),
+        }
+      : null;
 
   const hour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: timezone }).format(now));
 
@@ -127,6 +174,12 @@ export default async function TodayPage() {
       recent={recent.map((item) => ({ id: item.id, title: item.title, href: `/itens/${item.id}` }))}
       inboxCount={inboxCount}
       routine={routine}
+      water={water}
+      medications={medications}
+      medical={{ hasAny: medical.hasAny, spaceHref: medical.space ? `/espacos/${medical.space.slug}` : null, nextConsultaLabel: medicalNextLabel }}
+      habits={{ hasHabitType: rotinaHabits.hasHabitType, today: habitsToday }}
+      meals={meals}
+      todayDateStr={today}
     />
   );
 }

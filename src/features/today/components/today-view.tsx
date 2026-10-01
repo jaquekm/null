@@ -1,6 +1,14 @@
-import { AlarmClock, CalendarClock, CalendarDays, Link2, CheckCircle2, Clock3, Dumbbell, Inbox, ListTodo, Receipt, type LucideIcon } from "lucide-react";
+import { AlarmClock, CalendarClock, CalendarDays, Link2, CheckCircle2, Clock3, Droplet, Dumbbell, Flame, Inbox, ListTodo, Pill, Receipt, Stethoscope, UtensilsCrossed, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { TodayHabitsCard, type TodayHabit } from "@/features/habits/components/today-habits-card";
+import { MealsCard } from "@/features/meals/components/meals-card";
+import type { MealsState } from "@/features/meals/lib/meal-slots";
+import { MedicationsCard } from "@/features/medications/components/medications-card";
+import type { MedicationForToday } from "@/features/medications/queries";
+import { QuickLogWorkoutButton } from "@/features/treinos/components/quick-log-workout-button";
+import { WaterCard } from "@/features/water/components/water-card";
+import type { WaterData } from "@/features/water/queries";
 import { MarkLinkActivitySeen } from "@/features/sharing/components/mark-link-activity-seen";
 import { TodayCapture } from "./today-capture";
 
@@ -30,12 +38,24 @@ export interface TodayViewProps {
   /** Comentários e marcações não vistos nos links da dona (9.7) — vazio = o cartão nem aparece. */
   linkActivity?: TodayRow[];
   hiddenLinkActivity?: number;
-  /** `null` = sem programa de treino ativo (o cartão nem aparece). */
-  workout: { done: boolean; letter: string; name: string | null } | null;
+  /** `null` = sem programa de treino ativo (o cartão nem aparece). `programId`/`week` só importam pra "Marquei, sem detalhar" (10.8). */
+  workout: { done: boolean; letter: string; name: string | null; programId: string; week: number } | null;
   recent: TodayRow[];
   inboxCount: number;
+  /** Data de hoje (yyyy-MM-dd) — só pro "Marquei, sem detalhar" do treino e pro toggle de hábitos (10.8). */
+  todayDateStr: string;
+  /** Hábitos do dia (10.8): só os agendados pra hoje, marcáveis sem abrir a Rotina. `hasHabitType=false` esconde o card. */
+  habits: { hasHabitType: boolean; today: TodayHabit[] };
+  /** Refeições marcáveis (10.8) — "comi ou não", sem detalhar o quê (isso é o cardápio, 10.9). */
+  meals: MealsState;
   /** Rotina por horário (10.2): "Agora: Academia (8h–9h) · Depois: 13h Almoço". `null`/ausente = sem blocos hoje. */
   routine?: { current: string | null; next: string | null } | null;
+  /** Água (10.4): meta, total de hoje e histórico dos últimos 7 dias. */
+  water: WaterData;
+  /** Remédios e vitaminas (10.5): nome, dose, horários e estoque. */
+  medications: MedicationForToday[];
+  /** Log médico (10.7): `hasAny=false` (pack não instalado ainda) esconde o card por inteiro. */
+  medical: { hasAny: boolean; spaceHref: string | null; nextConsultaLabel: string | null };
 }
 
 function Card({ icon: Icon, title, href, linkLabel, children }: { icon: LucideIcon; title: string; href?: string; linkLabel?: string; children: ReactNode }) {
@@ -162,6 +182,39 @@ export function TodayView(props: TodayViewProps) {
           </Card>
         )}
 
+        <Card icon={Droplet} title="Água">
+          <WaterCard goalMl={props.water.goalMl} todayMl={props.water.todayMl} history={props.water.history} />
+        </Card>
+
+        <Card icon={Pill} title="Remédios">
+          <MedicationsCard medications={props.medications} />
+        </Card>
+
+        {props.habits.hasHabitType && (
+          <Card icon={Flame} title="Hábitos" href="/rotina" linkLabel="Ver semana">
+            <TodayHabitsCard habits={props.habits.today} today={props.todayDateStr} />
+          </Card>
+        )}
+
+        <Card icon={UtensilsCrossed} title="Refeições" href="/cardapio" linkLabel="Ver cardápio da semana">
+          <MealsCard meals={props.meals} />
+        </Card>
+
+        {props.medical.hasAny && (
+          <Card icon={Stethoscope} title="Saúde" href={props.medical.spaceHref ?? undefined} linkLabel="Ver registros">
+            {props.medical.nextConsultaLabel ? (
+              <p className="text-sm text-black dark:text-zinc-100">
+                Próxima consulta: <strong>{props.medical.nextConsultaLabel}</strong>
+              </p>
+            ) : (
+              <Empty>Nenhuma consulta marcada.</Empty>
+            )}
+            <a href="/api/saude/resumo/export" target="_blank" rel="noopener noreferrer" className="self-start text-xs font-medium text-brand-text hover:underline">
+              Resumo pra levar ao médico →
+            </a>
+          </Card>
+        )}
+
         {workout && (
           <Card icon={Dumbbell} title="Treino" href="/treinos" linkLabel="Abrir treinos">
             {workout.done ? (
@@ -169,15 +222,18 @@ export function TodayView(props: TodayViewProps) {
                 <CheckCircle2 className="h-4 w-4" aria-hidden /> Treino de hoje registrado. Bom trabalho!
               </p>
             ) : (
-              <Link href="/treinos" className="flex items-center gap-3 rounded-xl bg-brand-soft px-3 py-3 hover:opacity-90">
-                <span className="bg-brand text-brand-fg flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-bold">{workout.letter}</span>
-                <span className="flex flex-col">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">Próximo treino</span>
-                  <span className="font-semibold text-black dark:text-zinc-50">
-                    {workout.name ? `Treino ${workout.letter} · ${workout.name}` : `Treino ${workout.letter}`}
+              <>
+                <Link href="/treinos" className="flex items-center gap-3 rounded-xl bg-brand-soft px-3 py-3 hover:opacity-90">
+                  <span className="bg-brand text-brand-fg flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-bold">{workout.letter}</span>
+                  <span className="flex flex-col">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">Próximo treino</span>
+                    <span className="font-semibold text-black dark:text-zinc-50">
+                      {workout.name ? `Treino ${workout.letter} · ${workout.name}` : `Treino ${workout.letter}`}
+                    </span>
                   </span>
-                </span>
-              </Link>
+                </Link>
+                <QuickLogWorkoutButton programId={workout.programId} date={props.todayDateStr} week={workout.week} letter={workout.letter} />
+              </>
             )}
           </Card>
         )}

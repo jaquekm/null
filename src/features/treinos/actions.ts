@@ -9,7 +9,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { parseProgramText, type ParsedProgram } from "./lib/parse-program";
 import { findWorkout, programDefinitionSchema } from "./lib/program";
 import { canSaveSession, trafficLight } from "./lib/rules";
-import { morningPainSchema, programInputSchema, sessionInputSchema, weeklyInputSchema } from "./schemas";
+import { morningPainSchema, programInputSchema, sessionInputSchema, setHeightSchema, weeklyInputSchema } from "./schemas";
 
 const MAX_PROGRAM_FILE_BYTES = 4 * 1024 * 1024;
 
@@ -114,6 +114,24 @@ export async function deleteWeeklyMeasure(id: string): Promise<Result<null>> {
   const { supabase, user } = await requireOwner();
   const { error } = await supabase.from("workout_weekly").delete().eq("id", id).eq("owner_id", user.id);
   if (error) return fail("Não foi possível excluir.");
+  revalidatePath(PATH);
+  return ok(null);
+}
+
+/** Altura pro IMC (10.6) — guardada em `user_settings.preferences.heightCm`, mesmo lugar de `waterGoalMl`/`ownerWhatsapp`. */
+export async function setHeight(input: unknown): Promise<Result<null>> {
+  const parsed = setHeightSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Altura inválida.");
+  const { supabase, user } = await requireOwner();
+
+  const { data } = await supabase.from("user_settings").select("preferences").eq("owner_id", user.id).maybeSingle();
+  const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
+
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ owner_id: user.id, preferences: { ...preferences, heightCm: parsed.data.heightCm } as unknown as Json }, { onConflict: "owner_id" });
+  if (error) return fail(GENERIC_ERROR);
+
   revalidatePath(PATH);
   return ok(null);
 }
