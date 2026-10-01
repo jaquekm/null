@@ -2,8 +2,10 @@
 
 Este arquivo existe para que **outra conta ou outra sessão do Claude Code** continue o projeto sem
 perder nada. Leia nesta ordem: este arquivo → `CLAUDE.md` → `docs/00-visao-geral.md` →
-`docs/PROGRESSO.md` (o que foi feito, tarefa a tarefa) → `docs/decisoes.md` (por que foi feito assim)
-→ o plano da fase atual (`docs/fase-10-vida.md`).
+`docs/PROGRESSO.md` (índice; o que foi feito está em `docs/progresso/fase-NN*.md`, dividido por fase
+desde 01/10 — arquivo único ficou grande demais pra publicar) → `docs/decisoes.md` (índice; por que foi
+feito assim está em `docs/decisoes/*.md`, dividido em partes pelo mesmo motivo) → o plano da fase atual
+(`docs/fase-10-vida.md`).
 
 ## 1. Estado agora
 
@@ -48,8 +50,9 @@ perder nada. Leia nesta ordem: este arquivo → `CLAUDE.md` → `docs/00-visao-g
   ler valores do Vault (só nomes); descriptografar variáveis da Vercel; **rodar migration em produção sem
   a dona pedir explicitamente** (cada migration é um pedido novo — "pode aplicar a migration").
 - **Fluxo por tarefa:** implementar → `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` →
-  prints (computador claro e celular escuro) → atualizar `PROGRESSO.md` (e `decisoes.md` se desviou) →
-  commit em português `tipo(escopo): descrição`.
+  prints (computador claro e celular escuro) → atualizar `docs/progresso/fase-NN.md` da fase atual (e o
+  último `docs/decisoes/NN-*.md` se desviou) — nunca editar `PROGRESSO.md`/`decisoes.md` direto, são só
+  índice → commit em português `tipo(escopo): descrição`.
 - **PRs:** sempre em rascunho (draft). Enquanto uma PR está aberta, a tarefa seguinte vai para a mesma
   branch (foi assim com a #74, porque o gancho do ambiente exige enviar todo commit). Depois do merge,
   a branch recomeça de `origin/main` e abre PR nova. Acompanhar a PR até mesclar (CI, conflitos, comentários).

@@ -19,7 +19,8 @@ Terceiros (clientes, família) **nunca criam conta**. Eles recebem links de comp
 permissão limitada e prazo de validade.
 
 - Documentação detalhada: `docs/00-visao-geral.md` e `docs/fase-XX-*.md`
-- Progresso: `docs/PROGRESSO.md`
+- Progresso: `docs/PROGRESSO.md` é um índice — o conteúdo de cada fase está em `docs/progresso/fase-NN*.md` (dividido por fase desde 01/10, arquivo único ficou grande demais pra publicar; ver `docs/decisoes/07-fase-10.md`)
+- Decisões: `docs/decisoes.md` também é um índice — o conteúdo está em `docs/decisoes/*.md`, dividido em partes sequenciais (mesmo motivo)
 - **Onde paramos, pendências e regras combinadas com a dona: `docs/CONTINUIDADE.md` — leia primeiro ao começar uma sessão nova.**
 
 ## Stack
@@ -137,8 +138,8 @@ docs/
 2. Trabalhe **uma tarefa por vez** (ex.: "1.6"). Não avance para a próxima sem concluir os critérios de aceite.
 3. Tarefas marcadas **[HUMANO]** exigem ação do dono (criar contas, DNS, chaves). Pare e peça, explicando exatamente o que ele precisa fazer.
 4. Ao terminar uma tarefa: rode `pnpm lint`, `pnpm typecheck` e `pnpm test`. Corrija tudo antes de declarar concluído.
-5. Atualize `docs/PROGRESSO.md` marcando a tarefa e anotando decisões ou desvios do plano.
-6. Se precisar desviar do plano (outra lib, outro schema), explique o motivo e registre em `docs/decisoes.md`.
+5. Atualize o arquivo da fase atual em `docs/progresso/` (ex.: `fase-10.md`) marcando a tarefa — não edite `docs/PROGRESSO.md` diretamente, ele só lista os arquivos. Se o arquivo da fase passar de ~40 KB, continue numa `-parte-N.md` nova (mesmo padrão já usado nas fases 1–7).
+6. Se precisar desviar do plano (outra lib, outro schema), explique o motivo e registre no último arquivo de `docs/decisoes/` (o de data mais recente) — não edite `docs/decisoes.md` diretamente, ele só lista os arquivos.
 7. Não adicione dependências fora da stack sem justificar.
 8. Trabalhe no projeto Supabase **local ou de desenvolvimento**. Nunca rode migrations em produção sem o dono pedir.
 9. Commits pequenos, em português, no formato `tipo(escopo): descrição` (ex.: `feat(financas): importação OFX`).
