@@ -72,7 +72,7 @@
 ## Módulo Treinos (fora do plano original das fases)
 
 - **O quê:** módulo `/treinos` com código próprio (`src/features/treinos`), como Finanças e Agenda, em vez de um tipo de item configurável. A dona pediu um espaço como o app de "Evolução do treino" que outro sistema gerou (check-in com semáforo, séries por exercício com sugestão de carga, histórico, gráficos, medidas semanais).
-- **Por quê código e não tipo/visão:** a sugestão de progressão depende de regras sobre o histórico (topo da faixa + RIR + dor na manhã seguinte, abaixo da faixa duas vezes seguidas, readaptação nas semanas 1–2) e o formulário de registro depende da prescrição por fase — nada disso cabe em campos e visões genéricas.
+- **Por quê código e não tipo/visão:** a sugestão de progressão depende de regras sobre o histórico (topo da faixa + RIR + dor na manhã seguinte, abaixo da faixa duas vezes seguidas, readaptação nas semanas 1–2) e o formulário de registro depende da prescrição por fase — nada disso cabe em campos e visões genéricos.
 - **Programa é dado, não código:** `workout_programs.definition` (jsonb validado por Zod) guarda treinos A, B, C… com exercícios e prescrição das semanas 1–2 e 3+. Importado de um `.docx` no formato "Treino A — nome" / "A1. Exercício — foco" / "Sem. 1–2: 2×12 (RIR 3–4) → Sem. 3+: 3×10–12 (RIR 2)" (`parse-program.ts`, testado com o documento real) ou montado à mão no editor. Um programa ativo por vez (índice único parcial). "Igual ao A3" e nomes repetidos entre treinos viram o mesmo exercício (mesmo histórico).
 - **Sessões guardam o nome do exercício** em cada entrada (`exercises.<id>.name`), pra o histórico continuar legível se o programa for editado ou apagado (`program_id` é `on delete set null`).
 - **Gráficos:** uma medida por gráfico (energia 1–5 e sono em horas não dividem eixo, ao contrário do app original), série única na cor `--chart-series-1` validada com o `validate_palette.js` nos dois temas.
@@ -149,7 +149,7 @@
 
 - **Hábitos continuam sendo itens do tipo Hábito:** a grade da Rotina lê e grava o mesmo `properties.log` do registro da 5.12 (e a frequência em `properties.frequency`, no formato do pack), então marcar na Rotina, no item ou no Hoje é a mesma coisa — sem tabela nova nem migration. Hábito arquivado ou na lixeira sai da grade.
 - **"Começou em":** o dia em que o hábito foi criado (ou o registro mais antigo, se a dona marcou dias anteriores). Antes disso não conta como falta — senão todo hábito novo nasceria com o mapa vermelho.
-- **Rotina por horário em `preferences`, sem tabela (10.2):** são poucos blocos (até 60), só da dona, sempre lidos inteiros — o mesmo lugar do WhatsApp da dona (9.8). Não viram evento do Google (a dona não quer a agenda dela poluida com "acordar"); a Agenda gera as ocorrências na hora, como os lembretes. Bloco que passa da meia-noite (sono 23h–6h) não é aceito por enquanto — dá pra usar um horário só ("23h Dormir").
+- **Rotina por horário em `preferences`, sem tabela (10.2):** são poucos blocos (até 60), só da dona, sempre lidos inteiros — o mesmo lugar do WhatsApp da dona (9.8). Não viram evento do Google (a dona não quer a agenda dela poluída com "acordar"); a Agenda gera as ocorrências na hora, como os lembretes. Bloco que passa da meia-noite (sono 23h–6h) não é aceito por enquanto — dá pra usar um horário só ("23h Dormir").
 
 ## Modo foco (10.3)
 
@@ -160,5 +160,6 @@
 
 ## Água (10.4)
 
-- **Tabela nova (`water_logs`), uma linha por dia, não por toque:** diferente de `focus_sessions`/`study_sessions` (uma linha por sessão, porque cada sessão tem início/fim e sentido próprio), cada toque em "+250 ml" só soma um número — guardar uma linha por toque cresceria sem motivo (o histórico só quer o total do dia). `unique (owner_id, day)` com soma feita na action (lê o total atual, grava `total + 250`) em vez de uma função SQL de incremento atômico: com um usuário só clicando um botão de cada vez, a chance de duas gravações concorrentes é desprezível, e não justifica uma migration extra para um `update ... set total_ml = total_ml + :amount`.
+- **Tabela nova (`water_logs`), uma linha por dia, não por toque:** diferente de `focus_sessions`/`study_sessions` (uma linha por sessão, porque cada sessão tem início/fim e sentido próprio), cada toque em "+250 ml" só soma um número — guardar uma linha por toque cresceria sem motivo (o histórico só quer o total do dia). `unique (owner_id, day)` com soma feita na action (lê o total atual, grava `total + 250`) em vez de uma função SQL de incremento atômico: com um usuário só clicando um botão de cada vez, a chance de duas gravações concorrentes é desprezível, e não justifica uma migration extra só para um `update ... set total_ml = total_ml + :amount`.
 - **Meta em `preferences`, não na tabela:** a meta diária é uma preferência (um número só, muda raramente), o mesmo critério já usado pra `ownerWhatsapp`/`routineBlocks` — guardar na tabela de logs (repetida em toda linha) ou numa tabela própria seria complicar por nada.
+

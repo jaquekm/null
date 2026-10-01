@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { WEEKDAY_LONG, WEEKDAYS, weekDates, type Weekday } from "@/features/habits/lib/habit-week";
 import { addDaysToDateString } from "@/lib/dates";
+import { generateShoppingListFromWeek } from "@/features/recipes/actions";
 import { copyPlanDay, repeatWeek, setMealPlanCell } from "../actions";
 import { MEAL_SLOTS } from "../lib/meal-slots";
 import type { WeekPlan } from "../lib/menu-plan";
@@ -104,6 +105,7 @@ function DaySection({
 export function MenuGrid({ weekStart, plan: initialPlan }: { weekStart: string; plan: WeekPlan }) {
   const [plan, setPlan] = useState(initialPlan);
   const [repeating, startRepeatTransition] = useTransition();
+  const [generating, startGenerateTransition] = useTransition();
   const dates = weekDates(weekStart);
   const nextWeekStart = addDaysToDateString(weekStart, 7);
   const router = useRouter();
@@ -120,16 +122,45 @@ export function MenuGrid({ weekStart, plan: initialPlan }: { weekStart: string; 
     });
   }
 
+  function handleGenerateShoppingList() {
+    startGenerateTransition(async () => {
+      const result = await generateShoppingListFromWeek({ weekStart });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.data.matchedRecipes.length === 0) {
+        toast.error("Nenhuma receita encontrada nas células desta semana.");
+        return;
+      }
+      toast.success(
+        result.data.addedToShoppingList
+          ? `Somado ${result.data.matchedRecipes.length} receita(s) na lista de compras.`
+          : `Achei ${result.data.matchedRecipes.length} receita(s), mas não consegui somar na lista de compras.`,
+      );
+    });
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <button
-        type="button"
-        disabled={repeating}
-        onClick={handleRepeatWeek}
-        className="self-start rounded-full border border-black/[.12] px-4 py-1.5 text-sm disabled:opacity-60 dark:border-white/[.16]"
-      >
-        Repetir esta semana na próxima
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={repeating}
+          onClick={handleRepeatWeek}
+          className="self-start rounded-full border border-black/[.12] px-4 py-1.5 text-sm disabled:opacity-60 dark:border-white/[.16]"
+        >
+          Repetir esta semana na próxima
+        </button>
+        <button
+          type="button"
+          disabled={generating}
+          onClick={handleGenerateShoppingList}
+          className="self-start rounded-full border border-black/[.12] px-4 py-1.5 text-sm disabled:opacity-60 dark:border-white/[.16]"
+        >
+          Gerar lista de compras desta semana
+        </button>
+      </div>
       {WEEKDAYS.map((day, index) => (
         <DaySection key={day} day={day} date={dates[index]!} plan={plan} weekStart={weekStart} onChanged={setPlan} />
       ))}

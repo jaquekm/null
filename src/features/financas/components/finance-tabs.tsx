@@ -8,6 +8,7 @@ const TABS = [
   { href: "/financas/lancamentos", label: "Lançamentos" },
   { href: "/financas/contas", label: "Contas" },
   { href: "/financas/orcamento", label: "Orçamento" },
+  { href: "/financas/patrimonio", label: "Patrimônio" },
   { href: "/financas/dividir", label: "Dividir" },
   { href: "/financas/recorrencias", label: "Recorrências" },
   { href: "/financas/importar", label: "Importar" },

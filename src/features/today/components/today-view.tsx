@@ -1,6 +1,8 @@
-import { AlarmClock, CalendarClock, CalendarDays, Link2, CheckCircle2, Clock3, Droplet, Dumbbell, Flame, Inbox, ListTodo, Pill, Receipt, Stethoscope, UtensilsCrossed, type LucideIcon } from "lucide-react";
+import { AlarmClock, CalendarClock, CalendarDays, Link2, CheckCircle2, Clock3, Droplet, Dumbbell, Flame, Hourglass, Inbox, ListTodo, Pill, Receipt, Stethoscope, UtensilsCrossed, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { FastingCard } from "@/features/fasting/components/fasting-card";
+import type { FastingData } from "@/features/fasting/queries";
 import { TodayHabitsCard, type TodayHabit } from "@/features/habits/components/today-habits-card";
 import { MealsCard } from "@/features/meals/components/meals-card";
 import type { MealsState } from "@/features/meals/lib/meal-slots";
@@ -56,6 +58,8 @@ export interface TodayViewProps {
   medications: MedicationForToday[];
   /** Log médico (10.7): `hasAny=false` (pack não instalado ainda) esconde o card por inteiro. */
   medical: { hasAny: boolean; spaceHref: string | null; nextConsultaLabel: string | null };
+  /** Jejum (10.11): sessão ativa (se tiver) e histórico recente. */
+  fasting: FastingData;
 }
 
 function Card({ icon: Icon, title, href, linkLabel, children }: { icon: LucideIcon; title: string; href?: string; linkLabel?: string; children: ReactNode }) {
@@ -188,6 +192,10 @@ export function TodayView(props: TodayViewProps) {
 
         <Card icon={Pill} title="Remédios">
           <MedicationsCard medications={props.medications} />
+        </Card>
+
+        <Card icon={Hourglass} title="Jejum">
+          <FastingCard active={props.fasting.active} history={props.fasting.history} averageMinutes={props.fasting.averageMinutes} />
         </Card>
 
         {props.habits.hasHabitType && (

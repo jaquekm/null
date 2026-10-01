@@ -13,6 +13,7 @@ import {
 } from "@/features/agenda/queries";
 import { expiryStatus } from "@/features/documents/lib/expiry";
 import { listExpiringItems } from "@/features/documents/queries";
+import { getFastingData } from "@/features/fasting/queries";
 import { listBills } from "@/features/financas/queries";
 import { linkActivityLabel } from "@/features/sharing/lib/link-activity";
 import { listUnreadLinkActivity } from "@/features/sharing/queries";
@@ -66,6 +67,7 @@ export default async function TodayPage() {
     medical,
     rotinaHabits,
     meals,
+    fasting,
   ] = await Promise.all([
     listGoogleEventsInRange(supabase, user.id, dayRange.startIso, dayRange.endIsoExclusive),
     listCalendarColors(supabase, user.id),
@@ -85,6 +87,7 @@ export default async function TodayPage() {
     getMedicalSummaryForToday(supabase, user.id, today).catch(() => ({ hasAny: false, space: null, nextConsulta: null })),
     listRotinaHabits(supabase, timezone).catch(() => ({ hasHabitType: false, habits: [] })),
     getMealsForToday(supabase, user.id, today).catch(() => ({})),
+    getFastingData(supabase, user.id).catch(() => ({ active: null, history: [], averageMinutes: null })),
   ]);
 
   const items = await listItemsForDateExtraction(supabase, user.id, [...dateFieldsByTypeId.keys()]);
@@ -180,6 +183,7 @@ export default async function TodayPage() {
       habits={{ hasHabitType: rotinaHabits.hasHabitType, today: habitsToday }}
       meals={meals}
       todayDateStr={today}
+      fasting={fasting}
     />
   );
 }
