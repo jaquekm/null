@@ -1,5 +1,7 @@
 "use client";
 
+import { InfoHint } from "@/components/ui/info-hint";
+
 const UNITS = [
   { value: 1, label: "minutos" },
   { value: 60, label: "horas" },
@@ -60,6 +62,7 @@ export function DurationInput({ minutes, relative = false, onChange }: { minutes
         <option value="after">depois</option>
       </select>
       {direction !== "on" && amountAndUnit}
+      <InfoHint text="Define quando a automação dispara, em relação à data do campo: na hora exata, um tempo antes, ou um tempo depois." />
     </span>
   );
 }
