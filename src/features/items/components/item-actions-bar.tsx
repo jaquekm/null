@@ -3,6 +3,7 @@
 import { Archive, ArchiveRestore, Copy, Link as LinkIcon, ListChecks, Pin, PinOff, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import type { TypeOptionWithFields } from "../queries";
 import { changeItemType, duplicateItem, duplicateItemAsNewList, moveItem, setItemStatus, softDeleteItem, togglePin } from "../actions";
@@ -116,6 +117,7 @@ export function ItemActionsBar({
           {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
           {pinned ? "Desafixar" : "Fixar"}
         </button>
+        <InfoHint text="Fica fixado no topo do espaço, antes dos outros itens." />
 
         <button
           type="button"
@@ -127,23 +129,34 @@ export function ItemActionsBar({
           {status === "archived" ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
           {status === "archived" ? "Restaurar" : "Arquivar"}
         </button>
+        <InfoHint
+          text={
+            status === "archived"
+              ? "Volta a aparecer nas listas do espaço."
+              : "Some das listas do espaço, mas continua guardado e aparece na busca. Reversível: é só restaurar."
+          }
+        />
 
         <button type="button" disabled={pending} onClick={handleDuplicate} title="Cria uma cópia igual, com o mesmo conteúdo" className={buttonClassName}>
           <Copy className="h-4 w-4" />
           Duplicar
         </button>
+        <InfoHint text="Cria um item novo, separado deste, com o mesmo conteúdo." />
 
         {typeSlug === "lista" && (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={handleDuplicateAsNewList}
-            title="Cópia da lista com todos os itens desmarcados — pra lista que se repete, como compras"
-            className={buttonClassName}
-          >
-            <ListChecks className="h-4 w-4" />
-            Nova cópia desmarcada
-          </button>
+          <>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={handleDuplicateAsNewList}
+              title="Cópia da lista com todos os itens desmarcados — pra lista que se repete, como compras"
+              className={buttonClassName}
+            >
+              <ListChecks className="h-4 w-4" />
+              Nova cópia desmarcada
+            </button>
+            <InfoHint text="Cria uma cópia desta lista com tudo desmarcado — pra listas que se repetem, como a de compras." />
+          </>
         )}
 
         <button
@@ -155,16 +168,19 @@ export function ItemActionsBar({
           <LinkIcon className="h-4 w-4" />
           Copiar link
         </button>
+        <InfoHint text="Copia o endereço desta página. Só abre pra você, já logada — pra mandar pra outra pessoa, use Compartilhar." />
 
         <button
           type="button"
           disabled={pending}
           onClick={handleDelete}
+          title="Move pra lixeira — dá pra restaurar depois"
           className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
         >
           <Trash2 className="h-4 w-4" />
           Excluir
         </button>
+        <InfoHint text="Move este item pra lixeira. Não é definitivo: dá pra restaurar depois." />
       </div>
 
       {error && (
