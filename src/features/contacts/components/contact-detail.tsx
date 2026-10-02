@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { InfoHint } from "@/components/ui/info-hint";
 import { ContactFinanceSection } from "@/features/financas/components/contact-finance-section";
 import type { ContactFinanceSummary } from "@/features/financas/queries";
 import { RemindAboutButton } from "@/features/reminders/components/remind-about-button";
@@ -112,6 +113,7 @@ export function ContactDetail({
               <button type="button" onClick={() => setShowMerge(true)} className="rounded-full border border-black/[.12] px-3 py-1.5 text-xs dark:border-white/[.16]">
                 Mesclar
               </button>
+              <InfoHint text="Junta este contato com outro que você escolher — os dados se combinam num só, e o contato duplicado desaparece." />
               <button type="button" onClick={handleArchive} disabled={pending} className="rounded-full border border-black/[.12] px-3 py-1.5 text-xs text-red-600 disabled:opacity-60 dark:border-white/[.16]">
                 Arquivar
               </button>

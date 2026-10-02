@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InfoHint } from "@/components/ui/info-hint";
 import { listActiveSpaces } from "@/features/spaces/queries";
 import { ExtractTasksPanel } from "@/features/ai/components/extract-tasks-panel";
 import { FillPropertiesPanel } from "@/features/ai/components/fill-properties-panel";
@@ -225,11 +226,11 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
         types={types}
       />
 
-      {/* O que não é do dia a dia fica guardado aqui (a dona: "tem coisas que não sei o que fazem ali"). */}
+      {/* O que não é do dia a dia fica guardado aqui (a dona: "tem coisas que não sei o que fazem ali"). Textinho fixo virou InfoHint (ela: "suja a tela"). */}
       <details open={moreOpen} className="group rounded-2xl border border-black/[.06] bg-surface px-4 py-3 shadow-sm dark:border-white/[.06]">
-        <summary className="cursor-pointer list-none select-none">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none">
           <span className="text-sm font-medium text-black dark:text-zinc-50">Mais ferramentas</span>
-          <span className="block text-xs text-zinc-500 dark:text-zinc-400">Dinheiro ligado a este item, subitens, IA, histórico de versões e quem menciona este item.</span>
+          <InfoHint text="Dinheiro ligado a este item, subitens, IA, histórico de versões e quem menciona este item." />
         </summary>
         <div className="mt-4 flex flex-col gap-6">
           <ToolHint text="Registrar um gasto ou recebimento ligado a este item (ex.: o salário, uma compra).">
@@ -291,8 +292,10 @@ export default async function ItemPage(props: PageProps<"/itens/[id]">) {
 function ToolHint({ text, children }: { text: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
+      <div className="flex justify-end">
+        <InfoHint text={text} />
+      </div>
       {children}
-      <p className="text-xs text-zinc-400 dark:text-zinc-500">{text}</p>
     </div>
   );
 }
