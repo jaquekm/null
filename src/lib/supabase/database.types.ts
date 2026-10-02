@@ -794,6 +794,33 @@ export type Database = {
           },
         ]
       }
+      fasting_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          owner_id: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          owner_id?: string
+          started_at: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          owner_id?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fin_accounts: {
         Row: {
           archived_at: string | null
@@ -2399,6 +2426,77 @@ export type Database = {
           },
         ]
       }
+      net_worth_items: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          monthly_rate_percent: number | null
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          monthly_rate_percent?: number | null
+          name: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          monthly_rate_percent?: number | null
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      net_worth_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          month: string
+          owner_id: string
+          updated_at: string
+          value_cents: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          month: string
+          owner_id?: string
+          updated_at?: string
+          value_cents: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          month?: string
+          owner_id?: string
+          updated_at?: string
+          value_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "net_worth_snapshots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "net_worth_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       object_types: {
         Row: {
           archived_at: string | null
@@ -3977,7 +4075,7 @@ export type CompositeTypes<
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    ? DefaultSchema["CompositeTypes"][CompositeTypeName]
     : never
 
 export const Constants = {
