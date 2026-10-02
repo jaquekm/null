@@ -2,6 +2,7 @@
 
 import { Download, File as FileIcon, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
+import { InfoHint } from "@/components/ui/info-hint";
 import { deleteAttachment } from "../actions";
 import { pickExtractionStrategy } from "../lib/pick-extraction-method";
 import type { AttachmentRow } from "../queries";
@@ -24,7 +25,7 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
   }
 
   function handleDelete(id: string) {
-    if (!window.confirm("Excluir este anexo?")) return;
+    if (!window.confirm("Excluir este anexo? Não dá pra desfazer — o arquivo é apagado de vez.")) return;
     startTransition(async () => {
       const result = await deleteAttachment(id, itemId);
       if (result.ok) setAttachments((current) => current.filter((a) => a.id !== id));
@@ -61,7 +62,8 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
                 onClick={() => handleDelete(attachment.id)}
                 disabled={pending}
                 aria-label={`Excluir ${attachment.fileName}`}
-                className="absolute -top-1 -right-1 hidden h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs text-white group-hover:flex"
+                title="Exclui pra sempre — não dá pra desfazer"
+                className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs text-white"
               >
                 ×
               </button>
@@ -97,6 +99,7 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
                     <a
                       href={`/api/attachments/${attachment.id}/file?download=1`}
                       aria-label={`Baixar ${attachment.fileName}`}
+                      title="Baixa o arquivo pro seu aparelho"
                       className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
                     >
                       <Download className="h-4 w-4" />
@@ -106,10 +109,12 @@ export function AttachmentList({ itemId, attachments: initial }: { itemId: strin
                       onClick={() => handleDelete(attachment.id)}
                       disabled={pending}
                       aria-label={`Excluir ${attachment.fileName}`}
+                      title="Exclui pra sempre — não dá pra desfazer"
                       className="text-red-500 hover:text-red-700 dark:hover:text-red-400"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
+                    <InfoHint text="Exclui o arquivo pra sempre, do item e do armazenamento. Não dá pra desfazer." />
                   </div>
                 </div>
                 {pickExtractionStrategy(attachment.mimeType) && (
