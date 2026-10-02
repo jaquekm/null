@@ -2426,6 +2426,35 @@ export type Database = {
           },
         ]
       }
+      medication_dose_logs: {
+        Row: {
+          id: string
+          item_id: string
+          owner_id: string
+          taken_at: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          owner_id?: string
+          taken_at?: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          owner_id?: string
+          taken_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_dose_logs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       net_worth_items: {
         Row: {
           archived_at: string | null
