@@ -4,10 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { formatBRL, parseBRL } from "@/lib/money";
-import { createNetWorthItem, deleteNetWorthItem, setNetWorthSnapshot } from "../actions";
+import { createNetWorthItem, deleteNetWorthItem, setDebtRate, setNetWorthSnapshot } from "../actions";
 import type { NetWorthKind } from "../lib/net-worth";
 import type { NetWorthData, NetWorthItemRow } from "../queries";
 import { NetWorthChart } from "./net-worth-chart";
+import { PayoffPlanner } from "./payoff-planner";
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -26,6 +27,7 @@ function parseLenient(value: string): number | null {
 function ItemRow({ item, month, onChanged, onDeleted }: { item: NetWorthItemRow; month: string; onChanged: () => void; onDeleted: (id: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(item.latestValueCents != null ? formatBRL(item.latestValueCents) : "");
+  const [rate, setRate] = useState(item.monthlyRatePercent != null ? String(item.monthlyRatePercent).replace(".", ",") : "");
   const [pending, startTransition] = useTransition();
 
   function handleSave() {
@@ -34,10 +36,19 @@ function ItemRow({ item, month, onChanged, onDeleted }: { item: NetWorthItemRow;
       toast.error("Valor inválido.");
       return;
     }
+    const rateValue = item.kind === "divida" && rate.trim() !== "" ? Number(rate.replace(",", ".")) : null;
+    if (rate.trim() !== "" && (rateValue == null || !Number.isFinite(rateValue))) {
+      toast.error("Taxa de juros inválida.");
+      return;
+    }
     startTransition(async () => {
-      const result = await setNetWorthSnapshot({ itemId: item.id, month, valueCents: cents });
-      if (!result.ok) {
-        toast.error(result.error);
+      const results = await Promise.all([
+        setNetWorthSnapshot({ itemId: item.id, month, valueCents: cents }),
+        rateValue != null ? setDebtRate({ itemId: item.id, monthlyRatePercent: rateValue }) : Promise.resolve({ ok: true as const, data: null }),
+      ]);
+      const failed = results.find((result) => !result.ok);
+      if (failed && !failed.ok) {
+        toast.error(failed.error);
         return;
       }
       toast.success("Registrado.");
@@ -69,7 +80,10 @@ function ItemRow({ item, month, onChanged, onDeleted }: { item: NetWorthItemRow;
         >
           {item.name}
         </button>
-        <span className="shrink-0 text-sm text-zinc-600 dark:text-zinc-300">{item.latestValueCents != null ? formatBRL(item.latestValueCents) : "sem registro"}</span>
+        <span className="shrink-0 text-sm text-zinc-600 dark:text-zinc-300">
+          {item.latestValueCents != null ? formatBRL(item.latestValueCents) : "sem registro"}
+          {item.kind === "divida" && item.monthlyRatePercent != null && ` · ${String(item.monthlyRatePercent).replace(".", ",")}% ao mês`}
+        </span>
       </div>
 
       {editing && (
@@ -81,6 +95,16 @@ function ItemRow({ item, month, onChanged, onDeleted }: { item: NetWorthItemRow;
             className={`${inputClassName} w-32`}
             aria-label={`Valor de ${item.name} neste mês`}
           />
+          {item.kind === "divida" && (
+            <input
+              value={rate}
+              onChange={(e) => setRate(e.target.value.replace(/[^0-9,.]/g, ""))}
+              placeholder="% de juros ao mês"
+              inputMode="decimal"
+              className={`${inputClassName} w-36`}
+              aria-label={`Taxa de juros mensal de ${item.name}`}
+            />
+          )}
           <button type="button" onClick={handleSave} disabled={pending} className="bg-brand text-brand-fg rounded-lg px-3 py-1 text-xs font-medium disabled:opacity-60">
             Salvar
           </button>
@@ -114,7 +138,7 @@ function AddItemForm({ kind, onAdded }: { kind: NetWorthKind; onAdded: (item: Ne
         toast.error(result.error);
         return;
       }
-      onAdded({ id: result.data.id, kind, name, latestValueCents: null, snapshots: [] });
+      onAdded({ id: result.data.id, kind, name, latestValueCents: null, snapshots: [], monthlyRatePercent: null });
       setName("");
       setAdding(false);
     });
@@ -247,6 +271,8 @@ export function PatrimonioWorkspace({ initial, month }: { initial: NetWorthData;
         onDeleted={handleDeleted}
         onAdded={handleAdded}
       />
+
+      {dividas.length > 0 && <PayoffPlanner debts={dividas} />}
     </div>
   );
 }

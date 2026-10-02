@@ -236,6 +236,10 @@ export async function takeMedicationDose(itemId: string): Promise<Result<TakeDos
     .eq("owner_id", user.id);
   if (error) return fail(GENERIC_ERROR);
 
+  // Log com hora (10.16) — sem isso não dava pra saber quantas doses de
+  // verdade foram tomadas numa semana, só o estoque atual.
+  await supabase.from("medication_dose_logs").insert({ owner_id: user.id, item_id: itemId });
+
   let lowStock = false;
   let addedToShoppingList = false;
   if (nextStock != null) {

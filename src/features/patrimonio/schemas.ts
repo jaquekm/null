@@ -12,3 +12,9 @@ export const setNetWorthSnapshotSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/, "Mês inválido."),
   valueCents: z.number().int().min(0, "Valor não pode ser negativo."),
 });
+
+/** Taxa de juros mensal de uma dívida (10.14), ex. 1.5 = 1,5% ao mês. */
+export const setDebtRateSchema = z.object({
+  itemId: z.string().uuid(),
+  monthlyRatePercent: z.number().min(0, "Taxa não pode ser negativa.").max(100, "Taxa muito alta — confira se não digitou errado."),
+});

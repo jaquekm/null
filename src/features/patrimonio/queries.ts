@@ -14,6 +14,8 @@ export interface NetWorthItemRow {
   name: string;
   latestValueCents: number | null;
   snapshots: MonthValue[];
+  /** Taxa de juros mensal (10.14) — só dívida usa; `null` = ainda não informada. */
+  monthlyRatePercent: number | null;
 }
 
 export interface NetWorthData {
@@ -28,7 +30,7 @@ export async function getNetWorthData(supabase: Client, ownerId: string, referen
 
   const { data: items } = await supabase
     .from("net_worth_items")
-    .select("id, kind, name")
+    .select("id, kind, name, monthly_rate_percent")
     .eq("owner_id", ownerId)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
@@ -48,7 +50,14 @@ export async function getNetWorthData(supabase: Client, ownerId: string, referen
 
   const itemRows: NetWorthItemRow[] = (items ?? []).map((item) => {
     const itemSnapshots = snapshotsByItem.get(item.id) ?? [];
-    return { id: item.id, kind: item.kind as NetWorthKind, name: item.name, latestValueCents: latestValueCents(itemSnapshots), snapshots: itemSnapshots };
+    return {
+      id: item.id,
+      kind: item.kind as NetWorthKind,
+      name: item.name,
+      latestValueCents: latestValueCents(itemSnapshots),
+      snapshots: itemSnapshots,
+      monthlyRatePercent: item.monthly_rate_percent,
+    };
   });
 
   const series = netWorthSeries(

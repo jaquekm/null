@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
-import { createNetWorthItemSchema, setNetWorthSnapshotSchema } from "./schemas";
+import { createNetWorthItemSchema, setDebtRateSchema, setNetWorthSnapshotSchema } from "./schemas";
 
 const GENERIC_ERROR = "Não foi possível salvar. Tente de novo.";
 const PATH = "/financas/patrimonio";
@@ -38,6 +38,23 @@ export async function setNetWorthSnapshot(input: z.input<typeof setNetWorthSnaps
       { owner_id: user.id, item_id: parsed.data.itemId, month: `${parsed.data.month}-01`, value_cents: parsed.data.valueCents },
       { onConflict: "item_id,month" },
     );
+  if (error) return fail(GENERIC_ERROR);
+
+  revalidatePath(PATH);
+  return ok(null);
+}
+
+/** Taxa de juros mensal de uma dívida (10.14), pro plano de quitação sugerir ordem e data prevista. */
+export async function setDebtRate(input: z.input<typeof setDebtRateSchema>): Promise<Result<null>> {
+  const parsed = setDebtRateSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Dados inválidos.");
+  const { supabase, user } = await requireOwner();
+
+  const { error } = await supabase
+    .from("net_worth_items")
+    .update({ monthly_rate_percent: parsed.data.monthlyRatePercent })
+    .eq("id", parsed.data.itemId)
+    .eq("owner_id", user.id);
   if (error) return fail(GENERIC_ERROR);
 
   revalidatePath(PATH);
