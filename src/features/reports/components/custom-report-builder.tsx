@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { TypeWithFields } from "@/features/automations/queries";
 import type { CategoryRow } from "@/features/financas/queries";
 import type { SidebarSpace } from "@/features/spaces/queries";
@@ -123,11 +124,12 @@ function SectionEditor({
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <select value={draft.sourceKind} onChange={(e) => set("sourceKind", e.target.value as SectionDraft["sourceKind"])} className={inputClassName}>
           <option value="items">Itens de um tipo</option>
           <option value="transactions">Lançamentos financeiros</option>
         </select>
+        <InfoHint text="De onde vêm os dados desta seção: itens que você criou (notas, tarefas, etc.) ou lançamentos financeiros (gastos/receitas)." />
 
         {draft.sourceKind === "items" ? (
           <select value={draft.typeId} onChange={(e) => set("typeId", e.target.value)} className={inputClassName}>
@@ -157,7 +159,7 @@ function SectionEditor({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <select value={draft.groupByKind} onChange={(e) => set("groupByKind", e.target.value as SectionDraft["groupByKind"])} className={inputClassName}>
           {Object.entries(GROUP_BY_LABELS)
             .filter(([kind]) => draft.sourceKind === "transactions" || kind !== "category")
@@ -168,6 +170,7 @@ function SectionEditor({
               </option>
             ))}
         </select>
+        <InfoHint text="Agrupa os resultados em subgrupos — ex.: 'por Categoria' mostra um total pra cada categoria, em vez de um total único." />
         {draft.groupByKind === "field" && (
           <select value={draft.groupByField} onChange={(e) => set("groupByField", e.target.value)} className={inputClassName}>
             <option value="">Escolha o campo...</option>
@@ -193,6 +196,7 @@ function SectionEditor({
             </option>
           ))}
         </select>
+        <InfoHint text="O que calcular em cada grupo: quantos itens tem (Contagem), ou soma/média/mínimo/máximo de um campo numérico." />
         {draft.metricKind !== "count" &&
           (draft.sourceKind === "items" ? (
             <select value={draft.metricField} onChange={(e) => set("metricField", e.target.value)} className={inputClassName}>

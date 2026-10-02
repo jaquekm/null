@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { ContactRow } from "@/features/contacts/queries";
 import { ChargeLinkDialog } from "@/features/sharing/components/charge-link-dialog";
 import { formatBRL } from "@/lib/money";
@@ -153,6 +154,7 @@ export function SplitsWorkspace({ accounts, categories, contacts, linkableTransa
             <button type="button" onClick={handleShowSettlement} className="text-sm text-black underline dark:text-zinc-50">
               Ver acerto
             </button>
+            <InfoHint text="Soma todas as divisões do grupo e mostra quem deve pagar quem, já simplificado — não precisa acertar conta por conta." />
           </div>
           {settlement && (
             <div className="flex flex-col gap-1 text-sm">

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import { createPixKey, deletePixKey, setDefaultPixKey } from "../actions";
 import type { PixKeyRow } from "../queries";
@@ -98,6 +99,7 @@ export function PixKeySection({ pixKeys, spaces }: { pixKeys: PixKeyRow[]; space
                     Tornar padrão
                   </button>
                 )}
+                <InfoHint text="A chave padrão é a usada automaticamente quando você gera um link de cobrança por Pix." />
                 <button type="button" onClick={() => handleDelete(key.id)} disabled={pending} className="text-red-500 hover:underline disabled:opacity-60">
                   Remover
                 </button>
