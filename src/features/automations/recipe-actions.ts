@@ -112,7 +112,7 @@ export async function setRecipeActive(input: z.input<typeof inputSchema>): Promi
   const notifyChannel = channel ?? "push";
   if (existing) {
     // Mantém gatilho/horário que a dona possa ter ajustado — só troca o canal do "me avisar".
-    const actions = withNotifyChannel(((existing.actions ?? []) as AutomationAction[]) ?? [], notifyChannel);
+    const actions = withNotifyChannel((existing.actions ?? []) as AutomationAction[], notifyChannel);
     const { error } = await supabase
       .from("automations")
       .update({ enabled: true, actions: actions as unknown as Json })
