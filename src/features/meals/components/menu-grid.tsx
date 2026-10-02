@@ -69,6 +69,7 @@ function DaySection({
             value={copyFrom}
             onChange={(e) => setCopyFrom(e.target.value as Weekday)}
             aria-label={`Copiar pra ${WEEKDAY_LONG[day]} a partir de`}
+            title="De qual dia copiar as refeições"
             className="rounded-lg border border-black/[.12] bg-transparent px-1.5 py-1 dark:border-white/[.16]"
           >
             {WEEKDAYS.filter((d) => d !== day).map((d) => (
@@ -77,7 +78,13 @@ function DaySection({
               </option>
             ))}
           </select>
-          <button type="button" disabled={pending} onClick={handleCopy} className="text-brand-text hover:underline disabled:opacity-60">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={handleCopy}
+            title={`Copia as refeições de ${WEEKDAY_LONG[copyFrom]} pra ${WEEKDAY_LONG[day]}, substituindo o que já tiver aqui`}
+            className="text-brand-text hover:underline disabled:opacity-60"
+          >
             Copiar
           </button>
         </div>
@@ -148,6 +155,7 @@ export function MenuGrid({ weekStart, plan: initialPlan }: { weekStart: string; 
           type="button"
           disabled={repeating}
           onClick={handleRepeatWeek}
+          title="Copia o cardápio completo desta semana pra semana seguinte, dia por dia"
           className="self-start rounded-full border border-black/[.12] px-4 py-1.5 text-sm disabled:opacity-60 dark:border-white/[.16]"
         >
           Repetir esta semana na próxima
@@ -156,6 +164,7 @@ export function MenuGrid({ weekStart, plan: initialPlan }: { weekStart: string; 
           type="button"
           disabled={generating}
           onClick={handleGenerateShoppingList}
+          title="Procura nomes de receitas cadastradas nas refeições desta semana e soma os ingredientes na lista de compras"
           className="self-start rounded-full border border-black/[.12] px-4 py-1.5 text-sm disabled:opacity-60 dark:border-white/[.16]"
         >
           Gerar lista de compras desta semana
