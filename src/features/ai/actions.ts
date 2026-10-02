@@ -14,7 +14,10 @@ import { inboxSuggestionSchema, ORGANIZE_INBOX_SYSTEM, type InboxSuggestion } fr
 import { buildSuggestConnectionMessage, SUGGEST_CONNECTION_SYSTEM } from "@/features/ai/prompts/suggest-connection";
 import { itemSummarySchema, SUMMARIZE_ITEM_SYSTEM, type ItemSummary } from "@/features/ai/prompts/summarize-item";
 import { buildImproveTextSystem, IMPROVE_TEXT_ACTIONS, TRANSLATE_LANGUAGES } from "@/features/ai/prompts/improve-text";
+import { buildWeeklyCheckinMessage, WEEKLY_CHECKIN_SYSTEM } from "@/features/ai/prompts/weekly-checkin";
 import { buildWeeklySummaryMessage, WEEKLY_SUMMARY_SYSTEM } from "@/features/ai/prompts/weekly-summary";
+import { isFinanceAiEnabled } from "@/features/financas/queries";
+import { getWeeklyCheckinData } from "@/features/weekly-checkin/queries";
 import { chunkText } from "@/features/transcripts/lib/chunk-text";
 import { changeItemType, moveItems } from "@/features/items/actions";
 import { extractText } from "@/features/items/lib/extract-text";
@@ -26,6 +29,7 @@ import { addTagToItems } from "@/features/tags/actions";
 import type { FieldDefinition } from "@/features/types/schemas";
 import { requireOwner } from "@/lib/auth";
 import { AiBudgetExceededError, AiDisabledError, callClaude, callClaudeJson } from "@/lib/ai/claude";
+import { todayInTimezone } from "@/lib/dates";
 import { enqueueJob } from "@/lib/jobs/enqueue";
 import type { Json } from "@/lib/supabase/database.types";
 import { fail, ok, type Result } from "@/lib/result";
@@ -626,5 +630,33 @@ export async function previewWeeklySummary(): Promise<Result<string>> {
   } catch (err) {
     if (err instanceof AiDisabledError || err instanceof AiBudgetExceededError) return fail(err.message);
     return fail("Não foi possível gerar o resumo semanal.");
+  }
+}
+
+/**
+ * "Frase de resumo da IA" da revisão da semana automática (10.16) — hábitos,
+ * treino, peso e remédios esquecidos sempre podem entrar; orçamento só
+ * entra no que é mandado pro Claude com `financeAiEnabled` (CLAUDE.md: dado
+ * financeiro não vai pra IA sem o módulo ligado), mesmo que já apareça na
+ * tela sem IA nenhuma.
+ */
+export async function generateWeeklyCheckinSummary(): Promise<Result<string>> {
+  const { supabase, user } = await requireOwner();
+  const timezone = await getUserTimezone(supabase, user.id);
+  const today = todayInTimezone(timezone);
+
+  const [data, financeAiEnabled] = await Promise.all([getWeeklyCheckinData(supabase, user.id, timezone, today), isFinanceAiEnabled(supabase, user.id)]);
+
+  try {
+    const { text } = await callClaude({
+      ownerId: user.id,
+      feature: "weekly_checkin",
+      system: WEEKLY_CHECKIN_SYSTEM,
+      messages: [{ role: "user", content: buildWeeklyCheckinMessage(data, financeAiEnabled) }],
+    });
+    return ok(text.trim());
+  } catch (err) {
+    if (err instanceof AiDisabledError || err instanceof AiBudgetExceededError) return fail(err.message);
+    return fail("Não foi possível gerar a frase da semana.");
   }
 }

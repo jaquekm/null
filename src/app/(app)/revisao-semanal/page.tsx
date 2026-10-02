@@ -1,13 +1,21 @@
 import Link from "next/link";
 import { WeeklySummaryPanel } from "@/features/ai/components/weekly-summary-panel";
+import { getUserTimezone } from "@/features/agenda/queries";
+import { WeeklyCheckinCard } from "@/features/weekly-checkin/components/weekly-checkin-card";
+import { getWeeklyCheckinData } from "@/features/weekly-checkin/queries";
 import { WeeklyReviewForm } from "@/features/weekly-review/components/weekly-review-form";
 import { getWeeklyReviewData } from "@/features/weekly-review/queries";
 import { formatBRL } from "@/lib/money";
+import { todayInTimezone } from "@/lib/dates";
 import { requireOwner } from "@/lib/auth";
 
 export default async function RevisaoSemanalPage() {
   const { supabase, user } = await requireOwner();
-  const data = await getWeeklyReviewData(supabase, user.id);
+  const timezone = await getUserTimezone(supabase, user.id);
+  const [data, checkinData] = await Promise.all([
+    getWeeklyReviewData(supabase, user.id),
+    getWeeklyCheckinData(supabase, user.id, timezone, todayInTimezone(timezone)),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -17,6 +25,7 @@ export default async function RevisaoSemanalPage() {
       </div>
 
       <WeeklySummaryPanel />
+      <WeeklyCheckinCard data={checkinData} />
 
       <Step title="1. Zerar inbox" empty="Inbox zerada." count={data.inbox.length}>
         <ul className="flex flex-col gap-1">

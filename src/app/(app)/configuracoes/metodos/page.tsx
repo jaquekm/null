@@ -1,3 +1,5 @@
+import { BundlesSection } from "@/features/bundles/components/bundles-section";
+import { isFinanceOnboardingCompleted } from "@/features/financas/queries";
 import { PackCard } from "@/features/packs/components/pack-card";
 import { checkPackRequirements, listInstalledPacks, listLocalPacks, type LocalPackEntry } from "@/features/packs/queries";
 import type { Pack } from "@/features/packs/schemas";
@@ -8,7 +10,12 @@ type ValidPackEntry = LocalPackEntry & { pack: Pack };
 
 export default async function MetodosPage() {
   const { supabase, user } = await requireOwner();
-  const [entries, installedRows, spaces] = await Promise.all([listLocalPacks(), listInstalledPacks(supabase, user.id), listActiveSpaces(supabase)]);
+  const [entries, installedRows, spaces, financeOnboardingCompleted] = await Promise.all([
+    listLocalPacks(),
+    listInstalledPacks(supabase, user.id),
+    listActiveSpaces(supabase),
+    isFinanceOnboardingCompleted(supabase, user.id),
+  ]);
 
   const validEntries = entries.filter((entry): entry is ValidPackEntry => Boolean(entry.pack));
   const invalidEntries = entries.filter((entry) => !entry.pack);
@@ -27,6 +34,10 @@ export default async function MetodosPage() {
         lembretes/automações daquele fluxo — que você liga quando quiser usar. Ao desinstalar, só o que ficou vazio é
         removido; itens que você já criou com ele continuam guardados.
       </p>
+
+      <BundlesSection installedPackKeys={installedRows.map((row) => row.packKey)} financeOnboardingCompleted={financeOnboardingCompleted} />
+
+      <h2 className="text-base font-semibold text-black dark:text-zinc-50">Métodos individuais</h2>
 
       {validEntries.length === 0 && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
