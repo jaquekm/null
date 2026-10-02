@@ -88,6 +88,7 @@ function ToolbarButton({
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
+      title={label}
       className={`flex h-7 w-7 items-center justify-center rounded ${
         active ? "bg-black/[.1] dark:bg-white/[.15]" : "hover:bg-black/[.06] dark:hover:bg-white/[.08]"
       }`}

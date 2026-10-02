@@ -114,6 +114,7 @@ export function ImproveTextMenu({ editor, itemId }: { editor: Editor; itemId: st
         onClick={() => setOpen((value) => !value)}
         disabled={pendingAction !== null}
         aria-label="Melhorar com IA"
+        title="Melhorar com IA: revisar, encurtar, deixar formal ou traduzir o texto selecionado"
         className="flex h-7 items-center gap-1 rounded px-1.5 text-xs hover:bg-black/[.06] dark:hover:bg-white/[.08]"
       >
         <Sparkles className="h-4 w-4" />
