@@ -1,0 +1,44 @@
+{
+  "key": "desejos",
+  "version": "1.0.0",
+  "name": "Desejos e caixinhas",
+  "description": "Coisas que você quer comprar: meta, quanto já guardou e em quantos meses dá pra juntar.",
+  "icon": "🎯",
+  "requires": [],
+  "types": [
+    {
+      "ref": "wish",
+      "name": "Desejo",
+      "plural": "Desejos",
+      "slug": "desejo",
+      "icon": "🎯",
+      "defaultView": "table",
+      "fields": [
+        { "key": "meta", "label": "Meta", "type": "money", "required": true, "showInCard": true },
+        { "key": "guardado", "label": "Guardado", "type": "money", "showInCard": true },
+        { "key": "aporte_mensal", "label": "Guardo por mês", "type": "money" },
+        {
+          "key": "meses_restantes",
+          "label": "Meses pra juntar",
+          "type": "formula",
+          "formula": "(meta - guardado) / aporte_mensal",
+          "formulaFormat": "number",
+          "showInCard": true
+        }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "ref": "desejos_lista",
+      "typeRef": "wish",
+      "name": "Desejos",
+      "kind": "table",
+      "isDefault": true,
+      "config": { "filters": [], "sort": [{ "field": "title", "dir": "asc" }], "visibleFields": ["meta", "guardado", "aporte_mensal", "meses_restantes"] }
+    }
+  ],
+  "automations": [],
+  "reminderRules": [],
+  "sampleItems": []
+}
