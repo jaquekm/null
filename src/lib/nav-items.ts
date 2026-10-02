@@ -12,6 +12,7 @@ import {
   Settings,
   Sun,
   Sparkles,
+  UtensilsCrossed,
   Users,
   Wallet,
   type LucideIcon,
@@ -57,6 +58,12 @@ const TREINOS: NavItem = {
   label: "Treinos",
   icon: Dumbbell,
 };
+/** Cardápio da semana (10.9) — antes só alcançável pelo card Refeições do Hoje; a dona não achava. */
+const CARDAPIO: NavItem = {
+  href: "/cardapio",
+  label: "Cardápio",
+  icon: UtensilsCrossed,
+};
 const CONFIGURACOES: NavItem = {
   href: "/configuracoes",
   label: "Configurações",
@@ -90,6 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
   RELATORIOS,
   ESTUDOS,
   TREINOS,
+  CARDAPIO,
   REVISAO_SEMANAL,
   ZETTELKASTEN,
   CONFIGURACOES,
