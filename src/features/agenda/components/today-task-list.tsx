@@ -3,6 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { AgendaEntry } from "../lib/agenda-entry";
 
 function itemIdFromTaskEntryId(entryId: string): string | null {
@@ -27,7 +28,14 @@ function TaskCard({ task, overdue }: { task: AgendaEntry; overdue: boolean }) {
         overdue ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30" : "border-black/[.08] dark:border-white/[.08]"
       } ${isDragging ? "opacity-50" : ""}`}
     >
-      <button type="button" {...attributes} {...listeners} aria-label={`Arrastar ${task.title}`} className="shrink-0 cursor-grab text-zinc-300 dark:text-zinc-600">
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Arrastar ${task.title}`}
+        title="Arraste pra um horário na agenda do dia, pra virar um bloco de tempo"
+        className="shrink-0 cursor-grab text-zinc-300 dark:text-zinc-600"
+      >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       {task.href ? (
@@ -37,6 +45,7 @@ function TaskCard({ task, overdue }: { task: AgendaEntry; overdue: boolean }) {
       ) : (
         <span className="min-w-0 flex-1 truncate">{task.title}</span>
       )}
+      {itemId && <InfoHint text="Arraste este ponto pra um horário na agenda do dia — cria um bloco de tempo pra essa tarefa." />}
     </div>
   );
 }
