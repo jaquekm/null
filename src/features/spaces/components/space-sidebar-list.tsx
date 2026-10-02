@@ -103,7 +103,8 @@ function SpaceSidebarRow({ space, collapsed }: { space: SidebarSpace; collapsed:
           {...attributes}
           {...listeners}
           aria-label={`Reordenar ${space.name}`}
-          className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 opacity-0 group-hover:opacity-100 dark:text-zinc-600"
+          title="Arraste pra reordenar os espaços na barra lateral"
+          className="flex h-8 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 dark:text-zinc-600"
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>

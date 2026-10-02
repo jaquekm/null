@@ -110,7 +110,7 @@ export function FieldList({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="flex w-fit items-center gap-1.5 rounded-lg border border-dashed border-black/[.2] px-3 py-1.5 text-sm text-black/70 hover:bg-black/[.04] dark:border-white/[.24] dark:text-white/70 dark:hover:bg-white/[.06]"
+          className="flex w-fit items-center gap-1.5 rounded-lg border border-dashed border-black/[.2] px-3 py-1.5 text-sm text-black/70 hover:bg-black/[.04] dark:border-white/[.24] dark:text-white/70"
         >
           <Plus className="h-4 w-4" />
           Adicionar campo
@@ -142,6 +142,7 @@ function FieldRow({
         {...attributes}
         {...listeners}
         aria-label={`Reordenar ${field.label}`}
+        title="Arraste pra reordenar os campos deste tipo"
         className="flex h-6 w-5 shrink-0 cursor-grab items-center justify-center text-zinc-300 dark:text-zinc-600"
       >
         <GripVertical className="h-3.5 w-3.5" />

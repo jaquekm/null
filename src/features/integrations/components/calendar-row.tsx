@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { InfoHint } from "@/components/ui/info-hint";
 import { updateCalendarSync } from "../actions";
 import type { ConnectionCalendar } from "../queries";
 
@@ -72,6 +73,7 @@ export function CalendarRow({
           onChange={(e) => handleSyncChange(e.target.checked)}
           aria-label={`Sincronizar ${calendar.name}`}
         />
+        <InfoHint text="O seletor escolhe pra qual espaço do Hub os eventos deste calendário do Google entram. O check liga/desliga a sincronização desse calendário." />
       </div>
     </div>
   );

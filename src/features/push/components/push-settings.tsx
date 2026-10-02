@@ -105,7 +105,14 @@ export function PushSettings({ initialSubscriptions }: { initialSubscriptions: P
             >
               <span className="min-w-0 truncate text-zinc-600 dark:text-zinc-300">{subscription.userAgent ?? "Dispositivo"}</span>
               <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">{formatDate(subscription.createdAt)}</span>
-              <button type="button" onClick={() => remove(subscription.id)} disabled={pending} aria-label="Remover dispositivo" className="shrink-0 text-zinc-400 hover:text-red-500">
+              <button
+                type="button"
+                onClick={() => remove(subscription.id)}
+                disabled={pending}
+                aria-label="Remover dispositivo"
+                title="Para de enviar notificações push pra este aparelho"
+                className="shrink-0 text-zinc-400 hover:text-red-500"
+              >
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>
