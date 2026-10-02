@@ -19,6 +19,7 @@ import { toPng } from "html-to-image";
 import { ImagePlus, Lock, Maximize2, Shapes, Type as TypeIcon, Unlock, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { InfoHint } from "@/components/ui/info-hint";
 import { uploadAttachment } from "@/features/attachments/lib/upload-file";
 import {
   createCanvasEdge,
@@ -351,19 +352,23 @@ function CanvasWorkspaceInner({ itemTitle, canvasId, initialViewport, initialNod
             type="button"
             onClick={() => void handleGroupSelection()}
             disabled={selectedNodes.length < 2}
+            title="Selecione 2 ou mais pra juntar num grupo que se move e marca junto"
             className="flex items-center gap-1 rounded-lg border border-black/[.12] px-2.5 py-1.5 disabled:opacity-40 dark:border-white/[.16]"
           >
             <Shapes className="h-4 w-4" /> Agrupar
           </button>
+          <InfoHint text="Selecione 2 ou mais cartões (clique arrastando pra marcar vários) e clique aqui pra juntá-los num grupo — movem e selecionam juntos daí em diante." />
           <button
             type="button"
             onClick={handleToggleLock}
             disabled={!canLock}
+            title={allSelectedLocked ? "Volta a poder mover os itens selecionados" : "Impede mover ou editar os itens selecionados no canvas"}
             className="flex items-center gap-1 rounded-lg border border-black/[.12] px-2.5 py-1.5 disabled:opacity-40 dark:border-white/[.16]"
           >
             {allSelectedLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-            Travar
+            {allSelectedLocked ? "Destravar" : "Travar"}
           </button>
+          <InfoHint text="Trava a posição dos itens selecionados no canvas, pra não mover sem querer. Destrava do mesmo jeito." />
           <button type="button" onClick={() => fitView({ padding: 0.2 })} className="flex items-center gap-1 rounded-lg border border-black/[.12] px-2.5 py-1.5 dark:border-white/[.16]">
             <Maximize2 className="h-4 w-4" /> Centralizar
           </button>
