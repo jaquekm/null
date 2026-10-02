@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   Dumbbell,
   Bell,
   Calendar,
@@ -7,7 +6,6 @@ import {
   CalendarRange,
   GraduationCap,
   Inbox,
-  Network,
   Search,
   Settings,
   Sun,
@@ -38,11 +36,6 @@ const FINANCAS: NavItem = {
   icon: Wallet,
 };
 const CONTATOS: NavItem = { href: "/contatos", label: "Contatos", icon: Users };
-const RELATORIOS: NavItem = {
-  href: "/relatorios",
-  label: "Relatórios",
-  icon: BarChart3,
-};
 const PERGUNTAR: NavItem = {
   href: "/perguntar",
   label: "Perguntar",
@@ -74,11 +67,6 @@ const REVISAO_SEMANAL: NavItem = {
   label: "Revisão semanal",
   icon: CalendarCheck,
 };
-const ZETTELKASTEN: NavItem = {
-  href: "/zettelkasten",
-  label: "Zettelkasten",
-  icon: Network,
-};
 
 /**
  * Itens da sidebar (desktop) e do menu completo (mobile). "Buscar" saiu do
@@ -94,12 +82,10 @@ export const NAV_ITEMS: NavItem[] = [
   FINANCAS,
   CONTATOS,
   PERGUNTAR,
-  RELATORIOS,
   ESTUDOS,
   TREINOS,
   CARDAPIO,
   REVISAO_SEMANAL,
-  ZETTELKASTEN,
   CONFIGURACOES,
 ];
 
