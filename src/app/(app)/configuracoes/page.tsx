@@ -80,7 +80,7 @@ export default async function ConfiguracoesPage() {
         <Network className="h-5 w-5 shrink-0" />
         <div>
           <p className="font-medium text-black dark:text-zinc-50">Zettelkasten</p>
-          <p className="text-zinc-500 dark:text-zinc-400">Mapa de notas e conexões</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Opcional: notas de estudo ligadas umas às outras — o que é e como usar</p>
         </div>
       </Link>
 
