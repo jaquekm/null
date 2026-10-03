@@ -11,6 +11,9 @@ import { dateInTimezone } from "@/lib/dates";
 import { formatBRL, parseBRL } from "@/lib/money";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { createReminderFromPhrase } from "@/features/reminders/actions";
+import { isReminderRequest } from "@/features/reminders/lib/parse-reminder-phrase";
+import { parseBillPhrase } from "./lib/bill-phrase";
 import { computeMissingChildCategories, computeMissingTopCategories, DEFAULT_CATEGORIES } from "./lib/default-categories";
 import { recurrencePresetForRepeat, recurringDirectionForType } from "./lib/build-recurring-from-transaction";
 import { computeCategoryBudgetProgress, sumExpensesByCategory, type BudgetStatus } from "./lib/budget-progress";
@@ -1482,6 +1485,30 @@ export async function createBill(input: CreateBillInput): Promise<Result<{ id: s
 
   revalidatePath(CONTAS_PATH);
   return ok({ id: row.id });
+}
+
+/**
+ * Captura em frase (pedido da dona, 03/10): "pagar pastéis do clube Leo R$ 60
+ * dia 10" vira conta a pagar (a receber, com "cobrar/receber"). Se a frase
+ * começou com "me lembra de…" e tem horário que ainda não passou, cria o
+ * lembrete também — o pedido era as duas coisas.
+ */
+export async function createBillFromPhrase(phrase: unknown): Promise<Result<{ id: string; direction: "payable" | "receivable"; description: string; amount: string; dueOn: string; reminder: boolean }>> {
+  if (typeof phrase !== "string" || !phrase.trim() || phrase.length > 2000) return fail("Frase inválida.");
+  const { supabase, user } = await requireOwner();
+  const timezone = await getUserTimezone(supabase, user.id);
+  const bill = parseBillPhrase(phrase, new Date(), timezone);
+  if (!bill) return fail("Não achei o valor. Escreva com “R$” ou “reais”, ex.: “pagar luz R$ 120 dia 10”.");
+
+  const created = await createBill({ direction: bill.direction, description: bill.description, amount: bill.amount, dueOn: bill.dueOn, amountIsEstimate: false, repeat: "none" });
+  if (!created.ok) return created;
+
+  let reminder = false;
+  if (isReminderRequest(phrase)) {
+    const result = await createReminderFromPhrase({ phrase });
+    reminder = result.ok;
+  }
+  return ok({ id: created.data.id, direction: bill.direction, description: bill.description, amount: bill.amount, dueOn: bill.dueOn, reminder });
 }
 
 /**

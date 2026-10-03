@@ -7,6 +7,8 @@ vi.mock("../actions", () => ({ capture: (...args: unknown[]) => capture(...args)
 const createReminderFromPhrase = vi.fn();
 vi.mock("@/features/reminders/actions", () => ({ createReminderFromPhrase: (...args: unknown[]) => createReminderFromPhrase(...args) }));
 vi.mock("@/features/attachments/lib/upload-file", () => ({ uploadAttachment: vi.fn() }));
+const createBillFromPhrase = vi.fn();
+vi.mock("@/features/financas/actions", () => ({ createBillFromPhrase: (...args: unknown[]) => createBillFromPhrase(...args) }));
 const toast = { success: vi.fn(), error: vi.fn() };
 vi.mock("sonner", () => ({ toast }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -109,5 +111,35 @@ describe("CaptureForm — sem internet (9.9)", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Ideia" } });
     fireEvent.click(screen.getByRole("button", { name: "Capturar" }));
     await waitFor(() => expect(addQueuedCapture).toHaveBeenCalledWith({ text: "Ideia", spaceId: null, typeId: null }));
+  });
+});
+
+describe("CaptureForm — conta a pagar em frase", () => {
+  it("“pagar … R$ … dia …” mostra a prévia e cria a conta a pagar", async () => {
+    createBillFromPhrase.mockResolvedValue({ ok: true, data: { id: "b1", direction: "payable", description: "Pastéis ao clube Leo", amount: "60,00", dueOn: "2026-10-10", reminder: false } });
+    render(<CaptureForm spaces={[]} types={[]} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Pagar os pastéis ao clube Leo R$ 60 dia 10" } });
+    expect(screen.getByText(/Vira conta a pagar/)).toBeTruthy();
+    expect(screen.getByText("R$ 60,00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Criar conta a pagar" }));
+    await waitFor(() => expect(createBillFromPhrase).toHaveBeenCalledWith("Pagar os pastéis ao clube Leo R$ 60 dia 10"));
+    expect(capture).not.toHaveBeenCalled();
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("Conta a pagar criada: R$ 60,00, vence 10/10"), expect.anything()));
+  });
+
+  it("“Não, salvar como nota” captura como nota normal", async () => {
+    render(<CaptureForm spaces={[]} types={[]} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "pagar luz R$ 120 dia 10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Não, salvar como nota" }));
+    fireEvent.click(screen.getByRole("button", { name: "Capturar" }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(1));
+    expect(createBillFromPhrase).not.toHaveBeenCalled();
+  });
+
+  it("sem valor continua sendo nota (ou lembrete)", () => {
+    render(<CaptureForm spaces={[]} types={[]} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Pagar os pasteis ao clube leo" } });
+    expect(screen.queryByText(/Vira conta a pagar/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Capturar" })).toBeTruthy();
   });
 });

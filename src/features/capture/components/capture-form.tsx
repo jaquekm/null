@@ -1,10 +1,12 @@
 "use client";
 
-import { BellRing, CloudOff, Mic, Paperclip, Square } from "lucide-react";
+import { BellRing, CloudOff, Mic, Paperclip, Receipt, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { uploadAttachment } from "@/features/attachments/lib/upload-file";
+import { createBillFromPhrase } from "@/features/financas/actions";
+import { parseBillPhrase } from "@/features/financas/lib/bill-phrase";
 import { createReminderFromPhrase } from "@/features/reminders/actions";
 import { describeReminderPhrase, isReminderRequest, parseReminderPhrase } from "@/features/reminders/lib/parse-reminder-phrase";
 import type { SidebarSpace } from "@/features/spaces/queries";
@@ -15,6 +17,10 @@ import { addQueuedCapture } from "../lib/offline-capture-db";
 import { isNetworkError, pendingCapturesLabel } from "../lib/offline-captures";
 import { useDictation } from "./use-dictation";
 import { usePendingCaptures } from "./use-pending-captures";
+
+function formatDueDay(date: string): string {
+  return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
 
 const inputClassName =
   "rounded-lg border border-black/[.12] bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/20 dark:border-white/[.16] dark:focus:ring-white/20";
@@ -69,7 +75,14 @@ export function CaptureForm({
     if (!parsed || parsed.isPast) return { parsed: null, description: "" };
     return { parsed, description: describeReminderPhrase(parsed, now, timezone) };
   }, [text]);
-  const asReminder = Boolean(reminder?.parsed) && !file;
+  // "pagar luz R$ 120 dia 10" vira conta a pagar (com "me lembra de…", também o lembrete).
+  const [billAsNote, setBillAsNote] = useState(false);
+  const bill = useMemo(() => {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
+    return parseBillPhrase(text, new Date(), timezone);
+  }, [text]);
+  const asBill = Boolean(bill) && !file && !billAsNote;
+  const asReminder = Boolean(reminder?.parsed) && !file && !asBill;
 
   /** Sem internet (9.9): guarda no aparelho e envia quando voltar (`OfflineSync`). */
   async function saveOffline() {
@@ -94,6 +107,30 @@ export function CaptureForm({
 
     if (!online) {
       startTransition(saveOffline);
+      return;
+    }
+
+    if (asBill) {
+      startTransition(async () => {
+        let result: Awaited<ReturnType<typeof createBillFromPhrase>>;
+        try {
+          result = await createBillFromPhrase(text);
+        } catch (error) {
+          if (isNetworkError(error)) return saveOffline();
+          throw error;
+        }
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        setText("");
+        setBillAsNote(false);
+        onDone?.();
+        const kind = result.data.direction === "receivable" ? "Conta a receber" : "Conta a pagar";
+        toast.success(`${kind} criada: R$ ${result.data.amount}, vence ${formatDueDay(result.data.dueOn)}${result.data.reminder ? " — e o lembrete também" : ""}.`, {
+          action: { label: "Ver contas", onClick: () => router.push("/financas/contas") },
+        });
+      });
       return;
     }
 
@@ -172,7 +209,7 @@ export function CaptureForm({
             handleSubmit();
           }
         }}
-        placeholder="Título na primeira linha, o resto vira corpo. #tag vira tag. “Me lembra de… amanhã 9h” vira lembrete."
+        placeholder="Título na primeira linha, o resto vira corpo. #tag vira tag. “Me lembra de… amanhã 9h” vira lembrete. “Pagar luz R$ 120 dia 10” vira conta a pagar."
         autoFocus
         rows={6}
         disabled={pending}
@@ -200,7 +237,31 @@ export function CaptureForm({
         </p>
       )}
 
-      {reminder && (
+      {bill && !file && (
+        <div role="status" className="flex items-start gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200">
+          <Receipt className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
+          {billAsNote ? (
+            <span>
+              Vai como nota.{" "}
+              <button type="button" onClick={() => setBillAsNote(false)} className="font-medium underline">
+                Criar como conta
+              </button>
+            </span>
+          ) : (
+            <span>
+              Vira {bill.direction === "receivable" ? "conta a receber" : "conta a pagar"}:{" "}
+              <strong className="font-semibold">R$ {bill.amount}</strong> — {bill.description} — vence {formatDueDay(bill.dueOn)}
+              {!bill.dueFromPhrase && " (hoje; escreva “dia 10” pra outra data)"}
+              {reminder?.parsed && <> — e te lembro {reminder.description}</>}.{" "}
+              <button type="button" onClick={() => setBillAsNote(true)} className="text-zinc-500 underline dark:text-zinc-400">
+                Não, salvar como nota
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {reminder && !asBill && (
         <p role="status" className="flex items-start gap-2 rounded-xl bg-brand-soft px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200">
           <BellRing className="mt-0.5 h-4 w-4 shrink-0 text-brand-text" aria-hidden />
           {reminder.parsed ? (
@@ -255,7 +316,17 @@ export function CaptureForm({
         disabled={pending || !text.trim()}
         className="bg-brand text-brand-fg self-start rounded-full px-5 py-2 text-sm font-medium disabled:opacity-60"
       >
-        {pending ? "Salvando..." : !online ? "Guardar no aparelho" : asReminder ? "Criar lembrete" : "Capturar"}
+        {pending
+          ? "Salvando..."
+          : !online
+            ? "Guardar no aparelho"
+            : asBill
+              ? bill?.direction === "receivable"
+                ? "Criar conta a receber"
+                : "Criar conta a pagar"
+              : asReminder
+                ? "Criar lembrete"
+                : "Capturar"}
       </button>
       {pendingCount > 0 && (
         <p className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
