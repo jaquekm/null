@@ -1,3 +1,4 @@
+import { PageHelp } from "@/components/shared/page-help";
 import { AlarmClock, CalendarClock, CalendarDays, Link2, CheckCircle2, Clock3, Droplet, Dumbbell, Flame, Hourglass, Inbox, ListTodo, Pill, Receipt, Stethoscope, UtensilsCrossed, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -131,7 +132,10 @@ export function TodayView(props: TodayViewProps) {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
       <header className="flex flex-col gap-1">
         <p className="text-sm font-medium text-brand-text first-letter:uppercase">{props.dateLabel}</p>
-        <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl dark:text-zinc-50">{props.hello}!</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl dark:text-zinc-50">{props.hello}!</h1>
+          <PageHelp topic="hoje" />
+        </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">{props.summary}</p>
         {props.routine && (props.routine.current || props.routine.next) && (
           <Link

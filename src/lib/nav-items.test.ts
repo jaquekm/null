@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MOBILE_PRIMARY_ITEMS, NAV_ITEMS, SEARCH_ITEM } from "./nav-items";
 
 describe("nav-items", () => {
-  it("tem 14 itens na sidebar, todos com href e label únicos", () => {
-    expect(NAV_ITEMS).toHaveLength(14);
+  it("tem 13 itens na sidebar, todos com href e label únicos", () => {
+    expect(NAV_ITEMS).toHaveLength(13);
     expect(new Set(NAV_ITEMS.map((item) => item.href)).size).toBe(
       NAV_ITEMS.length,
     );
@@ -18,6 +18,13 @@ describe("nav-items", () => {
 
   it("inclui Rotina (hábitos da semana, 10.1)", () => {
     expect(NAV_ITEMS.some((item) => item.href === "/rotina")).toBe(true);
+  });
+
+  it("Cardápio no menu; Relatórios e Zettelkasten saíram (ficam em Configurações)", () => {
+    const hrefs = NAV_ITEMS.map((item) => item.href);
+    expect(hrefs).toContain("/cardapio");
+    expect(hrefs).not.toContain("/relatorios");
+    expect(hrefs).not.toContain("/zettelkasten");
   });
 
   it("inclui Configurações, exigido pela tarefa 0.8", () => {

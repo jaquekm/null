@@ -1,3 +1,4 @@
+import { PageHelp } from "@/components/shared/page-help";
 import Link from "next/link";
 import { GenerateFlashcardsDialog } from "@/features/study/components/generate-flashcards-dialog";
 import { ImportAnkiDialog } from "@/features/study/components/import-anki-dialog";
@@ -15,7 +16,10 @@ export default async function EstudosPage() {
   if (!typeIds) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Estudos</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Estudos</h1>
+          <PageHelp topic="estudos" />
+        </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           O pack &quot;Estudos&quot; ainda não está instalado. Instale em{" "}
           <Link href="/configuracoes/metodos" className="text-black underline dark:text-zinc-50">
@@ -35,7 +39,10 @@ export default async function EstudosPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Estudos</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Estudos</h1>
+          <PageHelp topic="estudos" />
+        </div>
         <Link href="/espacos" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
           Ver planos, cursos e livros →
         </Link>

@@ -64,6 +64,29 @@ function newDraft(program: WorkoutProgram, sessions: WorkoutSession[]): Draft {
   };
 }
 
+/** Formulário preenchido com um treino já salvo, pra corrigir (data errada, série digitada errado…) sem excluir e lançar de novo. */
+export function draftFromSession(program: WorkoutProgram, session: WorkoutSession): Draft {
+  const workout = findWorkout(program.definition, session.workout) ?? program.definition.workouts[0]!;
+  const blank = emptyEntries(workout, []);
+  return {
+    programId: program.id,
+    date: session.date,
+    week: session.week,
+    workout: workout.id,
+    sleep: session.sleepHours === null ? "" : String(session.sleepHours),
+    energy: session.energy,
+    kneePainBefore: session.kneePainBefore,
+    backPainBefore: session.backPainBefore,
+    swelling: session.swelling,
+    sick: session.sick,
+    exercises: Object.fromEntries(Object.entries(blank).map(([id, entry]) => [id, { ...entry, ...(session.exercises[id] ?? {}) }])),
+    duration: session.durationMin === null ? "" : String(session.durationMin),
+    kneePainAfter: session.kneePainAfter ?? 0,
+    backPainAfter: session.backPainAfter ?? 0,
+    notes: session.notes,
+  };
+}
+
 // Rascunho só neste navegador (conveniência): some ao salvar o treino.
 // Rascunho de outro programa (trocou o ativo) é descartado.
 function readDraft(program: WorkoutProgram): Draft | null {
@@ -99,22 +122,38 @@ export const LIGHT_CLASS: Record<TrafficLight, string> = {
   red: "border-red-500 bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-100",
 };
 
-export function RegisterTab({ program, sessions, onSaved }: { program: WorkoutProgram; sessions: WorkoutSession[]; onSaved: () => void }) {
-  const [draft, setDraft] = useState<Draft | null>(null);
+export function RegisterTab({
+  program,
+  sessions: allSessions,
+  onSaved,
+  editing = null,
+  onCancelEdit,
+}: {
+  program: WorkoutProgram;
+  sessions: WorkoutSession[];
+  onSaved: () => void;
+  /** Treino já salvo sendo corrigido — sem rascunho no navegador, "Salvar" atualiza em vez de criar. */
+  editing?: WorkoutSession | null;
+  onCancelEdit?: () => void;
+}) {
+  const [draft, setDraft] = useState<Draft | null>(() => (editing ? draftFromSession(program, editing) : null));
   const [pending, startTransition] = useTransition();
+  // Dicas ("última vez", sugestão de carga) não contam o próprio treino que está sendo corrigido.
+  const sessions = editing ? allSessions.filter((s) => s.id !== editing.id) : allSessions;
 
   // Rascunho vem do navegador só depois de montar (no servidor não existe localStorage).
   useEffect(() => {
+    if (editing) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura única do rascunho salvo no navegador
     setDraft(readDraft(program) ?? newDraft(program, sessions));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!draft) return;
+    if (!draft || editing) return;
     const timer = setTimeout(() => writeDraft(draft), 800);
     return () => clearTimeout(timer);
-  }, [draft]);
+  }, [draft, editing]);
 
   if (!draft) return <p className="text-sm text-zinc-500">Carregando…</p>;
   const workout = findWorkout(program.definition, draft.workout) ?? program.definition.workouts[0]!;
@@ -143,6 +182,7 @@ export function RegisterTab({ program, sessions, onSaved }: { program: WorkoutPr
     if (!draft) return;
     startTransition(async () => {
       const result = await saveWorkoutSession({
+        sessionId: editing?.id,
         programId: draft.programId,
         date: draft.date,
         week: Math.max(1, Number(draft.week) || 1),
@@ -163,14 +203,24 @@ export function RegisterTab({ program, sessions, onSaved }: { program: WorkoutPr
         toast.error(result.error);
         return;
       }
-      toast.success("Treino salvo!");
-      writeDraft(null);
+      toast.success(editing ? "Treino corrigido!" : "Treino salvo!");
+      if (!editing) writeDraft(null);
       onSaved();
     });
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {editing && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand/40 bg-brand-soft px-4 py-3 text-sm text-brand-text">
+          <span>
+            <strong>Corrigindo o treino de {formatShortDate(editing.date)}.</strong> Mude o que precisar (data, séries, cargas…) e toque em “Salvar correção”.
+          </span>
+          <button type="button" onClick={onCancelEdit} className="font-medium underline">
+            Cancelar
+          </button>
+        </div>
+      )}
       <section className={cardClassName}>
         <h2 className="font-semibold">Check-in</h2>
         <div className="flex flex-wrap gap-3">
@@ -345,18 +395,24 @@ export function RegisterTab({ program, sessions, onSaved }: { program: WorkoutPr
           onClick={handleSave}
           className="rounded-xl bg-brand py-3 font-semibold text-brand-fg disabled:opacity-60"
         >
-          {pending ? "Salvando…" : "Salvar treino"}
+          {pending ? "Salvando…" : editing ? "Salvar correção" : "Salvar treino"}
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            writeDraft(null);
-            setDraft(newDraft(program, sessions));
-          }}
-          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-        >
-          Descartar rascunho e recomeçar
-        </button>
+        {editing ? (
+          <button type="button" onClick={onCancelEdit} className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
+            Cancelar e voltar ao histórico
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              writeDraft(null);
+              setDraft(newDraft(program, sessions));
+            }}
+            className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
+          >
+            Descartar rascunho e recomeçar
+          </button>
+        )}
       </section>
     </div>
   );

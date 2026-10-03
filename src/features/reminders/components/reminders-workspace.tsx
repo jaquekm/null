@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHelp } from "@/components/shared/page-help";
 import { formatInTimeZone } from "date-fns-tz";
 import { Bell, Plus, Settings2 } from "lucide-react";
 import Link from "next/link";
@@ -71,9 +72,12 @@ export function RemindersWorkspace({ contacts, defaultTimezone, initialUpcoming,
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-black dark:text-zinc-50">
-          <Bell className="h-5 w-5" /> Lembretes
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="flex items-center gap-2 text-xl font-semibold text-black dark:text-zinc-50">
+            <Bell className="h-5 w-5" /> Lembretes
+          </h1>
+          <PageHelp topic="lembretes" />
+        </div>
         <div className="flex gap-2">
           <Link
             href="/lembretes/regras"

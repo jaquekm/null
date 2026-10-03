@@ -1,3 +1,4 @@
+import { PageHelp } from "@/components/shared/page-help";
 import Link from "next/link";
 import { AgendaCalendar } from "@/features/agenda/components/agenda-calendar";
 import { getUserTimezone, listCalendarsForPicker } from "@/features/agenda/queries";
@@ -18,7 +19,10 @@ export default async function AgendaPage() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Agenda</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Agenda</h1>
+          <PageHelp topic="agenda" />
+        </div>
         <Link href="/agenda/hoje" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
           Planejador do dia →
         </Link>

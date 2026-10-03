@@ -1,4 +1,4 @@
-# Continuidade — onde paramos e como seguir (atualizado em 30/09/2026)
+# Continuidade — onde paramos e como seguir (atualizado em 03/10/2026)
 
 Este arquivo existe para que **outra conta ou outra sessão do Claude Code** continue o projeto sem
 perder nada. Leia nesta ordem: este arquivo → `CLAUDE.md` → `docs/00-visao-geral.md` →
@@ -12,37 +12,29 @@ feito assim está em `docs/decisoes/*.md`, dividido em partes pelo mesmo motivo)
 - **Produto:** JKode (antes "Hub"), sistema pessoal de uma dona só. Produção em
   `https://null.prescrittomed.com.br` (Vercel). Um único projeto Supabase (`hub-dev`, ref
   `spzuvkpovmawbsiznzei`) serve de produção — não existe `hub-prod` (decisão registrada em PROGRESSO, fase 0).
-- **Repositório:** `jaquekm/null`, branch padrão `main`. Fases 0–9 mescladas (a 8 foi pulada/reduzida,
-  ver PROGRESSO). Fase 9 concluída (9.1–9.9).
-- **PR aberta:** [#74](https://github.com/jaquekm/null/pull/74), branch `claude/blissful-darwin-ksvydv`,
-  **CI verde, sem conflito, esperando só o merge da dona.** Três commits, nenhum com migration:
-  1. `fix(itens)` — texto de uma Lista não some no modo lista, "Mostrar como: Lista | Texto",
-     "Virar nota", página do item com "Mais ferramentas".
-  2. `feat(rotina)` 10.1 — página `/rotina` (hábitos da semana, consistência).
-  3. `feat(rotina)` 10.2 — aba Horários (blocos fixos na Agenda e no Hoje).
-- **Fase 10 em andamento** (plano em `docs/fase-10-vida.md`, ordem aprovada pela dona:
-  Rotina → Saúde → Hoje como painel → Alimentação → Finanças → Pacotes e revisão).
-  Feitas: 10.1 e 10.2. **Próxima: 10.3 Modo foco.**
+- **Repositório:** `jaquekm/null`, branch padrão `main`. Fases 0–10 mescladas (a 8 foi pulada/reduzida).
+- **Banco de produção em dia com o repositório** (03/10): as 8 migrations da fase 10 (`20261009`–`20261016`)
+  foram aplicadas a pedido da dona. Antes de declarar uma tarefa com migration pronta, confira com
+  `list_migrations` (MCP do Supabase) que ela está aplicada — ou deixe escrito aqui que está pendente.
+- **Ajustes de 03/10** (branch `claude/blissful-darwin-ksvydv`, PR em rascunho): editar treino, cardápio com
+  ingredientes no próprio prato, "pagar … R$ … dia …" vira conta a pagar, "Por que meus avisos não chegam?",
+  explicação do Zettelkasten, botão "Como funciona" nos módulos. Detalhes em `docs/progresso/fase-10.md`.
 
 ## 2. O que falta fazer (em ordem)
 
-1. **Dona:** mesclar a PR #74. Depois disso, a próxima sessão começa assim:
-   `git fetch origin main && git checkout -B <branch-da-sessão> origin/main` (a PR mesclada não é reaproveitada).
-2. **Fase 10**, uma tarefa por vez, na ordem do plano:
-   - 10.3 Modo foco (cronômetro pomodoro/livre ligado a tarefa/projeto; "onde foi meu tempo" na semana).
-   - 10.4 Água · 10.5 Vitaminas e remédios (estoque, lembrete, "acaba em 5 dias") · 10.6 Peso/medidas/IMC
-     (juntar com o semanal do Treinos, sem duplicar) · 10.7 Log médico.
-   - 10.8 Hoje como painel (água, remédios, hábitos do dia, treino e refeições marcáveis no Hoje).
-   - 10.9–10.11 Alimentação (cardápio, lista de compras e receitas, jejum).
-   - 10.12–10.14 Finanças (patrimônio, desejos/caixinhas, plano de quitação).
-   - 10.15 Pacotes prontos · 10.16 Revisão da semana automática.
-   - Regra da fase: dado de saúde **não vai pra IA** sem o módulo ligado nas configurações (igual finanças).
-3. **[HUMANO] pendente desde 29/09 — ligar o agendador:** a dona cria no Supabase → Vault os segredos
-   `cron_secret` e `app_url` e avisa "pronto". Aí conferir (só os **nomes** no Vault, nunca os valores)
-   que os jobs do `pg_cron` passam a disparar. Sem isso, lembretes/automações/relatórios agendados não saem.
-4. **Depois, com a dona:** enxugar o menu (hoje 14 itens — ela pediu para conversar antes de mexer).
-5. Pendências antigas ainda abertas em PROGRESSO: 0.4 (Supabase local nunca rodou), 0.7 (confirmar MFA
-   exigido no login), 0.11/0.13. Não bloqueiam nada.
+1. **[HUMANO] Ligar o agendador — pendente desde 29/09 e é o motivo de nenhum lembrete chegar.** Conferido
+   em 03/10: o Vault está vazio e o `pg_cron` falha a cada minuto (`url` nulo). A dona cria no Supabase →
+   Integrations → Vault os segredos `app_url` (https://null.prescrittomed.com.br) e `cron_secret` (mesmo valor
+   da `CRON_SECRET` da Vercel, copiado de lá direto — nunca pelo chat). Depois, conferir só os **nomes** no
+   Vault e que `cron.job_run_details` passa a mostrar `succeeded`. A tela Configurações → Notificações mostra
+   o estado sozinha.
+2. **[HUMANO] Ativar notificação no aparelho** (0 inscrições em 03/10): Configurações → Notificações →
+   "Ativar neste aparelho"; no iPhone, instalar o app na tela inicial antes.
+3. **WhatsApp:** os lembretes da dona estão no canal WhatsApp; só saem com o número cadastrado **e** o fluxo
+   do N8N ligado (`docs/n8n-whatsapp.md`). Até lá, sugerir canal "Notificação".
+4. Validar com a dona, em uso real, as telas que ainda não foram vistas com login (10.3 foco, 10.5 remédios).
+5. **Depois, com a dona:** enxugar o menu (hoje 13 itens).
+6. Pendências antigas em PROGRESSO: 0.4 (Supabase local), 0.7 (MFA exigido no login), 0.11/0.13. Não bloqueiam.
 
 ## 3. Regras de trabalho combinadas com a dona (valem sempre)
 
