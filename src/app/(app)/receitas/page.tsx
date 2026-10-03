@@ -17,7 +17,7 @@ export default async function ReceitasPage() {
         </Link>
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Receitas</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Escreva o nome exato da receita numa célula do cardápio pra somar os ingredientes dela na lista de compras.
+          Os ingredientes de cada prato do cardápio. Escreva o mesmo nome no cardápio (maiúscula e acento não importam) e, em “Gerar lista de compras”, os ingredientes somam na sua lista.
         </p>
       </header>
       <RecipesWorkspace recipes={recipes} />

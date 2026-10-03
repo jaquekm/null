@@ -15,6 +15,7 @@ import { requireOwner } from "@/lib/auth";
 import { fail, ok, type Result } from "@/lib/result";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { formatIngredientsText, parseIngredientsText, sumIngredients, type Ingredient } from "./lib/ingredients";
+import { findRecipeForDish, weekCoverage } from "./lib/match";
 import { listRecipes } from "./queries";
 import { generateShoppingListSchema, saveRecipeSchema } from "./schemas";
 
@@ -82,10 +83,9 @@ async function readPreferences(supabase: Client, ownerId: string): Promise<Recor
  * Soma várias linhas na lista de compras (10.5/10.10) — mesma lista lembrada
  * em `preferences.shoppingListItemId`, cria uma nova a partir do modelo
  * "Lista de compras" (9.2) se a dona ainda não tiver nenhuma. Sem o pacote
- * Listas instalado, só não soma (devolve `false`).
+ * Listas instalado, só não soma (devolve `null`); senão devolve o id da lista.
  */
-async function appendToShoppingList(supabase: Client, ownerId: string, lines: string[]): Promise<boolean> {
-  if (lines.length === 0) return true;
+async function appendToShoppingList(supabase: Client, ownerId: string, lines: string[]): Promise<string | null> {
   const preferences = await readPreferences(supabase, ownerId);
   const savedId = typeof preferences.shoppingListItemId === "string" ? preferences.shoppingListItemId : null;
 
@@ -97,17 +97,17 @@ async function appendToShoppingList(supabase: Client, ownerId: string, lines: st
 
   if (!listItem) {
     const template = findTemplate("lista-compras");
-    if (!template) return false;
+    if (!template) return null;
     const { data: types } = await supabase.from("object_types").select("id").eq("slug", template.typeSlug).is("archived_at", null).is("space_id", null).limit(1);
     const typeId = types?.[0]?.id;
-    if (!typeId) return false;
+    if (!typeId) return null;
 
     const { data: created, error } = await supabase
       .from("items")
       .insert({ owner_id: ownerId, type_id: typeId, title: template.defaultTitle, status: "active", properties: templateProperties(template) as Json })
       .select("id, content")
       .single();
-    if (error || !created) return false;
+    if (error || !created) return null;
     listItem = created;
 
     await supabase
@@ -122,20 +122,23 @@ async function appendToShoppingList(supabase: Client, ownerId: string, lines: st
     .update({ content: content as unknown as Json, content_text: extractText(content) })
     .eq("id", listItem.id)
     .eq("owner_id", ownerId);
-  return !error;
+  return error ? null : listItem.id;
 }
 
 export interface ShoppingListResult {
   matchedRecipes: string[];
   ingredientsAdded: number;
   addedToShoppingList: boolean;
+  /** Lista de compras onde somou — pro "Abrir lista de compras" logo depois. */
+  shoppingListId: string | null;
+  /** Pratos da semana sem ingrediente cadastrado (ficaram de fora). */
+  missingDishes: string[];
 }
 
 /**
- * "Soma os ingredientes do cardápio numa lista" (10.10): cada célula do
- * cardápio cujo texto bate (sem diferenciar maiúsculas) com o nome de uma
- * receita entra na soma; células que não casam nenhuma receita são
- * ignoradas (continuam só texto livre, a dona adiciona à mão se quiser).
+ * "Gerar lista de compras" do cardápio (10.10): cada prato da semana que tem
+ * receita com ingredientes (mesmo nome, sem ligar pra maiúscula/acento) entra
+ * na soma; o resto volta em `missingDishes` pra tela dizer o que faltou.
  */
 export async function generateShoppingListFromWeek(input: z.input<typeof generateShoppingListSchema>): Promise<Result<ShoppingListResult>> {
   const parsed = generateShoppingListSchema.safeParse(input);
@@ -143,27 +146,26 @@ export async function generateShoppingListFromWeek(input: z.input<typeof generat
   const { supabase, user } = await requireOwner();
 
   const [plan, recipes] = await Promise.all([getWeekPlan(supabase, user.id, parsed.data.weekStart), listRecipes(supabase)]);
-  const recipeByName = new Map(recipes.map((r) => [r.title.trim().toLowerCase(), r]));
 
   const matched = new Set<string>();
   const lists: Ingredient[][] = [];
   for (const day of WEEKDAYS) {
-    const dayPlan = plan[day] ?? {};
-    for (const text of Object.values(dayPlan)) {
+    for (const text of Object.values(plan[day] ?? {})) {
       if (!text) continue;
-      const recipe = recipeByName.get(text.trim().toLowerCase());
+      const recipe = findRecipeForDish(recipes, text);
       if (!recipe || recipe.ingredients.length === 0) continue;
       matched.add(recipe.title);
       lists.push(recipe.ingredients);
     }
   }
+  const { missing } = weekCoverage(plan, recipes);
 
-  if (matched.size === 0) return ok({ matchedRecipes: [], ingredientsAdded: 0, addedToShoppingList: false });
+  if (matched.size === 0) return ok({ matchedRecipes: [], ingredientsAdded: 0, addedToShoppingList: false, shoppingListId: null, missingDishes: missing });
 
   const summed = sumIngredients(lists);
   const lines = formatIngredientsText(summed).split("\n");
-  const addedToShoppingList = await appendToShoppingList(supabase, user.id, lines);
+  const shoppingListId = await appendToShoppingList(supabase, user.id, lines);
 
   revalidatePath("/cardapio");
-  return ok({ matchedRecipes: [...matched], ingredientsAdded: summed.length, addedToShoppingList });
+  return ok({ matchedRecipes: [...matched], ingredientsAdded: summed.length, addedToShoppingList: shoppingListId !== null, shoppingListId, missingDishes: missing });
 }

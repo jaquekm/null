@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteRecipe, saveRecipe } from "../actions";
-import { formatIngredientsText, scaleIngredients } from "../lib/ingredients";
+import { formatIngredient, formatIngredientsText, scaleIngredients } from "../lib/ingredients";
 import type { RecipeRow } from "../queries";
 
 const inputClassName =
@@ -58,7 +58,7 @@ function RecipeCard({ recipe, onChanged, onDeleted }: { recipe: RecipeRow; onCha
           <input value={servings} onChange={(e) => setServings(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={`${inputClassName} w-20`} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Ingredientes (um por linha, ex.: &quot;200 g arroz&quot;)
+          Ingredientes (um por linha: &quot;2 ovos&quot;, &quot;200 g arroz&quot;, &quot;sal a gosto&quot;)
           <textarea value={ingredientsText} onChange={(e) => setIngredientsText(e.target.value)} rows={5} className={inputClassName} />
         </label>
         <div className="flex gap-2">
@@ -85,9 +85,7 @@ function RecipeCard({ recipe, onChanged, onDeleted }: { recipe: RecipeRow; onCha
       {recipe.ingredients.length > 0 && (
         <ul className="text-sm text-zinc-700 dark:text-zinc-300">
           {scaled.map((ingredient, index) => (
-            <li key={index}>
-              {ingredient.qty.toLocaleString("pt-BR")} {ingredient.unit} {ingredient.name}
-            </li>
+            <li key={index}>{formatIngredient(ingredient)}</li>
           ))}
         </ul>
       )}
@@ -172,7 +170,7 @@ export function RecipesWorkspace({ recipes: initialRecipes }: { recipes: RecipeR
             <input value={servings} onChange={(e) => setServings(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={`${inputClassName} w-20`} />
           </label>
           <label className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Ingredientes (um por linha, ex.: &quot;200 g arroz&quot;)
+            Ingredientes (um por linha: &quot;2 ovos&quot;, &quot;200 g arroz&quot;, &quot;sal a gosto&quot;)
             <textarea value={ingredientsText} onChange={(e) => setIngredientsText(e.target.value)} rows={5} className={inputClassName} />
           </label>
           <div className="flex gap-2">
