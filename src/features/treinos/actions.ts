@@ -38,27 +38,36 @@ export async function saveWorkoutSession(input: unknown): Promise<Result<{ id: s
     return fail("Preencha as séries de algum exercício ou, se foi só cardio, a duração ou uma observação em “Fim do treino”.");
   }
 
+  const row = {
+    program_id: s.programId,
+    session_date: s.date,
+    program_week: s.week,
+    workout: s.workout,
+    sleep_hours: s.sleepHours,
+    energy: s.energy,
+    knee_pain_before: s.kneePainBefore,
+    back_pain_before: s.backPainBefore,
+    swelling: s.swelling,
+    sick: s.sick,
+    traffic_light: trafficLight(s),
+    exercises: exercises as unknown as Json,
+    duration_min: s.durationMin,
+    knee_pain_after: s.kneePainAfter,
+    back_pain_after: s.backPainAfter,
+    notes: s.notes || null,
+  };
+
+  if (s.sessionId) {
+    const { data, error } = await supabase.from("workout_sessions").update(row).eq("id", s.sessionId).eq("owner_id", user.id).select("id").maybeSingle();
+    if (error) return fail(GENERIC_ERROR);
+    if (!data) return fail("Treino não encontrado. Recarregue a página.");
+    revalidatePath(PATH);
+    return ok({ id: data.id });
+  }
+
   const { data, error } = await supabase
     .from("workout_sessions")
-    .insert({
-      owner_id: user.id,
-      program_id: s.programId,
-      session_date: s.date,
-      program_week: s.week,
-      workout: s.workout,
-      sleep_hours: s.sleepHours,
-      energy: s.energy,
-      knee_pain_before: s.kneePainBefore,
-      back_pain_before: s.backPainBefore,
-      swelling: s.swelling,
-      sick: s.sick,
-      traffic_light: trafficLight(s),
-      exercises: exercises as unknown as Json,
-      duration_min: s.durationMin,
-      knee_pain_after: s.kneePainAfter,
-      back_pain_after: s.backPainAfter,
-      notes: s.notes || null,
-    })
+    .insert({ owner_id: user.id, ...row })
     .select("id")
     .single();
   if (error || !data) return fail(GENERIC_ERROR);

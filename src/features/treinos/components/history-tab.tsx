@@ -66,11 +66,14 @@ export function HistoryTab({
   sessions,
   weekly,
   onChanged,
+  onEdit,
 }: {
   programs: WorkoutProgram[];
   sessions: WorkoutSession[];
   weekly: WeeklyMeasure[];
   onChanged: () => void;
+  /** Abre o treino no formulário pra corrigir. */
+  onEdit?: (session: WorkoutSession) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -193,14 +196,27 @@ export function HistoryTab({
                     </div>
 
                     <MorningPain session={s} />
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => handleDelete(s.id)}
-                      className="self-end text-xs text-zinc-400 hover:text-red-600 hover:underline dark:hover:text-red-400"
-                    >
-                      Excluir este treino
-                    </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {onEdit && programs.some((p) => p.id === s.programId) ? (
+                        <button
+                          type="button"
+                          onClick={() => onEdit(s)}
+                          className="rounded-lg border border-black/[.12] px-3 py-1.5 text-sm font-medium dark:border-white/[.16]"
+                        >
+                          Editar este treino
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">O programa deste treino foi apagado — só dá pra excluir.</span>
+                      )}
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => handleDelete(s.id)}
+                        className="text-xs text-zinc-400 hover:text-red-600 hover:underline dark:hover:text-red-400"
+                      >
+                        Excluir este treino
+                      </button>
+                    </div>
                   </div>
                 )}
               </article>

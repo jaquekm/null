@@ -139,6 +139,49 @@ describe("TreinosWorkspace", () => {
     expect(screen.getByText("40 kg")).toBeTruthy();
   });
 
+  it("histórico: editar um treino abre o formulário preenchido e salva a correção no mesmo registro", async () => {
+    const session: WorkoutSession = {
+      id: "22222222-2222-4222-8222-222222222222",
+      createdAt: "2026-09-28T10:00:00Z",
+      programId: program.id,
+      date: "2026-09-28",
+      week: 1,
+      workout: "A",
+      exercises: { leg_press_45: { name: "Leg press 45°", load: "40", reps: ["12", "11"], rir: 3, pain: 0, note: "", skipped: false } },
+      sleepHours: 7,
+      energy: 4,
+      kneePainBefore: 0,
+      backPainBefore: 0,
+      swelling: false,
+      sick: false,
+      trafficLight: "green",
+      durationMin: 42,
+      kneePainAfter: 0,
+      backPainAfter: 0,
+      kneePainMorning: null,
+      backPainMorning: null,
+      notes: "ok",
+    };
+    render(<TreinosWorkspace programs={[program]} sessions={[session]} weekly={[]} heightCm={null} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Histórico" }));
+    fireEvent.click(screen.getByRole("button", { name: /Seg, 28\/09/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar este treino" }));
+
+    expect(screen.getByText(/Corrigindo o treino de/)).toBeTruthy();
+    expect((screen.getByLabelText("Data") as HTMLInputElement).value).toBe("2026-09-28");
+    const card = screen.getByText("Leg press 45°").closest("section")!;
+    expect((within(card).getByLabelText("Carga (kg)") as HTMLInputElement).value).toBe("40");
+    expect((within(card).getByLabelText("Série 2") as HTMLInputElement).value).toBe("11");
+
+    fireEvent.change(screen.getByLabelText("Data"), { target: { value: "2026-09-27" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar correção" }));
+    await vi.waitFor(() => expect(saveWorkoutSession).toHaveBeenCalledTimes(1));
+    expect(saveWorkoutSession.mock.calls[0]![0]).toMatchObject({ sessionId: session.id, date: "2026-09-27", energy: 4, notes: "ok" });
+    expect(saveWorkoutSession.mock.calls[0]![0].exercises.leg_press_45).toMatchObject({ load: "40", reps: ["12", "11"] });
+    // Corrigir não mexe no rascunho de um treino novo.
+    expect(window.localStorage.getItem("treinos:rascunho")).toBeNull();
+  });
+
   it("histórico: dia só de cardio aparece como cardio, com a observação", () => {
     const cardio: WorkoutSession = {
       id: "s2",
