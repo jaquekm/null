@@ -4,14 +4,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RecipeRow } from "@/features/recipes/queries";
 import { MenuGrid } from "./menu-grid";
 
-const saveRecipe = vi.fn(async (_input: unknown) => ({ ok: true as const, data: { id: "r-new" } }));
-const generateShoppingListFromWeek = vi.fn(async (_input: unknown) => ({
+const saveRecipe = vi.fn<(input: unknown) => Promise<{ ok: true; data: { id: string } }>>(async () => ({ ok: true, data: { id: "r-new" } }));
+const generateShoppingListFromWeek = vi.fn(async () => ({
   ok: true as const,
   data: { matchedRecipes: ["Frango com arroz"], ingredientsAdded: 2, addedToShoppingList: true, shoppingListId: "lista-1", missingDishes: [] },
 }));
 vi.mock("@/features/recipes/actions", () => ({
   saveRecipe: (input: unknown) => saveRecipe(input),
-  generateShoppingListFromWeek: (input: unknown) => generateShoppingListFromWeek(input),
+  generateShoppingListFromWeek: (input: unknown) => (generateShoppingListFromWeek as (i: unknown) => ReturnType<typeof generateShoppingListFromWeek>)(input),
 }));
 vi.mock("../actions", () => ({ setMealPlanCell: vi.fn(), copyPlanDay: vi.fn(), repeatWeek: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
