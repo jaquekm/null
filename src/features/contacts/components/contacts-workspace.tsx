@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHelp } from "@/components/shared/page-help";
 import Link from "next/link";
 import { Upload, UserPlus } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
@@ -54,7 +55,10 @@ export function ContactsWorkspace({ spaces, initialContacts }: { spaces: Sidebar
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Contatos</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Contatos</h1>
+          <PageHelp topic="contatos" />
+        </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setShowVCard(true)} className="flex items-center gap-1.5 rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]">
             <Upload className="h-4 w-4" /> vCard

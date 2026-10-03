@@ -1,3 +1,4 @@
+import { PageHelp } from "@/components/shared/page-help";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getUserTimezone } from "@/features/agenda/queries";
@@ -26,7 +27,10 @@ export default async function CardapioPage({ searchParams }: PageProps<"/cardapi
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
+          <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Cardápio da semana</h1>
+          <PageHelp topic="cardapio" />
+        </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">O que comer em cada dia — e a lista de compras sai daqui.</p>
         </div>
         <nav aria-label="Semana" className="flex items-center gap-1">

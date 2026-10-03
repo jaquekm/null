@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHelp } from "@/components/shared/page-help";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -90,7 +91,10 @@ export function DashboardWorkspace({
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Painel financeiro</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Painel financeiro</h1>
+          <PageHelp topic="financas" />
+        </div>
         {spaces.length > 0 && (
           <select value={spaceId} onChange={(e) => handleChangeSpace(e.target.value)} className={inputClassName}>
             <option value="">Todos os espaços</option>
