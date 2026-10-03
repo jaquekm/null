@@ -44,7 +44,7 @@ export function PageHelp({ topic }: { topic: PageHelpTopic }) {
         <div
           role="dialog"
           aria-label={`Como funciona: ${help.title}`}
-          className="absolute left-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-black/[.08] bg-white p-4 text-sm shadow-xl dark:border-white/[.1] dark:bg-zinc-900"
+          className="fixed inset-x-4 z-50 mt-2 rounded-2xl sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:w-[22rem] border border-black/[.08] bg-white p-4 text-sm shadow-xl dark:border-white/[.1] dark:bg-zinc-900"
         >
           <div className="mb-2 flex items-start justify-between gap-2">
             <p className="font-semibold text-black dark:text-zinc-50">{help.title}</p>

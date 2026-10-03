@@ -69,7 +69,7 @@ function IngredientsForm({ dish, recipe, onSaved, onCancel }: { dish: string; re
           onChange={(e) => setServings(e.target.value.replace(/\D/g, ""))}
           inputMode="numeric"
           aria-label="Rende quantas porções"
-          className={`${inputClassName} w-14`}
+          className={`${inputClassName.replace("w-full ", "")} w-14`}
         />
         porções
       </label>
