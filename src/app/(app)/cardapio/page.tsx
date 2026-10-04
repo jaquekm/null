@@ -1,9 +1,11 @@
+import { PageHelp } from "@/components/shared/page-help";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getUserTimezone } from "@/features/agenda/queries";
 import { startOfWeek } from "@/features/habits/lib/habit-week";
 import { MenuGrid } from "@/features/meals/components/menu-grid";
 import { getWeekPlan } from "@/features/meals/queries";
+import { listRecipes } from "@/features/recipes/queries";
 import { requireOwner } from "@/lib/auth";
 import { addDaysToDateString, todayInTimezone } from "@/lib/dates";
 
@@ -19,17 +21,17 @@ export default async function CardapioPage({ searchParams }: PageProps<"/cardapi
   const weekStart = requested ?? currentMonday;
   const isCurrentWeek = weekStart === currentMonday;
 
-  const plan = await getWeekPlan(supabase, user.id, weekStart);
+  const [plan, recipes] = await Promise.all([getWeekPlan(supabase, user.id, weekStart), listRecipes(supabase)]);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
+          <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Cardápio da semana</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">O que comer em cada dia — preenche sozinho, sem pressa.</p>
-          <Link href="/receitas" className="text-sm font-medium text-brand-text hover:underline">
-            Receitas
-          </Link>
+          <PageHelp topic="cardapio" />
+        </div>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">O que comer em cada dia — e a lista de compras sai daqui.</p>
         </div>
         <nav aria-label="Semana" className="flex items-center gap-1">
           <Link
@@ -48,7 +50,7 @@ export default async function CardapioPage({ searchParams }: PageProps<"/cardapi
         </nav>
       </header>
 
-      <MenuGrid key={weekStart} weekStart={weekStart} plan={plan} />
+      <MenuGrid key={weekStart} weekStart={weekStart} plan={plan} recipes={recipes} />
     </div>
   );
 }

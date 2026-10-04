@@ -31,9 +31,9 @@ export function InfoHint({ text, label = "Ajuda" }: { text: string; label?: stri
         }}
         aria-label={label}
         aria-expanded={open}
-        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+        className="-m-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-brand-text/80 hover:bg-black/[.05] hover:text-brand-text dark:hover:bg-white/[.08]"
       >
-        <Info className="h-3.5 w-3.5" aria-hidden />
+        <Info className="h-4 w-4" aria-hidden />
       </button>
       {open && (
         <span

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHelp } from "@/components/shared/page-help";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -228,7 +229,10 @@ export function PatrimonioWorkspace({ initial, month }: { initial: NetWorthData;
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 sm:p-6">
       <header>
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Patrimônio</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Patrimônio</h1>
+          <PageHelp topic="patrimonio" />
+        </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           Investimentos e dívidas num só painel — registre o valor de cada um quando quiser, sem precisar ser todo mês.
         </p>

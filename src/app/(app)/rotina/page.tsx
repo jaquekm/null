@@ -1,3 +1,4 @@
+import { PageHelp } from "@/components/shared/page-help";
 import Link from "next/link";
 import { getUserTimezone } from "@/features/agenda/queries";
 import { FocusSummaryPanel } from "@/features/focus/components/focus-summary-panel";
@@ -33,7 +34,10 @@ export default async function RotinaPage({ searchParams }: PageProps<"/rotina">)
   const header = (subtitle: string) => (
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Rotina</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Rotina</h1>
+          <PageHelp topic="rotina" />
+        </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>
       </div>
       <nav aria-label="Rotina" className="flex gap-1 rounded-xl bg-black/[.05] p-1 dark:bg-white/[.06]">

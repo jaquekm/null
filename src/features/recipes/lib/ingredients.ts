@@ -10,24 +10,59 @@ export interface Ingredient {
   unit: string;
 }
 
-const LINE_PATTERN = /^(\d+(?:[.,]\d+)?)\s*([a-zà-úçã%]+)\s+(.+)$/i;
+/** Unidades reconhecidas depois do número; outra palavra ali já é o nome ("2 ovos" = 2 un ovos). */
+const UNITS = new Set([
+  "g", "kg", "mg", "ml", "l", "lt", "litro", "litros",
+  "xic", "xíc", "xicara", "xícara", "xicaras", "xícaras",
+  "colher", "colheres", "col", "cs", "cc",
+  "un", "und", "unid", "unidade", "unidades",
+  "dente", "dentes", "pitada", "pitadas", "maço", "maços", "lata", "latas", "pacote", "pacotes", "pct",
+  "fatia", "fatias", "copo", "copos", "pote", "potes", "folha", "folhas", "ramo", "ramos", "cabeça", "cabeças", "caixa", "caixas", "bandeja", "bandejas",
+]);
 
-/** Uma linha por ingrediente, "200 g arroz" / "2 unid ovo" — linha que não casa o padrão é ignorada (digitada errado). */
+const LEADING_NUMBER = /^(\d+\/\d+|\d+(?:[.,]\d+)?)\s*(.*)$/;
+
+function parseQty(raw: string): number {
+  if (raw.includes("/")) {
+    const [n, d] = raw.split("/").map(Number);
+    return d ? roundQty(n! / d) : 0;
+  }
+  return Number(raw.replace(",", "."));
+}
+
+/**
+ * Uma linha por ingrediente. Aceita do jeito que se escreve:
+ * "200 g arroz", "2 xícaras de farinha", "2 ovos" (vira 2 un), "1/2 cebola",
+ * e linha sem número ("sal a gosto") — entra só com o nome, sem quantidade.
+ */
 export function parseIngredientsText(text: string): Ingredient[] {
   return text
     .split("\n")
-    .map((line) => line.trim())
+    .map((line) => line.trim().replace(/^[-•*]\s*/, ""))
     .filter(Boolean)
-    .flatMap((line) => {
-      const match = LINE_PATTERN.exec(line);
-      if (!match) return [];
-      return [{ qty: Number(match[1]!.replace(",", ".")), unit: match[2]!.toLowerCase(), name: match[3]!.trim() }];
+    .map((line) => {
+      const match = LEADING_NUMBER.exec(line);
+      if (!match || !match[2]) return { qty: 0, unit: "", name: line };
+      const qty = parseQty(match[1]!);
+      const [first = "", ...rest] = match[2].split(/\s+/);
+      const unitCandidate = first.toLowerCase().replace(/\.$/, "");
+      if (UNITS.has(unitCandidate) && rest.length > 0) {
+        return { qty, unit: unitCandidate, name: rest.join(" ").replace(/^de\s+/i, "") };
+      }
+      return { qty, unit: "un", name: match[2] };
     });
+}
+
+/** Um ingrediente como se lê: "200 g arroz", "2 ovos", "sal a gosto". */
+export function formatIngredient(i: Ingredient): string {
+  if (!i.qty) return i.name;
+  if (i.unit === "un" || !i.unit) return `${formatQty(i.qty)} ${i.name}`;
+  return `${formatQty(i.qty)} ${i.unit} ${i.name}`;
 }
 
 /** Volta pro formato de texto editável — mesmo formato que `parseIngredientsText` lê. */
 export function formatIngredientsText(ingredients: Ingredient[]): string {
-  return ingredients.map((i) => `${formatQty(i.qty)} ${i.unit} ${i.name}`).join("\n");
+  return ingredients.map(formatIngredient).join("\n");
 }
 
 function roundQty(value: number): number {

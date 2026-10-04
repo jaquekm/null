@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isWhatsAppChannelReady } from "@/lib/messaging";
 import type { Database } from "@/lib/supabase/database.types";
+import { deliveryChecklist, type DeliveryCheck } from "./lib/delivery-checklist";
 
 type Client = SupabaseClient<Database>;
 
@@ -96,4 +98,20 @@ export async function getOwnerWhatsapp(supabase: Client, ownerId: string): Promi
   const preferences = (data?.preferences as Record<string, unknown> | null) ?? {};
   const phone = preferences.ownerWhatsapp;
   return typeof phone === "string" && /^\+\d{8,15}$/.test(phone) ? phone : null;
+}
+
+/** Os três itens de "Por que meus avisos não chegam?" (03/10). */
+export async function getDeliveryChecks(supabase: Client, ownerId: string): Promise<DeliveryCheck[]> {
+  const [heartbeat, push, ownerWhatsapp] = await Promise.all([
+    supabase.from("ops_heartbeat").select("last_tick_at").eq("owner_id", ownerId).maybeSingle(),
+    supabase.from("push_subscriptions").select("*", { count: "exact", head: true }),
+    getOwnerWhatsapp(supabase, ownerId),
+  ]);
+  return deliveryChecklist({
+    lastTickAt: heartbeat.data?.last_tick_at ?? null,
+    now: new Date(),
+    pushDevices: push.count ?? 0,
+    ownerWhatsapp,
+    whatsappChannelReady: isWhatsAppChannelReady(),
+  });
 }

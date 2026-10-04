@@ -15,6 +15,8 @@ export const exerciseEntrySchema = z.object({
 });
 
 export const sessionInputSchema = z.object({
+  /** Presente = corrigir um treino já salvo (data errada, série digitada errado…) em vez de criar outro. */
+  sessionId: z.string().uuid().optional(),
   programId: z.string().uuid(),
   date: dateSchema,
   week: z.number().int().min(1).max(520),
