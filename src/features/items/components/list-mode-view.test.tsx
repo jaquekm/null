@@ -130,9 +130,12 @@ describe("ListModeView — detalhes de cada item (07/10)", () => {
   it("Dar nota: tocar no nome abre os detalhes; salvar grava dentro do item, sem mexer na nota", async () => {
     renderList("rating", doc(list(item("Pousada Mar", { score: 4 }), item("Hotel Sol"))));
     fireEvent.click(screen.getByRole("button", { name: "Pousada Mar" }));
+    // A linha vira o editor: o nome aparece uma vez só, no campo (07/10, "título duplicado").
+    expect(screen.queryByRole("button", { name: "Pousada Mar" })).toBeNull();
+    expect(screen.queryByText("Pousada Mar")).toBeNull();
+    expect((screen.getByLabelText("Nome") as HTMLInputElement).value).toBe("Pousada Mar");
     const box = screen.getByLabelText("Detalhes");
     fireEvent.change(box, { target: { value: "https://pousada.com\nCentro\nR$ 450 a diária" } });
-    expect(screen.getByRole("link", { name: "https://pousada.com" }).getAttribute("href")).toBe("https://pousada.com");
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
     const entry = listEntries(await saved()).find((e) => e.text === "Pousada Mar")!;
     expect(entry).toMatchObject({ score: 4, details: "https://pousada.com\nCentro\nR$ 450 a diária" });
