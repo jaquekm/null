@@ -4,8 +4,8 @@ import type { JSONContent } from "@tiptap/core";
 import { Bell, Check, ChevronDown, ChevronUp, MoreVertical, Pencil, Star, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { splitLinks } from "@/lib/linkify";
 import { QuickReminder } from "@/features/reminders/components/quick-reminder";
+import { AuthorChip, LinkedText } from "./list-entry-bits";
 import { updateItemContent } from "../actions";
 import { toggleChecklistItem } from "../lib/checklist";
 import { hasConvertibleLines, listNoteLines, noteLinesToListItems } from "../lib/list-notes";
@@ -35,23 +35,11 @@ const idleRow = "border-black/[.06] bg-surface text-black dark:border-white/[.06
 const pickedRow = "border-brand/60 bg-brand-soft text-black dark:text-zinc-50";
 
 function EntryText({ entry }: { entry: ListEntry }) {
-  return <span className="min-w-0 flex-1 break-words">{entry.text || <span className="italic text-zinc-400">(sem texto)</span>}</span>;
-}
-
-/** Texto com os links clicáveis (abrem em outra aba). */
-function LinkedText({ text }: { text: string }) {
   return (
-    <>
-      {splitLinks(text).map((part, i) =>
-        part.href ? (
-          <a key={i} href={part.href} target="_blank" rel="noopener noreferrer" className="break-all text-brand-text underline">
-            {part.text}
-          </a>
-        ) : (
-          <span key={i}>{part.text}</span>
-        ),
-      )}
-    </>
+    <span className="min-w-0 flex-1 break-words">
+      {entry.text || <span className="italic text-zinc-400">(sem texto)</span>}
+      {entry.author && <AuthorChip name={entry.author} />}
+    </span>
   );
 }
 
@@ -507,8 +495,10 @@ export function ListModeView({
                 className="min-w-0 basis-full break-words text-left sm:basis-0 sm:flex-1"
               >
                 {entry.text || <span className="italic text-zinc-400">(sem texto)</span>}
+                {entry.author && <AuthorChip name={entry.author} />}
               </button>
               <span className="ml-auto flex shrink-0 items-center">
+                {entry.scoreBy && <span className="mr-1 text-xs text-zinc-500 dark:text-zinc-400">nota de {entry.scoreBy}</span>}
               <span className="flex shrink-0" role="group" aria-label={`Nota de ${entry.text}`}>
                 {[1, 2, 3, 4, 5].map((n) => {
                   const on = (entry.score ?? 0) >= n;

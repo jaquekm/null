@@ -17,6 +17,21 @@ export const ScoredTaskItem = TaskItem.extend({
         },
         renderHTML: (attributes: { score?: number | null }) => (attributes.score ? { "data-score": String(attributes.score) } : {}),
       },
+      // Quem adicionou / quem deu a nota por um link de edição (07/10). Declarados aqui
+      // pelo mesmo motivo da nota: sem isso o editor completo descartaria ao salvar.
+      author: {
+        default: null,
+        keepOnSplit: false,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-author"),
+        renderHTML: (attributes: { author?: string | null }) => (attributes.author ? { "data-author": attributes.author } : {}),
+      },
+      authorLink: { default: null, keepOnSplit: false, rendered: false },
+      scoreBy: {
+        default: null,
+        keepOnSplit: false,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-score-by"),
+        renderHTML: (attributes: { scoreBy?: string | null }) => (attributes.scoreBy ? { "data-score-by": attributes.scoreBy } : {}),
+      },
     };
   },
 });

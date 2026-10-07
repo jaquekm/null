@@ -38,7 +38,7 @@ describe("getPublicItemResource (3.12: página pública não expõe owner_id nem
     const result = await getPublicItemResource(admin, "owner-1", "item-1");
 
     expect(result).not.toBeNull();
-    expect(Object.keys(result!).sort()).toEqual(["content", "fields", "properties", "title"].sort());
+    expect(Object.keys(result!).sort()).toEqual(["content", "fields", "properties", "title", "typeSlug"].sort());
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain("leaked-owner-id-should-never-appear");
     expect(serialized).not.toContain("segredo");

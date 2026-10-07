@@ -16,6 +16,7 @@ const QUICK_PERMISSIONS: { value: SharePermission; label: string; listOnly?: boo
   { value: "view", label: "Só acompanhar" },
   { value: "comment", label: "Acompanhar e comentar" },
   { value: "check", label: "Pode marcar itens", listOnly: true },
+  { value: "edit", label: "Pode adicionar e dar nota", listOnly: true },
 ];
 
 const chipClassName = "rounded-full border px-3 py-1.5 text-sm disabled:opacity-60";
@@ -31,14 +32,20 @@ const chipOff = "border-black/[.12] text-zinc-600 hover:bg-black/[.04] dark:bord
 export function ShareFooter({ itemId, title, isList, links }: { itemId: string; title: string; isList: boolean; links: ShareLinkRow[] }) {
   const [permission, setPermission] = useState<SharePermission>("view");
   const [url, setUrl] = useState<string | null>(null);
+  const [personName, setPersonName] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const message = url ? shareMessage(title, url, isList) : "";
   const activeLinks = links.filter((link) => isShareLinkActive(link)).length;
 
   function handleShare() {
+    // Link de edição é um por pessoa: o nome vai nos itens e notas que ela fizer.
+    if (permission === "edit" && !personName.trim()) {
+      toast.error("Escreva o nome de quem vai usar o link.");
+      return;
+    }
     startTransition(async () => {
-      const result = await createShareLink({ resourceId: itemId, permission, validity: "90d" });
+      const result = await createShareLink({ resourceId: itemId, permission, validity: "90d", label: permission === "edit" ? personName.trim() : undefined });
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -110,6 +117,22 @@ export function ShareFooter({ itemId, title, isList, links }: { itemId: string; 
               </button>
             ))}
           </div>
+          {permission === "edit" && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-600 dark:text-zinc-300">Nome de quem vai usar este link</span>
+              <input
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+                maxLength={60}
+                disabled={pending}
+                placeholder="Ex.: Pedro"
+                className="rounded-lg border border-black/[.12] bg-transparent px-3 py-2 dark:border-white/[.16]"
+              />
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                Ele adiciona itens, dá nota e edita só o que adicionou. O nome aparece em cada item e nota dele, pra você saber quem fez o quê. Crie um link por pessoa.
+              </span>
+            </label>
+          )}
           <button
             type="button"
             onClick={handleShare}
@@ -125,7 +148,7 @@ export function ShareFooter({ itemId, title, isList, links }: { itemId: string; 
         <span>
           {activeLinks > 0 ? `${activeLinks} ${activeLinks === 1 ? "link ativo" : "links ativos"} · ` : ""}o link vale por 90 dias
         </span>
-        <ShareDialog itemId={itemId} links={links} triggerLabel="Mais opções (senha, validade, ver links)" />
+        <ShareDialog itemId={itemId} links={links} isList={isList} triggerLabel="Mais opções (senha, validade, ver links)" />
       </div>
     </section>
   );

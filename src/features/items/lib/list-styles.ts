@@ -41,6 +41,12 @@ export interface ListEntry {
    * compartilhado, sem campo novo. Uma linha por parágrafo; "" = sem detalhes.
    */
   details: string;
+  /** Quem adicionou o item por um link de edição; `null` = a dona. */
+  author: string | null;
+  /** Id do link que adicionou (só o servidor usa, pra saber quem pode editar/apagar). */
+  authorLink: string | null;
+  /** Quem deu a nota atual por um link de edição; `null` = a dona (ou sem nota). */
+  scoreBy: string | null;
 }
 
 export interface ListSection {
@@ -66,6 +72,11 @@ function scoreOf(node: JSONContent): number | null {
   return typeof score === "number" && score >= 1 && score <= 5 ? score : null;
 }
 
+function nameAttr(node: JSONContent, key: "author" | "authorLink" | "scoreBy"): string | null {
+  const value = node.attrs?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 function inlineText(node: JSONContent): string {
   if (typeof node.text === "string") return node.text;
   if (node.type === "hardBreak") return "\n";
@@ -85,7 +96,16 @@ function entryOf(node: JSONContent, index: number): ListEntry {
     .map((block) => inlineText(block).trimEnd())
     .join("\n")
     .trim();
-  return { index, text, checked: node.attrs?.checked === true, score: scoreOf(node), details };
+  return {
+    index,
+    text,
+    checked: node.attrs?.checked === true,
+    score: scoreOf(node),
+    details,
+    author: nameAttr(node, "author"),
+    authorLink: nameAttr(node, "authorLink"),
+    scoreBy: nameAttr(node, "scoreBy"),
+  };
 }
 
 /** Texto com os links marcados (clicáveis no editor e no link compartilhado). */
@@ -190,10 +210,15 @@ export function chooseOnly(doc: JSONContent, index: number): JSONContent {
   return mapTaskItems(doc, (node, i) => ({ ...node, attrs: { ...node.attrs, checked: i === index ? choose : false } }));
 }
 
-/** "Dar nota": 1 a 5; `null` apaga a nota. */
-export function setItemScore(doc: JSONContent, index: number, score: number | null): JSONContent {
+/**
+ * "Dar nota": 1 a 5; `null` apaga a nota. `by` é o nome de quem deu, quando vem
+ * de um link de edição; sem `by`, a nota é da dona (e apaga o nome de quem
+ * tinha dado a anterior).
+ */
+export function setItemScore(doc: JSONContent, index: number, score: number | null, by: string | null = null): JSONContent {
   const value = score !== null && Number.isInteger(score) && score >= 1 && score <= 5 ? score : null;
-  return mapTaskItems(doc, (node, i) => (i === index ? { ...node, attrs: { ...node.attrs, score: value } } : node));
+  const scoreBy = value !== null && by ? by : null;
+  return mapTaskItems(doc, (node, i) => (i === index ? { ...node, attrs: { ...node.attrs, score: value, scoreBy } } : node));
 }
 
 /** Com nota primeiro (maior para menor); empate e sem nota mantêm a ordem da lista. */
@@ -344,18 +369,28 @@ export function moveListItemToSection(doc: JSONContent, index: number, section: 
   return { ...copy, content: dropEmptyLists(content) };
 }
 
-function taskItem(text: string): JSONContent {
-  return { type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: text ? [{ type: "text", text }] : [] }] };
+/** Quem adicionou o item por um link de edição (nome e id do link). */
+export interface ListAuthor {
+  name: string;
+  link: string;
+}
+
+function taskItem(text: string, author?: ListAuthor): JSONContent {
+  return {
+    type: "taskItem",
+    attrs: author ? { checked: false, author: author.name, authorLink: author.link } : { checked: false },
+    content: [{ type: "paragraph", content: text ? [{ type: "text", text }] : [] }],
+  };
 }
 
 /** Novo item no fim do grupo (índice como em `listSections`). */
-export function addItemToSection(doc: JSONContent | null, section: number, text: string): JSONContent {
+export function addItemToSection(doc: JSONContent | null, section: number, text: string, author?: ListAuthor): JSONContent {
   const copy: JSONContent = doc ? structuredClone(doc) : { type: "doc", content: [] };
   const content = copy.content ?? [];
   const ranges = sectionRanges(content);
   const target = ranges[doc ? rangeIndex(doc, section) : 0] ?? ranges[ranges.length - 1];
   if (!target) return copy;
-  insertInSection(content, target, taskItem(text), "end");
+  insertInSection(content, target, taskItem(text, author), "end");
   return { ...copy, content };
 }
 

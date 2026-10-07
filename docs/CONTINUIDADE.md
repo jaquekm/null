@@ -16,6 +16,10 @@ feito assim está em `docs/decisoes/*.md`, dividido em partes pelo mesmo motivo)
 - **Banco de produção em dia com o repositório** (03/10): as 8 migrations da fase 10 (`20261009`–`20261016`)
   foram aplicadas a pedido da dona. Antes de declarar uma tarefa com migration pronta, confira com
   `list_migrations` (MCP do Supabase) que ela está aplicada — ou deixe escrito aqui que está pendente.
+- **⚠️ Migration pendente em produção (07/10):** `20261017000000_link_editar_lista.sql` (libera a permissão
+  `edit` em `share_links` e os tipos de evento `add/rate/edit/delete` em `share_link_events`). **Só aplicar
+  quando a dona pedir** ("pode aplicar a migration"). Enquanto não for aplicada, criar um link de edição dá
+  erro no banco — o resto do app não depende dela.
 - **Ajustes de 03/10** (branch `claude/blissful-darwin-ksvydv`, PR em rascunho): editar treino, cardápio com
   ingredientes no próprio prato, "pagar … R$ … dia …" vira conta a pagar, "Por que meus avisos não chegam?",
   explicação do Zettelkasten, botão "Como funciona" nos módulos. Detalhes em `docs/progresso/fase-10.md`.

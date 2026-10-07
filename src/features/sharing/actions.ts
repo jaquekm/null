@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { fail, ok, type Result } from "@/lib/result";
+import { editableListStyle } from "./lib/editable-list";
 import { computeShareExpiresAt } from "./lib/compute-expires-at";
 import { generateShareToken } from "./lib/share-token";
 import { hashSharePassword } from "./lib/share-password";
@@ -29,8 +30,11 @@ export async function createShareLink(input: z.input<typeof createShareLinkSchem
   const { resourceType, resourceId } = parsed.data;
 
   if (resourceType === "item") {
-    const { data: item } = await supabase.from("items").select("id").eq("id", resourceId).is("deleted_at", null).maybeSingle();
+    const { data: item } = await supabase.from("items").select("id, properties, object_types(slug)").eq("id", resourceId).is("deleted_at", null).maybeSingle();
     if (!item) return fail("Item não encontrado.");
+    if (parsed.data.permission === "edit" && !editableListStyle(item.object_types?.slug, item.properties as Record<string, unknown> | null)) {
+      return fail("Só dá pra liberar edição em um item do tipo Lista.");
+    }
   } else if (resourceType === "split") {
     const { data: share } = await supabase.from("fin_split_shares").select("id").eq("id", resourceId).eq("owner_id", user.id).maybeSingle();
     if (!share) return fail("Participante da divisão não encontrado.");

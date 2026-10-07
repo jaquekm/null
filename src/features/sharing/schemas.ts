@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SHARE_PERMISSIONS = ["view", "comment", "check", "settle"] as const;
+export const SHARE_PERMISSIONS = ["view", "comment", "check", "settle", "edit"] as const;
 export type SharePermission = (typeof SHARE_PERMISSIONS)[number];
 
 export const SHARE_PERMISSION_LABELS: Record<SharePermission, string> = {
@@ -8,6 +8,7 @@ export const SHARE_PERMISSION_LABELS: Record<SharePermission, string> = {
   comment: "Ver e comentar",
   check: "Marcar itens de checklist",
   settle: 'Ver e marcar "Já paguei"',
+  edit: "Adicionar, dar nota e editar o que ele adicionou (só lista)",
 };
 
 /** `list`/`report` (enunciado do banco) ainda não têm página pública própria — só `item`, `split` e `bill` (4.10) e `space` (9.7). */
@@ -54,6 +55,15 @@ export const createShareLinkSchema = z
     }
     if (data.permission === "check" && data.resourceType !== "item") {
       ctx.addIssue({ code: "custom", path: ["permission"], message: "Marcar checklist só vale pra item." });
+    }
+    if (data.permission === "edit") {
+      if (data.resourceType !== "item") {
+        ctx.addIssue({ code: "custom", path: ["permission"], message: "Editar por link só vale pra lista." });
+      }
+      // Um link por pessoa: o nome do rótulo é o que aparece nos itens e nas notas dela.
+      if (!data.label?.trim()) {
+        ctx.addIssue({ code: "custom", path: ["label"], message: "Escreva o nome de quem vai usar o link — ele aparece nos itens e notas." });
+      }
     }
     if (data.permission === "settle" && data.resourceType === "item") {
       ctx.addIssue({ code: "custom", path: ["permission"], message: '"Já paguei" só vale pra conta ou divisão.' });

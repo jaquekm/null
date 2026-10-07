@@ -108,13 +108,15 @@ export interface ShareLinkAuthRow {
   passwordHash: string | null;
   expiresAt: string | null;
   revokedAt: string | null;
+  /** Nome dado ao link — num link de edição, é o nome de quem usa. */
+  label: string | null;
 }
 
 /** Busca por hash do token (3.11, `/p/[token]`) — sempre com cliente admin, sem sessão de usuário. */
 export async function findShareLinkByTokenHash(admin: Client, tokenHash: string): Promise<ShareLinkAuthRow | null> {
   const { data } = await admin
     .from("share_links")
-    .select("id, owner_id, resource_type, resource_id, permission, include_attachments, show_full_split, tag_id, password_hash, expires_at, revoked_at")
+    .select("id, owner_id, resource_type, resource_id, permission, include_attachments, show_full_split, tag_id, password_hash, expires_at, revoked_at, label")
     .eq("token_hash", tokenHash)
     .maybeSingle();
   if (!data) return null;
@@ -131,6 +133,7 @@ export async function findShareLinkByTokenHash(admin: Client, tokenHash: string)
     passwordHash: data.password_hash,
     expiresAt: data.expires_at,
     revokedAt: data.revoked_at,
+    label: data.label,
   };
 }
 
@@ -139,6 +142,8 @@ export interface PublicItemResource {
   content: JSONContent | null;
   properties: Record<string, unknown>;
   fields: FieldDefinition[];
+  /** Slug do tipo do item ("lista" libera a edição por link). */
+  typeSlug: string | null;
 }
 
 /**
@@ -151,7 +156,7 @@ export interface PublicItemResource {
 export async function getPublicItemResource(admin: Client, ownerId: string, itemId: string): Promise<PublicItemResource | null> {
   const { data } = await admin
     .from("items")
-    .select("title, content, properties, object_types(fields)")
+    .select("title, content, properties, object_types(slug, fields)")
     .eq("id", itemId)
     .eq("owner_id", ownerId)
     .is("deleted_at", null)
@@ -163,6 +168,7 @@ export async function getPublicItemResource(admin: Client, ownerId: string, item
     content: (data.content as unknown as JSONContent | null) ?? null,
     properties: (data.properties as Record<string, unknown> | null) ?? {},
     fields: (data.object_types?.fields as unknown as FieldDefinition[] | null) ?? [],
+    typeSlug: data.object_types?.slug ?? null,
   };
 }
 
@@ -463,6 +469,8 @@ export async function getPublicSpaceItem(
     content: (data.content as unknown as JSONContent | null) ?? null,
     properties: (data.properties as Record<string, unknown> | null) ?? {},
     fields: (data.object_types?.fields as unknown as FieldDefinition[] | null) ?? [],
+    // Item aberto dentro de um espaço compartilhado é só leitura.
+    typeSlug: null,
   };
 }
 
@@ -481,7 +489,7 @@ export async function listUnreadLinkActivity(supabase: Client, limit = 20): Prom
       .limit(limit),
     supabase
       .from("share_link_events")
-      .select("id, kind, detail, item_id, created_at, items(title)", { count: "exact" })
+      .select("id, kind, detail, item_id, created_at, items(title), share_links(label, permission)", { count: "exact" })
       .is("read_at", null)
       .order("created_at", { ascending: false })
       .limit(limit),
@@ -500,11 +508,20 @@ export async function listUnreadLinkActivity(supabase: Client, limit = 20): Prom
     const itemId = row.share_links?.resource_type === "item" ? row.share_links.resource_id : null;
     return { id: `c:${row.id}`, kind: "comment", author: row.author_name, text: row.body, itemId, itemTitle: itemId ? (titles.get(itemId) ?? null) : null, createdAt: row.created_at };
   });
-  type EventRow = { id: string; kind: string; detail: string | null; item_id: string | null; created_at: string; items: { title: string } | null };
+  type EventRow = {
+    id: string;
+    kind: string;
+    detail: string | null;
+    item_id: string | null;
+    created_at: string;
+    items: { title: string } | null;
+    share_links: { label: string | null; permission: string } | null;
+  };
   const fromEvents: LinkActivity[] = ((events ?? []) as unknown as EventRow[]).map((row) => ({
     id: `e:${row.id}`,
-    kind: row.kind === "uncheck" ? "uncheck" : "check",
-    author: null,
+    kind: (["uncheck", "add", "rate", "edit", "delete"] as const).find((k) => k === row.kind) ?? "check",
+    // Só o link de edição é "uma pessoa" (um link por pessoa); nos outros a marcação é anônima.
+    author: row.share_links?.permission === "edit" ? (row.share_links.label ?? null) : null,
     text: row.detail,
     itemId: row.item_id,
     itemTitle: row.items?.title ?? null,

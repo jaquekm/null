@@ -37,7 +37,7 @@ const fromMock = vi.fn((table: string) => {
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: fromMock }) }));
 
-const { toggleShareChecklistItem, submitShareComment, verifySharePassword } = await import("./actions-public");
+const { toggleShareChecklistItem, submitShareComment, verifySharePassword, editSharedList } = await import("./actions-public");
 
 const BASE_LINK = {
   id: "link-1",
@@ -209,5 +209,59 @@ describe("toggleShareChecklistItem — 9.7: aviso pra dona", () => {
     queueToggle([]);
     await toggleShareChecklistItem("token-check", "0.0", true);
     expect(notifyOwnerMock).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("editSharedList — link de edição de lista (07/10)", () => {
+  const LIST = { type: "doc", content: [{ type: "taskList", content: [{ type: "taskItem", attrs: { checked: false }, content: [{ type: "paragraph", content: [{ type: "text", text: "Boliche" }] }] }] }] };
+
+  function queueEditLink(overrides: Record<string, unknown> = {}) {
+    tableQueues.share_links = [{ data: { ...BASE_LINK, permission: "edit", expires_at: null, label: "Pedro", ...overrides } }];
+  }
+  function queueItem(updatedRows: unknown[] = [{ id: "item-1" }]) {
+    const row = { content: LIST, title: "Rolês", properties: { list_style: "rating" }, updated_at: "2026-10-07T10:00:00Z", object_types: { slug: "lista" } };
+    tableQueues.items = [{ data: row }, { data: updatedRows, error: null }];
+    tableQueues.share_link_events = [{ data: [] }, { error: null }];
+  }
+
+  it("só vale com a permissão edit", async () => {
+    queueEditLink({ permission: "check" });
+    expect(await editSharedList("tok", { op: "add", text: "Kart" })).toEqual({ ok: false, error: "Essa ação não é permitida por esse link." });
+  });
+
+  it("link sem nome não edita (os itens ficariam sem autor)", async () => {
+    queueEditLink({ label: null });
+    const result = await editSharedList("tok", { op: "add", text: "Kart" });
+    expect(result.ok).toBe(false);
+  });
+
+  it("item que deixou de ser lista não edita", async () => {
+    queueEditLink();
+    tableQueues.items = [{ data: { content: LIST, title: "Rolês", properties: {}, updated_at: "t", object_types: { slug: "nota" } } }];
+    expect(await editSharedList("tok", { op: "add", text: "Kart" })).toEqual({ ok: false, error: "Esse item não é mais uma lista." });
+  });
+
+  it("adiciona o item com o nome do link, grava o evento e atualiza as páginas", async () => {
+    queueEditLink();
+    queueItem();
+    expect(await editSharedList("tok", { op: "add", text: "Kart" })).toEqual({ ok: true, data: null });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/p/tok");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/itens/item-1");
+    expect(tableQueues.share_link_events).toHaveLength(0); // consultou e inseriu o evento
+  });
+
+  it("duas pessoas ao mesmo tempo: se a lista mudou no meio, não sobrescreve", async () => {
+    queueEditLink();
+    queueItem([]); // nenhuma linha atualizada = `updated_at` já não é o que foi lido
+    const result = await editSharedList("tok", { op: "add", text: "Kart" });
+    expect(result).toEqual({ ok: false, error: "A lista mudou enquanto você olhava. Atualizei — tente de novo." });
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("entrada inválida é recusada antes de ler o banco", async () => {
+    expect((await editSharedList("tok", { op: "add", text: "  " })).ok).toBe(false);
+    expect((await editSharedList("tok", { op: "apagar-tudo" })).ok).toBe(false);
+    expect(fromMock).not.toHaveBeenCalled();
   });
 });

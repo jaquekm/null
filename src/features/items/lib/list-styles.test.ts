@@ -43,9 +43,9 @@ describe("listEntries", () => {
   it("inclui aninhados na ordem do documento, com a nota", () => {
     const d = doc(list(item("A", false, { score: 4 }, list(item("A.1"))), item("B", true)));
     expect(listEntries(d)).toEqual([
-      { index: 0, text: "A", checked: false, score: 4, details: "" },
-      { index: 1, text: "A.1", checked: false, score: null, details: "" },
-      { index: 2, text: "B", checked: true, score: null, details: "" },
+      { index: 0, text: "A", checked: false, score: 4, details: "", author: null, authorLink: null, scoreBy: null },
+      { index: 1, text: "A.1", checked: false, score: null, details: "", author: null, authorLink: null, scoreBy: null },
+      { index: 2, text: "B", checked: true, score: null, details: "", author: null, authorLink: null, scoreBy: null },
     ]);
   });
 });

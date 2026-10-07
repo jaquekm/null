@@ -28,9 +28,12 @@ export function ShareDialog({
   itemId,
   links,
   triggerLabel,
+  isList = false,
 }: {
   itemId: string;
   links: ShareLinkRow[];
+  /** Item do tipo Lista: libera a permissão de edição por link. */
+  isList?: boolean;
   /** Texto do botão que abre o diálogo; sem ele, o botão "Compartilhar" com ícone. */
   triggerLabel?: string;
 }) {
@@ -164,7 +167,7 @@ export function ShareDialog({
                   <label className={labelClassName}>
                     Permissão
                     <select value={permission} onChange={(e) => setPermission(e.target.value as SharePermission)} className={inputClassName} disabled={pending}>
-                      {SHARE_PERMISSIONS.map((p) => (
+                      {SHARE_PERMISSIONS.filter((p) => p !== "edit" || isList).map((p) => (
                         <option key={p} value={p}>
                           {SHARE_PERMISSION_LABELS[p]}
                         </option>
@@ -204,8 +207,9 @@ export function ShareDialog({
                     </select>
                   </label>
                   <label className={labelClassName}>
-                    Rótulo (opcional)
+                    {permission === "edit" ? "Nome de quem vai usar (obrigatório)" : "Rótulo (opcional)"}
                     <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputClassName} disabled={pending} />
+                    {fieldErrors.label && <span className="text-red-500">{fieldErrors.label[0]}</span>}
                   </label>
                 </div>
 
