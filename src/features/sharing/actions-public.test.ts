@@ -264,4 +264,48 @@ describe("editSharedList — link de edição de lista (07/10)", () => {
     expect((await editSharedList("tok", { op: "apagar-tudo" })).ok).toBe(false);
     expect(fromMock).not.toHaveBeenCalled();
   });
+
+  describe("link de espaço", () => {
+    const ITEM_ID = "4f1c2d3e-0000-4000-8000-000000000009";
+    function queueSpaceLink(overrides: Record<string, unknown> = {}) {
+      tableQueues.share_links = [{ data: { ...BASE_LINK, resource_type: "space", resource_id: "space-1", permission: "edit", expires_at: null, label: "Pedro", tag_id: null, ...overrides } }];
+    }
+    const row = { content: LIST, title: "Rolês", properties: { list_style: "rating" }, updated_at: "t", status: "active", object_types: { slug: "lista" } };
+
+    it("edita a lista do espaço informada e avisa a dona", async () => {
+      queueSpaceLink();
+      tableQueues.items = [{ data: row }, { data: [{ id: ITEM_ID }], error: null }];
+      tableQueues.share_link_events = [{ data: [] }, { error: null }];
+      expect(await editSharedList("tok", { op: "add", text: "Kart" }, ITEM_ID)).toEqual({ ok: true, data: null });
+      expect(revalidatePathMock).toHaveBeenCalledWith(`/p/tok/i/${ITEM_ID}`);
+    });
+
+    it("sem o id da lista, recusa", async () => {
+      queueSpaceLink();
+      expect((await editSharedList("tok", { op: "add", text: "Kart" })).ok).toBe(false);
+      queueSpaceLink();
+      expect((await editSharedList("tok", { op: "add", text: "Kart" }, "nao-e-uuid")).ok).toBe(false);
+    });
+
+    it("item de fora do espaço (ou arquivado) não abre pra edição", async () => {
+      queueSpaceLink();
+      tableQueues.items = [{ data: null }];
+      expect(await editSharedList("tok", { op: "add", text: "Kart" }, ITEM_ID)).toEqual({ ok: false, error: "Item não encontrado." });
+      queueSpaceLink();
+      tableQueues.items = [{ data: { ...row, status: "archived" } }];
+      expect((await editSharedList("tok", { op: "add", text: "Kart" }, ITEM_ID)).ok).toBe(false);
+    });
+
+    it("link de subcategoria só edita item dessa subcategoria", async () => {
+      queueSpaceLink({ tag_id: "tag-1" });
+      tableQueues.items = [{ data: row }];
+      tableQueues.item_tags = [{ data: null }];
+      expect(await editSharedList("tok", { op: "add", text: "Kart" }, ITEM_ID)).toEqual({ ok: false, error: "Item não encontrado." });
+    });
+
+    it("link de espaço só de leitura não edita", async () => {
+      queueSpaceLink({ permission: "view" });
+      expect((await editSharedList("tok", { op: "add", text: "Kart" }, ITEM_ID)).ok).toBe(false);
+    });
+  });
 });

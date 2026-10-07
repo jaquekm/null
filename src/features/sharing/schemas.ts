@@ -8,7 +8,7 @@ export const SHARE_PERMISSION_LABELS: Record<SharePermission, string> = {
   comment: "Ver e comentar",
   check: "Marcar itens de checklist",
   settle: 'Ver e marcar "Já paguei"',
-  edit: "Adicionar, dar nota e editar o que ele adicionou (só lista)",
+  edit: "Adicionar, dar nota e editar o que ele adicionou (só lista ou espaço)",
 };
 
 /** `list`/`report` (enunciado do banco) ainda não têm página pública própria — só `item`, `split` e `bill` (4.10) e `space` (9.7). */
@@ -47,8 +47,8 @@ export const createShareLinkSchema = z
     tagId: z.string().uuid().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.resourceType === "space" && data.permission !== "view") {
-      ctx.addIssue({ code: "custom", path: ["permission"], message: "Link de espaço é só pra ver." });
+    if (data.resourceType === "space" && data.permission !== "view" && data.permission !== "edit") {
+      ctx.addIssue({ code: "custom", path: ["permission"], message: "Link de espaço é pra ver ou pra adicionar e dar nota nas listas." });
     }
     if (data.tagId && data.resourceType !== "space") {
       ctx.addIssue({ code: "custom", path: ["tagId"], message: "Subcategoria só vale pra link de espaço." });
@@ -57,8 +57,8 @@ export const createShareLinkSchema = z
       ctx.addIssue({ code: "custom", path: ["permission"], message: "Marcar checklist só vale pra item." });
     }
     if (data.permission === "edit") {
-      if (data.resourceType !== "item") {
-        ctx.addIssue({ code: "custom", path: ["permission"], message: "Editar por link só vale pra lista." });
+      if (data.resourceType !== "item" && data.resourceType !== "space") {
+        ctx.addIssue({ code: "custom", path: ["permission"], message: "Editar por link só vale pra lista ou espaço." });
       }
       // Um link por pessoa: o nome do rótulo é o que aparece nos itens e nas notas dela.
       if (!data.label?.trim()) {

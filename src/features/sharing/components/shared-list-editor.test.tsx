@@ -40,18 +40,18 @@ describe("SharedListEditor", () => {
     renderEditor("checklist", []);
     fireEvent.change(screen.getByLabelText("Novo item"), { target: { value: "Kart" } });
     fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
-    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "add", text: "Kart" }));
+    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "add", text: "Kart" }, undefined));
   });
 
   it("dá nota, mostra de quem é a nota, e tocar na mesma nota apaga", async () => {
     renderEditor("rating", [entry(0, "Boliche", { score: 4, scoreBy: "Ana" })]);
     expect(screen.getByText("nota de Ana")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "5 estrelas" }));
-    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "rate", index: 0, expectText: "Boliche", score: 5 }));
+    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "rate", index: 0, expectText: "Boliche", score: 5 }, undefined));
     // Enquanto a ação anterior termina os botões ficam desabilitados; espera voltarem antes do próximo toque.
     await waitFor(() => expect(screen.getByRole("button", { name: "4 estrelas" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "4 estrelas" }));
-    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "rate", index: 0, expectText: "Boliche", score: null }));
+    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "rate", index: 0, expectText: "Boliche", score: null }, undefined));
   });
 
   it("só dá Editar/Apagar no que a pessoa adicionou; mostra quem adicionou o resto", () => {
@@ -66,7 +66,7 @@ describe("SharedListEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /Editar/ }));
     fireEvent.change(screen.getByLabelText("Detalhes"), { target: { value: "R$ 90" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
-    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "edit", index: 0, expectText: "Kart", text: "Kart", details: "R$ 90" }));
+    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "edit", index: 0, expectText: "Kart", text: "Kart", details: "R$ 90" }, undefined));
   });
 
   it("apaga o próprio item só depois de confirmar", async () => {
@@ -76,7 +76,7 @@ describe("SharedListEditor", () => {
     expect(editSharedList).not.toHaveBeenCalled();
     confirm.mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: /Apagar/ }));
-    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "remove", index: 0, expectText: "Kart" }));
+    await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "remove", index: 0, expectText: "Kart" }, undefined));
     confirm.mockRestore();
   });
 });

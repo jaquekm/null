@@ -17,12 +17,15 @@ export function SharedSpaceContent({
   icon,
   subcategory,
   items,
+  editorName = null,
 }: {
   token: string;
   name: string;
   icon: string | null;
   subcategory: string | null;
   items: PublicSpaceItem[];
+  /** Link de edição: o nome de quem usa (aparece nos itens e notas dele). `null` = só leitura. */
+  editorName?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export function SharedSpaceContent({
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-8 sm:px-6">
       <header className="flex flex-col gap-1">
         <p className="flex items-center gap-1.5 text-xs font-medium text-brand-text">
-          <FolderOpen className="h-3.5 w-3.5" aria-hidden /> Compartilhado com você · só leitura
+          <FolderOpen className="h-3.5 w-3.5" aria-hidden /> {editorName ? `Compartilhado com você · você está como ${editorName}` : "Compartilhado com você · só leitura"}
         </p>
         <h1 className="text-3xl font-bold tracking-tight text-black dark:text-zinc-50">
           {icon ? `${icon} ` : ""}

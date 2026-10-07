@@ -451,7 +451,7 @@ export async function getPublicSpaceItem(
 ): Promise<PublicItemResource | null> {
   const { data } = await admin
     .from("items")
-    .select("title, content, properties, status, space_id, object_types(fields)")
+    .select("title, content, properties, status, space_id, object_types(slug, fields)")
     .eq("id", itemId)
     .eq("owner_id", ownerId)
     .eq("space_id", spaceId)
@@ -469,8 +469,7 @@ export async function getPublicSpaceItem(
     content: (data.content as unknown as JSONContent | null) ?? null,
     properties: (data.properties as Record<string, unknown> | null) ?? {},
     fields: (data.object_types?.fields as unknown as FieldDefinition[] | null) ?? [],
-    // Item aberto dentro de um espaço compartilhado é só leitura.
-    typeSlug: null,
+    typeSlug: data.object_types?.slug ?? null,
   };
 }
 

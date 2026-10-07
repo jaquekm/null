@@ -36,12 +36,15 @@ export function SharedListEditor({
   style,
   entries,
   viewerName,
+  itemId,
 }: {
   token: string;
   title: string;
   style: ListStyle;
   entries: SharedListEntry[];
   viewerName: string;
+  /** Link de espaço: qual lista do espaço está aberta. Link de uma lista só não usa. */
+  itemId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -52,7 +55,7 @@ export function SharedListEditor({
 
   function run(op: ListEditOp, after?: () => void) {
     startTransition(async () => {
-      const result = await editSharedList(token, op);
+      const result = await editSharedList(token, op, itemId);
       if (!result.ok) toast.error(result.error);
       else after?.();
       router.refresh();

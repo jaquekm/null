@@ -38,6 +38,8 @@ export function ShareSpaceButton({
   const [tagId, setTagId] = useState<string>(initialTagId ?? "");
   const [validity, setValidity] = useState<ShareValidityOption>("90d");
   const [password, setPassword] = useState("");
+  const [canEdit, setCanEdit] = useState(false);
+  const [personName, setPersonName] = useState("");
   const [url, setUrl] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const subcategory = subcategories.find((sub) => sub.id === tagId)?.name ?? null;
@@ -47,12 +49,27 @@ export function ShareSpaceButton({
     setTagId(initialTagId ?? "");
     setUrl(null);
     setPassword("");
+    setCanEdit(false);
+    setPersonName("");
     setOpen(true);
   }
 
   function handleCreate() {
+    // Link de edição é um por pessoa: o nome vai nos itens e notas que ela fizer.
+    if (canEdit && !personName.trim()) {
+      toast.error("Escreva o nome de quem vai usar o link.");
+      return;
+    }
     startTransition(async () => {
-      const result = await createShareLink({ resourceType: "space", resourceId: spaceId, tagId: tagId || undefined, permission: "view", validity, password });
+      const result = await createShareLink({
+        resourceType: "space",
+        resourceId: spaceId,
+        tagId: tagId || undefined,
+        permission: canEdit ? "edit" : "view",
+        label: canEdit ? personName.trim() : undefined,
+        validity,
+        password,
+      });
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -83,7 +100,7 @@ export function ShareSpaceButton({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-black dark:text-zinc-50">Compartilhar “{spaceName}”</h2>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Quem abrir vê a lista e cada item, só leitura, sem precisar criar conta.</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Quem abrir vê a lista e cada item, sem precisar criar conta.</p>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="text-xl leading-none text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
                 ×
@@ -130,6 +147,35 @@ export function ShareSpaceButton({
                     ))}
                   </select>
                 </label>
+                <div role="radiogroup" aria-label="O que a pessoa pode fazer" className="flex flex-wrap gap-1.5">
+                  {[
+                    { edit: false, label: "Só ver" },
+                    { edit: true, label: "Pode adicionar e dar nota" },
+                  ].map((option) => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      role="radio"
+                      aria-checked={canEdit === option.edit}
+                      disabled={pending}
+                      onClick={() => setCanEdit(option.edit)}
+                      className={`rounded-full border px-3 py-1.5 text-sm disabled:opacity-60 ${
+                        canEdit === option.edit ? "border-transparent bg-brand text-brand-fg" : "border-black/[.12] text-zinc-600 dark:border-white/[.16] dark:text-zinc-300"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {canEdit && (
+                  <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Nome de quem vai usar este link
+                    <input value={personName} onChange={(e) => setPersonName(e.target.value)} maxLength={60} placeholder="Ex.: Pedro" className={inputClassName} disabled={pending} />
+                    <span className="font-normal">
+                      Em cada lista do espaço ele adiciona itens, dá nota e edita só o que adicionou. O nome aparece nos itens e notas dele. Crie um link por pessoa.
+                    </span>
+                  </label>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex flex-col gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                     Validade
