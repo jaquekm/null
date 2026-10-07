@@ -3,12 +3,12 @@
  * vez que ela olhou — comentários e itens marcados/desmarcados. Puro: monta
  * o texto de cada linha e junta as duas fontes em ordem de chegada.
  */
-export type LinkActivityKind = "comment" | "check" | "uncheck";
+export type LinkActivityKind = "comment" | "check" | "uncheck" | "add" | "rate" | "edit" | "delete";
 
 export interface LinkActivity {
   id: string;
   kind: LinkActivityKind;
-  /** Quem comentou (comentário) — marcação é anônima. */
+  /** Quem comentou, ou quem mexeu num link de edição (o nome do link). Marcação num link comum é anônima. */
   author: string | null;
   /** Texto do comentário ou do item marcado. */
   text: string | null;
@@ -28,8 +28,15 @@ export function linkActivityLabel(activity: LinkActivity): string {
     const who = activity.author?.trim() || "Alguém";
     return `${who} comentou${where}${activity.text ? `: ${quote(activity.text)}` : ""}`;
   }
-  const verb = activity.kind === "check" ? "Marcaram" : "Desmarcaram";
-  return `${verb} ${activity.text ? quote(activity.text, 60) : "um item"}${where}`;
+  const what = activity.text ? quote(activity.text, 60) : "um item";
+  const who = activity.author?.trim();
+  if (activity.kind === "add" || activity.kind === "rate" || activity.kind === "edit" || activity.kind === "delete") {
+    const verbs = { add: "adicionou", rate: "deu nota em", edit: "editou", delete: "apagou" } as const;
+    return `${who || "Alguém"} ${verbs[activity.kind]} ${what}${where}`;
+  }
+  const checked = activity.kind === "check";
+  if (who) return `${who} ${checked ? "marcou" : "desmarcou"} ${what}${where}`;
+  return `${checked ? "Marcaram" : "Desmarcaram"} ${what}${where}`;
 }
 
 /** Junta as fontes, mais recentes primeiro. */

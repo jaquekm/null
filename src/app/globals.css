@@ -158,6 +158,50 @@ select optgroup {
 .share-content[data-list-style="rating"] li[data-score="3"]::after { content: "★★★☆☆"; color: #f59e0b; }
 .share-content[data-list-style="rating"] li[data-score="4"]::after { content: "★★★★☆"; color: #f59e0b; }
 .share-content[data-list-style="rating"] li[data-score="5"]::after { content: "★★★★★"; color: #f59e0b; }
+/*
+ * Lista compartilhada (07/10): cada item vira um cartão — o nome em destaque e,
+ * embaixo, os detalhes (link, endereço, valores) menores e mais claros. Antes era
+ * tudo texto corrido da mesma cor, sem separação entre um item e o seguinte.
+ */
+.share-content[data-list-style] ul[data-type="taskList"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-left: 0;
+}
+.share-content[data-list-style] ul[data-type="taskList"] > li {
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+.share-content[data-list-style] ul[data-type="taskList"] > li > div {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.share-content[data-list-style] ul[data-type="taskList"] > li > div > p:first-child {
+  font-weight: 600;
+  line-height: 1.35;
+}
+.share-content[data-list-style] ul[data-type="taskList"] > li > div > p:not(:first-child) {
+  margin-top: 0.15rem;
+  font-size: 0.875em;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+.share-content[data-list-style] ul[data-type="taskList"] > li > div > p:nth-child(2) {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+.share-content[data-list-style="rating"] ul[data-type="taskList"] > li::after {
+  margin-top: 0.05rem;
+  padding-left: 0;
+  font-size: 1.05rem;
+}
 .share-content[data-list-style="priority"] {
   counter-reset: rank;
 }

@@ -7,6 +7,9 @@ import { buildPixPayload, normalizePixKeyValue } from "@/features/financas/lib/p
 import { REPORT_KIND_LABELS } from "@/features/reports/schemas";
 import { ReportRunView } from "@/features/reports/components/report-run-view";
 import { PasswordGate } from "@/features/sharing/components/password-gate";
+import { listEntries } from "@/features/items/lib/list-styles";
+import { editableListStyle } from "@/features/sharing/lib/editable-list";
+import { SharedListEditor } from "@/features/sharing/components/shared-list-editor";
 import { SharePageContent } from "@/features/sharing/components/share-page-content";
 import { SharePaymentContent, type SharePaymentPixInfo } from "@/features/sharing/components/share-payment-content";
 import { SharedSpaceContent } from "@/features/sharing/components/shared-space-content";
@@ -76,6 +79,26 @@ export default async function SharePage(props: PageProps<"/p/[token]">) {
   if (shareLink.resourceType === "item") {
     const item = await getPublicItemResource(admin, shareLink.ownerId, shareLink.resourceId);
     if (!item) return <InvalidLinkMessage />;
+
+    // Link de edição (07/10): a pessoa adiciona, dá nota e edita o que adicionou — com o nome dela.
+    if (shareLink.permission === "edit" && shareLink.label?.trim()) {
+      const listStyle = editableListStyle(item.typeSlug, item.properties);
+      if (listStyle) {
+        const userAgent = (await headers()).get("user-agent");
+        await registerShareLinkView(admin, shareLink.ownerId, shareLink.id, ip, userAgent);
+        const entries = listEntries(item.content).map((entry) => ({
+          index: entry.index,
+          text: entry.text,
+          checked: entry.checked,
+          score: entry.score,
+          details: entry.details,
+          author: entry.author,
+          scoreBy: entry.scoreBy,
+          mine: entry.authorLink === shareLink.id,
+        }));
+        return <SharedListEditor token={token} title={item.title} style={listStyle} entries={entries} viewerName={shareLink.label.trim()} />;
+      }
+    }
 
     const attachments = shareLink.includeAttachments ? await listItemAttachments(admin, shareLink.resourceId) : [];
     const userAgent = (await headers()).get("user-agent");

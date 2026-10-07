@@ -35,4 +35,20 @@ describe("ShareFooter", () => {
     expect(screen.queryByRole("radio", { name: "Pode marcar itens" })).toBeNull();
     expect(screen.getByRole("heading", { name: "Compartilhar" })).toBeTruthy();
   });
+
+  it("link de edição pede o nome de quem vai usar e manda como rótulo", async () => {
+    render(<ShareFooter itemId="4f1c2d3e-0000-4000-8000-000000000001" title="Rolês" isList links={[]} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Pode adicionar e dar nota" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Compartilhar$/ }));
+    expect(createShareLink).not.toHaveBeenCalled(); // sem nome, não cria
+
+    fireEvent.change(screen.getByLabelText(/Nome de quem vai usar este link/), { target: { value: " Pedro " } });
+    fireEvent.click(screen.getByRole("button", { name: /^Compartilhar$/ }));
+    await waitFor(() => expect(createShareLink).toHaveBeenCalledWith({ resourceId: "4f1c2d3e-0000-4000-8000-000000000001", permission: "edit", validity: "90d", label: "Pedro" }));
+  });
+
+  it("item que não é lista não oferece edição", () => {
+    render(<ShareFooter itemId="4f1c2d3e-0000-4000-8000-000000000001" title="Nota" isList={false} links={[]} />);
+    expect(screen.queryByRole("radio", { name: "Pode adicionar e dar nota" })).toBeNull();
+  });
 });

@@ -16,6 +16,10 @@ feito assim está em `docs/decisoes/*.md`, dividido em partes pelo mesmo motivo)
 - **Banco de produção em dia com o repositório** (03/10): as 8 migrations da fase 10 (`20261009`–`20261016`)
   foram aplicadas a pedido da dona. Antes de declarar uma tarefa com migration pronta, confira com
   `list_migrations` (MCP do Supabase) que ela está aplicada — ou deixe escrito aqui que está pendente.
+- **Migration do link de edição aplicada em produção (07/10, a pedido da dona):** `20261017000000_link_editar_lista.sql`
+  (permissão `edit` em `share_links` e tipos de evento `add/rate/edit/delete` em `share_link_events`), registrada no
+  banco como `20261007150710 link_editar_lista`. Conferido pelas definições das restrições e por `list_migrations`.
+  O código do link de edição só chega ao ar quando o PR #92 for mesclado.
 - **Ajustes de 03/10** (branch `claude/blissful-darwin-ksvydv`, PR em rascunho): editar treino, cardápio com
   ingredientes no próprio prato, "pagar … R$ … dia …" vira conta a pagar, "Por que meus avisos não chegam?",
   explicação do Zettelkasten, botão "Como funciona" nos módulos. Detalhes em `docs/progresso/fase-10.md`.

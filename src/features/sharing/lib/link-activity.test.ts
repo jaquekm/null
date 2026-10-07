@@ -14,6 +14,16 @@ describe("linkActivityLabel", () => {
     expect(linkActivityLabel({ ...base, kind: "uncheck", author: null, text: null, itemTitle: "Mercado" })).toBe("Desmarcaram um item em “Mercado”");
   });
 
+  it("link de edição: diz quem fez o quê", () => {
+    const edit = { ...base, author: "Ana", text: "Kart", itemTitle: "Rolês" };
+    expect(linkActivityLabel({ ...edit, kind: "add" })).toBe("Ana adicionou “Kart” em “Rolês”");
+    expect(linkActivityLabel({ ...edit, kind: "rate" })).toBe("Ana deu nota em “Kart” em “Rolês”");
+    expect(linkActivityLabel({ ...edit, kind: "edit" })).toBe("Ana editou “Kart” em “Rolês”");
+    expect(linkActivityLabel({ ...edit, kind: "delete" })).toBe("Ana apagou “Kart” em “Rolês”");
+    expect(linkActivityLabel({ ...edit, kind: "check" })).toBe("Ana marcou “Kart” em “Rolês”");
+    expect(linkActivityLabel({ ...edit, kind: "uncheck", author: null })).toBe("Desmarcaram “Kart” em “Rolês”");
+  });
+
   it("corta texto longo", () => {
     const label = linkActivityLabel({ ...base, text: "a".repeat(200) });
     expect(label.endsWith("…”")).toBe(true);

@@ -1,5 +1,6 @@
 "use server";
 
+import type { JSONContent } from "@tiptap/core";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { getOwnerNotificationPreferences } from "@/features/settings/queries";
@@ -16,12 +17,16 @@ import { createRateLimiter } from "./lib/rate-limit";
 import { isShareLinkUnlocked, SHARE_AUTH_COOKIE_MAX_AGE_SECONDS, shareAuthCookieName, signShareAuthCookie } from "./lib/share-auth-cookie";
 import { verifySharePassword as checkPasswordHash } from "./lib/share-password";
 import { hashShareToken } from "./lib/share-token";
+import { editableListStyle } from "./lib/editable-list";
+import { applyListEdit, listEditOpSchema } from "./lib/list-edit";
 import { taskTextAtPath, toggleTaskAtPath, type JSONContentNode } from "./lib/toggle-task-at-path";
 import { findShareLinkByTokenHash } from "./queries";
 import { shareCommentSchema, sharePasswordFormSchema } from "./schemas";
 
 const GENERIC_INVALID = "Link inválido ou expirado.";
 const checkPasswordRateLimit = createRateLimiter(8, 5 * 60 * 1000);
+/** Edição de lista por link: folga pra quem mexe bastante, mas trava abuso (60 ações por minuto por link). */
+const listEditRateLimit = createRateLimiter(60, 60 * 1000);
 
 /** Formulário de senha do link (3.11) — cookie httpOnly assinado, 12h, escopado ao caminho do próprio token. */
 export async function verifySharePassword(token: string, password: string): Promise<Result<null>> {
@@ -79,6 +84,84 @@ export async function toggleShareChecklistItem(token: string, path: string, chec
 
   revalidatePath(`/p/${token}`);
   return ok(null);
+}
+
+/**
+ * Permissão `edit` (07/10) — adicionar item, dar nota, marcar e editar/apagar só
+ * o que a própria pessoa adicionou. Um link por pessoa: o nome do link (`label`)
+ * é quem aparece nos itens e nas notas. Lê e grava o documento todo, com
+ * comparação de `updated_at` pra duas pessoas mexendo ao mesmo tempo não se
+ * sobrescreverem.
+ */
+export async function editSharedList(token: string, input: unknown): Promise<Result<null>> {
+  const parsed = listEditOpSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Dados inválidos.");
+
+  const admin = createAdminClient();
+  const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
+  if (!shareLink || !isShareLinkActive(shareLink)) return fail(GENERIC_INVALID);
+  if (shareLink.permission !== "edit" || shareLink.resourceType !== "item") return fail("Essa ação não é permitida por esse link.");
+  if (!(await isShareLinkUnlocked(shareLink))) return fail("Não autenticado.");
+  const name = shareLink.label?.trim();
+  if (!name) return fail("Esse link não tem um nome. Peça um novo link.");
+  if (listEditRateLimit(shareLink.id)) return fail("Muitas ações seguidas. Espere um pouco e tente de novo.");
+
+  const { data: item } = await admin
+    .from("items")
+    .select("content, title, properties, updated_at, object_types(slug)")
+    .eq("id", shareLink.resourceId)
+    .eq("owner_id", shareLink.ownerId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!item) return fail("Item não encontrado.");
+  const style = editableListStyle(item.object_types?.slug, item.properties as Record<string, unknown> | null);
+  if (!style) return fail("Esse item não é mais uma lista.");
+
+  const result = applyListEdit(item.content as unknown as JSONContent | null, style, { linkId: shareLink.id, name }, parsed.data);
+  if (!result.ok) return fail(result.error);
+
+  const { data: saved, error } = await admin
+    .from("items")
+    .update({ content: result.content as unknown as Json })
+    .eq("id", shareLink.resourceId)
+    .eq("owner_id", shareLink.ownerId)
+    .eq("updated_at", item.updated_at)
+    .select("id");
+  if (error) return fail("Não foi possível salvar. Tente de novo.");
+  if (!saved || saved.length === 0) return fail("A lista mudou enquanto você olhava. Atualizei — tente de novo.");
+
+  await recordListActivity(admin, shareLink.ownerId, shareLink.id, shareLink.resourceId, item.title, name, result.kind, result.detail);
+
+  revalidatePath(`/p/${token}`);
+  revalidatePath(`/itens/${shareLink.resourceId}`);
+  return ok(null);
+}
+
+/** Mesmo molde de `recordCheckActivity`, mas com o nome de quem fez (link de edição). */
+async function recordListActivity(
+  admin: ReturnType<typeof createAdminClient>,
+  ownerId: string,
+  shareLinkId: string,
+  itemId: string,
+  itemTitle: string,
+  who: string,
+  kind: "add" | "rate" | "edit" | "delete" | "check" | "uncheck",
+  detail: string,
+): Promise<void> {
+  try {
+    const since = new Date(Date.now() - CHECK_NOTIFY_WINDOW_MS).toISOString();
+    const { data: recent } = await admin.from("share_link_events").select("id").eq("share_link_id", shareLinkId).gte("created_at", since).limit(1);
+    await admin.from("share_link_events").insert({ owner_id: ownerId, share_link_id: shareLinkId, item_id: itemId, kind, detail: detail.slice(0, 500) });
+    if ((recent ?? []).length > 0) return;
+    const preferences = await getOwnerNotificationPreferences(admin, ownerId);
+    if (!preferences.shareComments) return;
+    await notifyOwner(ownerId, {
+      title: "Mexeram numa lista que você compartilhou",
+      text: `${who} mexeu em “${itemTitle || "Sem título"}” (última ação: ${detail.slice(0, 60)}).`,
+    });
+  } catch {
+    // Aviso é melhor esforço.
+  }
 }
 
 /** Um push por link a cada 10 min no máximo — quem marca a lista inteira do mercado não dispara um aviso por item. */
