@@ -13,6 +13,9 @@ vi.mock("../actions", () => ({
   updateItemContent: (id: string, at: string, content: JSONContent) => updateItemContent(id, at, content),
 }));
 
+vi.mock("@/features/reminders/actions", () => ({ createReminderFromPhrase: vi.fn() }));
+vi.mock("@/features/contacts/actions", () => ({ searchContacts: vi.fn(async () => []) }));
+
 afterEach(() => {
   cleanup();
   updateItemContent.mockClear();
@@ -117,5 +120,50 @@ describe("ListModeView — texto fora da lista", () => {
   it("sem texto solto, não mostra o quadro", () => {
     renderList("checklist", doc(list(item("Leite"))));
     expect(screen.queryByRole("region", { name: "Texto da lista" })).toBeNull();
+  });
+});
+
+describe("ListModeView — detalhes de cada item (07/10)", () => {
+  it("Dar nota: tocar no nome abre os detalhes; salvar grava dentro do item, sem mexer na nota", async () => {
+    renderList("rating", doc(list(item("Pousada Mar", { score: 4 }), item("Hotel Sol"))));
+    fireEvent.click(screen.getByRole("button", { name: "Pousada Mar" }));
+    const box = screen.getByLabelText(/Detalhes de “Pousada Mar”/);
+    fireEvent.change(box, { target: { value: "https://pousada.com\nCentro\nR$ 450 a diária" } });
+    expect(screen.getByRole("link", { name: "https://pousada.com" }).getAttribute("href")).toBe("https://pousada.com");
+    fireEvent.click(screen.getByRole("button", { name: "Salvar detalhes" }));
+    const entry = listEntries(await saved()).find((e) => e.text === "Pousada Mar")!;
+    expect(entry).toMatchObject({ score: 4, details: "https://pousada.com\nCentro\nR$ 450 a diária" });
+  });
+
+  it("detalhes já salvos aparecem embaixo do item, com o link clicável", () => {
+    const withDetails: JSONContent = {
+      type: "taskItem",
+      attrs: { checked: false },
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Duna" }] },
+        { type: "paragraph", content: [{ type: "text", text: "Ver em www.netflix.com" }] },
+      ],
+    };
+    renderList("checklist", doc(list(withDetails)));
+    expect(screen.getByRole("button", { name: "Duna" }).textContent).not.toContain("netflix");
+    expect(screen.getByRole("link", { name: "www.netflix.com" }).getAttribute("href")).toBe("https://www.netflix.com");
+    expect(screen.getByRole("button", { name: "Ver detalhes de Duna" })).toBeTruthy();
+  });
+
+  it("todos os tipos têm o botão de detalhes", () => {
+    for (const style of ["checklist", "multi", "single", "rating", "priority"] as const) {
+      renderList(style, doc(list(item("Opção A"))));
+      expect(screen.getByRole("button", { name: "Escrever detalhes de Opção A" })).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("o alerta abre fora da linha da lista (a linha que “levanta” fazia a tela tremer)", () => {
+    render(
+      <ListModeView itemId="i1" style="rating" content={doc(list(item("Pousada Mar")))} updatedAt="t1" onSaved={vi.fn()} onContentChange={vi.fn()} timezone="America/Sao_Paulo" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Me lembrar de Pousada Mar" }));
+    const dialog = screen.getByRole("dialog", { name: "Me lembrar" });
+    expect(dialog.closest("li")).toBeNull();
   });
 });

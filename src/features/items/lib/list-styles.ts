@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
+import { splitLinks } from "@/lib/linkify";
 
 /**
  * Tipos de lista (pedido da dona): o tipo diz **como a lista se comporta**,
@@ -29,9 +30,17 @@ export function listStyleOf(properties: Record<string, unknown> | null | undefin
 export interface ListEntry {
   /** Posição do `taskItem` na ordem do documento, contando aninhados — a mesma de `flattenChecklist`. */
   index: number;
+  /** A linha do item (o primeiro parágrafo). */
   text: string;
   checked: boolean;
   score: number | null;
+  /**
+   * Detalhes do item (pedido da dona, 07/10): link, endereço, valores… — os
+   * parágrafos que vêm depois da linha, dentro do próprio `taskItem`. Assim
+   * aparecem também no editor completo (recuados embaixo do item) e no link
+   * compartilhado, sem campo novo. Uma linha por parágrafo; "" = sem detalhes.
+   */
+  details: string;
 }
 
 export interface ListSection {
@@ -57,8 +66,55 @@ function scoreOf(node: JSONContent): number | null {
   return typeof score === "number" && score >= 1 && score <= 5 ? score : null;
 }
 
+function inlineText(node: JSONContent): string {
+  if (typeof node.text === "string") return node.text;
+  if (node.type === "hardBreak") return "\n";
+  return (node.content ?? []).map(inlineText).join("");
+}
+
+/** Blocos do `taskItem` que não são a linha nem uma sublista (os detalhes). */
+function detailBlocks(node: JSONContent): JSONContent[] {
+  const [, ...rest] = node.content ?? [];
+  return rest.filter((child) => child.type !== "taskList");
+}
+
 function entryOf(node: JSONContent, index: number): ListEntry {
-  return { index, text: textOf(node), checked: node.attrs?.checked === true, score: scoreOf(node) };
+  const first = node.content?.[0];
+  const text = first && first.type !== "taskList" ? inlineText(first).replace(/\n/g, " ") : "";
+  const details = detailBlocks(node)
+    .map((block) => inlineText(block).trimEnd())
+    .join("\n")
+    .trim();
+  return { index, text, checked: node.attrs?.checked === true, score: scoreOf(node), details };
+}
+
+/** Texto com os links marcados (clicáveis no editor e no link compartilhado). */
+function lineWithLinks(line: string): JSONContent[] {
+  return splitLinks(line).map((part) =>
+    part.href ? { type: "text", text: part.text, marks: [{ type: "link", attrs: { href: part.href } }] } : { type: "text", text: part.text },
+  );
+}
+
+/**
+ * Grava os detalhes de um item: cada linha vira um parágrafo logo depois da
+ * linha do item (substitui os detalhes anteriores); sublistas continuam no lugar.
+ */
+export function setItemDetails(doc: JSONContent, index: number, details: string): JSONContent {
+  const lines = details
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
+  const paragraphs: JSONContent[] = lines
+    ? lines.split("\n").map((line) => (line ? { type: "paragraph", content: lineWithLinks(line) } : { type: "paragraph" }))
+    : [];
+  return mapTaskItems(doc, (node, i) => {
+    if (i !== index) return node;
+    const children = node.content ?? [];
+    const first = children[0] && children[0].type !== "taskList" ? children[0] : { type: "paragraph" };
+    const sublists = children.filter((child) => child.type === "taskList");
+    return { ...node, content: [first, ...paragraphs, ...sublists] };
+  });
 }
 
 /** Todos os itens, inclusive aninhados, na ordem do documento (com a nota de cada um). */

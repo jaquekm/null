@@ -1,8 +1,9 @@
 "use client";
 
 import type { JSONContent } from "@tiptap/core";
-import { Check, ChevronDown, ChevronUp, Star } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, NotebookPen, Star } from "lucide-react";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { splitLinks } from "@/lib/linkify";
 import { QuickReminder } from "@/features/reminders/components/quick-reminder";
 import { updateItemContent } from "../actions";
 import { toggleChecklistItem } from "../lib/checklist";
@@ -14,6 +15,7 @@ import {
   listEntries,
   listSections,
   moveListItem,
+  setItemDetails,
   setItemScore,
   sortByScore,
   type ListEntry,
@@ -24,11 +26,108 @@ const inputClassName =
   "w-full rounded-xl border border-dashed border-black/[.14] bg-transparent px-4 py-3 text-base transition-colors placeholder:text-zinc-400 hover:border-black/[.25] focus:border-solid focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.14] dark:hover:border-white/[.25]";
 const rowClassName =
   "flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left text-base shadow-sm transition-all hover:-translate-y-px hover:shadow-md disabled:opacity-60";
+/** Linha-botão (Riscar, Marcar vários, Escolher um): ocupa o espaço que sobra ao lado dos ícones. */
+const rowButtonClassName = rowClassName.replace("w-full", "min-w-0 flex-1");
 const idleRow = "border-black/[.06] bg-surface text-black dark:border-white/[.06] dark:text-zinc-50";
 const pickedRow = "border-brand/60 bg-brand-soft text-black dark:text-zinc-50";
 
 function EntryText({ entry }: { entry: ListEntry }) {
   return <span className="min-w-0 flex-1 break-words">{entry.text || <span className="italic text-zinc-400">(sem texto)</span>}</span>;
+}
+
+/** Texto com os links clicáveis (abrem em outra aba). */
+function LinkedText({ text }: { text: string }) {
+  return (
+    <>
+      {splitLinks(text).map((part, i) =>
+        part.href ? (
+          <a key={i} href={part.href} target="_blank" rel="noopener noreferrer" className="break-all text-brand-text underline">
+            {part.text}
+          </a>
+        ) : (
+          <span key={i}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/** Botão "Detalhes" de cada item (07/10): link, endereço, valores… */
+function DetailsButton({ entry, open, onToggle }: { entry: ListEntry; open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={`${entry.details ? "Ver detalhes" : "Escrever detalhes"} de ${entry.text || "item"}`}
+      title="Detalhes: link, endereço, valores…"
+      className={`shrink-0 rounded-lg p-2 hover:bg-black/[.05] dark:hover:bg-white/[.08] ${
+        entry.details || open ? "text-brand-text" : "text-zinc-400 hover:text-brand-text dark:text-zinc-500"
+      }`}
+    >
+      <NotebookPen className="h-4 w-4" aria-hidden />
+    </button>
+  );
+}
+
+/** Embaixo do item: o resumo dos detalhes (fechado) ou o campo pra escrever (aberto). */
+function EntryDetails({
+  entry,
+  open,
+  pending,
+  onSave,
+  onClose,
+}: {
+  entry: ListEntry;
+  open: boolean;
+  pending: boolean;
+  onSave: (details: string) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(entry.details);
+  if (!open) {
+    if (!entry.details) return null;
+    return (
+      <p className="w-full basis-full whitespace-pre-line break-words pl-1 text-sm text-zinc-600 line-clamp-3 dark:text-zinc-300">
+        <LinkedText text={entry.details} />
+      </p>
+    );
+  }
+  return (
+    <div className="flex w-full basis-full flex-col gap-2 rounded-xl bg-surface-muted p-3">
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+        Detalhes de “{entry.text || "item"}”
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={5}
+          autoFocus
+          disabled={pending}
+          placeholder={"Link, endereço, valores, o que for — uma informação por linha.\nEx.: https://…\nCentro, perto da praia\nR$ 450 a diária"}
+          className="rounded-lg border border-black/[.12] bg-surface px-3 py-2 text-sm font-normal text-black focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.16] dark:text-zinc-50"
+        />
+      </label>
+      {splitLinks(draft).some((part) => part.href) && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Links: <LinkedText text={splitLinks(draft).filter((part) => part.href).map((part) => part.text).join("  ")} />
+        </p>
+      )}
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">Aparece embaixo do item aqui, no editor completo e no link compartilhado.</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={pending || draft.trim() === entry.details}
+          onClick={() => onSave(draft)}
+          className="bg-brand text-brand-fg rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+        >
+          Salvar detalhes
+        </button>
+        <button type="button" onClick={onClose} className="rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]">
+          Fechar
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function Empty() {
@@ -93,6 +192,8 @@ export function ListModeView({
   const [onlyPicked, setOnlyPicked] = useState(false);
   const [newGroup, setNewGroup] = useState("");
   const [targetGroup, setTargetGroup] = useState<number | null>(null);
+  // Item com os detalhes abertos (07/10) — um por vez.
+  const [openDetails, setOpenDetails] = useState<number | null>(null);
 
   const entries = useMemo(() => listEntries(content), [content]);
   const notes = useMemo(() => listNoteLines(content, style), [content, style]);
@@ -116,6 +217,23 @@ export function ListModeView({
   const addTo = targetGroup !== null && targetGroup <= lastGroup ? targetGroup : lastGroup;
   const bell = (entry: ListEntry) =>
     timezone && entry.text.trim() ? <QuickReminder variant="icon" title={entry.text} timezone={timezone} itemId={itemId} sourceType="list_entry" /> : null;
+  const detailsButton = (entry: ListEntry) => (
+    <DetailsButton entry={entry} open={openDetails === entry.index} onToggle={() => setOpenDetails(openDetails === entry.index ? null : entry.index)} />
+  );
+  const details = (entry: ListEntry) => (
+    <EntryDetails
+      // A chave muda quando os detalhes salvos mudam: o rascunho recomeça do que está gravado.
+      key={`${entry.index}:${entry.details}`}
+      entry={entry}
+      open={openDetails === entry.index}
+      pending={pending}
+      onClose={() => setOpenDetails(null)}
+      onSave={(text) => {
+        save(setItemDetails(doc, entry.index, text));
+        setOpenDetails(null);
+      }}
+    />
+  );
   const add = (text: string) => save(addItemToSection(content, style === "priority" ? addTo : lastGroup, text));
 
   let body: ReactNode;
@@ -125,12 +243,12 @@ export function ListModeView({
     body = (
       <ul className="flex flex-col gap-2">
         {ordered.map((entry) => (
-          <li key={entry.index} className="flex items-center gap-1">
+          <li key={entry.index} className="flex flex-wrap items-center gap-1">
             <button
               type="button"
               disabled={pending}
               onClick={() => save(toggleChecklistItem(doc, entry.index, !entry.checked))}
-              className={`${rowClassName} border-black/[.06] bg-surface dark:border-white/[.06] ${
+              className={`${rowButtonClassName} border-black/[.06] bg-surface dark:border-white/[.06] ${
                 entry.checked ? "text-zinc-400 line-through dark:text-zinc-600" : "text-black dark:text-zinc-50"
               }`}
             >
@@ -143,8 +261,10 @@ export function ListModeView({
               </span>
               <EntryText entry={entry} />
             </button>
+            {detailsButton(entry)}
             {/* Item já riscado não precisa de lembrete. */}
             {!entry.checked && bell(entry)}
+            {details(entry)}
           </li>
         ))}
         {ordered.length === 0 && <Empty />}
@@ -166,14 +286,14 @@ export function ListModeView({
         </div>
         <ul className="flex flex-col gap-2">
           {shown.map((entry) => (
-            <li key={entry.index} className="flex items-center gap-1">
+            <li key={entry.index} className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 role="checkbox"
                 aria-checked={entry.checked}
                 disabled={pending}
                 onClick={() => save(toggleChecklistItem(doc, entry.index, !entry.checked))}
-                className={`${rowClassName} ${entry.checked ? pickedRow : idleRow}`}
+                className={`${rowButtonClassName} ${entry.checked ? pickedRow : idleRow}`}
               >
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${
@@ -184,7 +304,9 @@ export function ListModeView({
                 </span>
                 <EntryText entry={entry} />
               </button>
+              {detailsButton(entry)}
               {bell(entry)}
+              {details(entry)}
             </li>
           ))}
           {entries.length === 0 && <Empty />}
@@ -198,14 +320,14 @@ export function ListModeView({
         <Tally>{chosen ? <>Escolha: <strong className="font-semibold text-black dark:text-zinc-50">{chosen.text || "(sem texto)"}</strong></> : "Nenhuma opção escolhida ainda."}</Tally>
         <ul role="radiogroup" className="flex flex-col gap-2">
           {entries.map((entry) => (
-            <li key={entry.index} className="flex items-center gap-1">
+            <li key={entry.index} className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 role="radio"
                 aria-checked={entry.checked}
                 disabled={pending}
                 onClick={() => save(chooseOnly(doc, entry.index))}
-                className={`${rowClassName} ${entry.checked ? pickedRow : idleRow}`}
+                className={`${rowButtonClassName} ${entry.checked ? pickedRow : idleRow}`}
               >
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
@@ -216,7 +338,9 @@ export function ListModeView({
                 </span>
                 <EntryText entry={entry} />
               </button>
+              {detailsButton(entry)}
               {bell(entry)}
+              {details(entry)}
             </li>
           ))}
           {entries.length === 0 && <Empty />}
@@ -233,7 +357,15 @@ export function ListModeView({
         <ul className="flex flex-col gap-2">
           {sortByScore(entries).map((entry) => (
             <li key={entry.index} className={`${rowClassName} ${idleRow} flex-wrap`}>
-              <EntryText entry={entry} />
+              {/* Tocar no nome abre os detalhes (07/10). */}
+              <button
+                type="button"
+                onClick={() => setOpenDetails(openDetails === entry.index ? null : entry.index)}
+                className="min-w-0 basis-full break-words text-left sm:basis-0 sm:flex-1"
+              >
+                {entry.text || <span className="italic text-zinc-400">(sem texto)</span>}
+              </button>
+              <span className="ml-auto flex shrink-0 items-center">
               <span className="flex shrink-0" role="group" aria-label={`Nota de ${entry.text}`}>
                 {[1, 2, 3, 4, 5].map((n) => {
                   const on = (entry.score ?? 0) >= n;
@@ -253,7 +385,10 @@ export function ListModeView({
                   );
                 })}
               </span>
+              {detailsButton(entry)}
               {bell(entry)}
+              </span>
+              {details(entry)}
             </li>
           ))}
           {entries.length === 0 && <Empty />}
@@ -274,10 +409,11 @@ export function ListModeView({
               {section.entries.map((entry) => {
                 const rank = rankOf.get(entry.index);
                 return (
-                  <li key={entry.index} className={`${rowClassName} ${idleRow} py-2 pr-2`}>
+                  <li key={entry.index} className={`${rowClassName} ${idleRow} flex-wrap py-2 pr-2`}>
                     <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{rank}</span>
                     <EntryText entry={entry} />
                     <span className="flex shrink-0 items-center gap-0.5">
+                      {detailsButton(entry)}
                       {bell(entry)}
                       <button
                         type="button"
@@ -298,6 +434,7 @@ export function ListModeView({
                         <ChevronDown className="h-5 w-5" />
                       </button>
                     </span>
+                    {details(entry)}
                   </li>
                 );
               })}
