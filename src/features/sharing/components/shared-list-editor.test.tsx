@@ -48,6 +48,8 @@ describe("SharedListEditor", () => {
     expect(screen.getByText("nota de Ana")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "5 estrelas" }));
     await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "rate", index: 0, expectText: "Boliche", score: 5 }));
+    // Enquanto a ação anterior termina os botões ficam desabilitados; espera voltarem antes do próximo toque.
+    await waitFor(() => expect(screen.getByRole("button", { name: "4 estrelas" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "4 estrelas" }));
     await waitFor(() => expect(editSharedList).toHaveBeenCalledWith("tok", { op: "rate", index: 0, expectText: "Boliche", score: null }));
   });
