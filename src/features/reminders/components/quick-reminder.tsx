@@ -2,6 +2,7 @@
 
 import { Bell, BellRing } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { searchContacts } from "@/features/contacts/actions";
 import type { ContactRow } from "@/features/contacts/queries";
@@ -98,7 +99,10 @@ export function QuickReminder({ title, timezone, itemId, sourceType, sourceId, v
         </button>
       )}
 
-      {open && (
+      {/* Portal no <body>: dentro de uma linha de lista com efeito de "levantar" ao passar o mouse
+          (transform), o `fixed` ficava preso à linha e a tela tremia sem parar (bug de 07/10). */}
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-start sm:p-4 sm:pt-20" onClick={close}>
           <div
             role="dialog"
@@ -210,7 +214,8 @@ export function QuickReminder({ title, timezone, itemId, sourceType, sourceId, v
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
