@@ -194,72 +194,74 @@ function EntryMenu({
   );
 }
 
-const panelInputClassName =
-  "rounded-lg border border-black/[.12] bg-surface px-3 py-2 text-sm font-normal text-black focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.16] dark:text-zinc-50";
+/** Resumo dos detalhes embaixo do item (com links clicáveis). */
+function DetailsPreview({ details }: { details: string }) {
+  if (!details) return null;
+  return (
+    <p className="w-full basis-full whitespace-pre-line break-words pl-1 text-sm text-zinc-600 line-clamp-3 dark:text-zinc-300">
+      <LinkedText text={details} />
+    </p>
+  );
+}
 
-/** Embaixo do item: o resumo dos detalhes (fechado) ou o painel do item (aberto). */
-function EntryDetails({
+/**
+ * Editar o item (07/10): a linha inteira vira o editor — o nome no lugar do
+ * título (uma vez só) e os detalhes logo embaixo.
+ */
+function EntryEditor({
   entry,
-  open,
   pending,
   onSave,
   onClose,
 }: {
   entry: ListEntry;
-  open: boolean;
   pending: boolean;
   onSave: (name: string, details: string) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState(entry.text);
   const [draft, setDraft] = useState(entry.details);
-  if (!open) {
-    if (!entry.details) return null;
-    return (
-      <p className="w-full basis-full whitespace-pre-line break-words pl-1 text-sm text-zinc-600 line-clamp-3 dark:text-zinc-300">
-        <LinkedText text={entry.details} />
-      </p>
-    );
-  }
   const changed = name.trim() !== entry.text.trim() || draft.trim() !== entry.details;
+  const canSave = !pending && changed && name.trim() !== "";
   return (
-    <div className="flex w-full basis-full flex-col gap-3 rounded-xl bg-surface-muted p-3">
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-        Nome
-        <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} maxLength={500} className={panelInputClassName} />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-        Detalhes
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={4}
-          autoFocus
-          disabled={pending}
-          placeholder={"Link, endereço, valores, o que for — uma informação por linha.\nEx.: https://…\nCentro, perto da praia\nR$ 450 a diária"}
-          className={panelInputClassName}
-        />
-      </label>
-      {splitLinks(draft).some((part) => part.href) && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Links: <LinkedText text={splitLinks(draft).filter((part) => part.href).map((part) => part.text).join("  ")} />
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={pending || !changed || !name.trim()}
-          onClick={() => onSave(name, draft)}
-          className="bg-brand text-brand-fg rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-        >
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canSave) onSave(name, draft);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+      className="flex w-full flex-col gap-2 rounded-xl border border-brand/50 bg-surface p-3 shadow-sm"
+    >
+      <input
+        aria-label="Nome"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        disabled={pending}
+        maxLength={500}
+        placeholder="Nome do item"
+        className="w-full border-b border-black/[.12] bg-transparent px-1 pb-1 text-base font-medium text-black placeholder:text-zinc-400 focus:border-brand focus:outline-none dark:border-white/[.16] dark:text-zinc-50"
+      />
+      <textarea
+        aria-label="Detalhes"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={3}
+        autoFocus
+        disabled={pending}
+        placeholder="Detalhes: link, endereço, valores… (um por linha)"
+        className="w-full resize-y rounded-lg bg-surface-muted px-3 py-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:text-zinc-100"
+      />
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm text-zinc-600 hover:bg-black/[.04] dark:text-zinc-300 dark:hover:bg-white/[.06]">
+          Cancelar
+        </button>
+        <button type="submit" disabled={!canSave} className="bg-brand text-brand-fg rounded-lg px-4 py-1.5 text-sm font-medium disabled:opacity-50">
           Salvar
         </button>
-        <button type="button" onClick={onClose} className="rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]">
-          Fechar
-        </button>
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">Os detalhes aparecem embaixo do item aqui, no editor completo e no link compartilhado.</p>
-    </div>
+    </form>
   );
 }
 
@@ -363,20 +365,21 @@ export function ListModeView({
       }}
     />
   );
-  const details = (entry: ListEntry) => (
-    <EntryDetails
-      // A chave muda quando os detalhes salvos mudam: o rascunho recomeça do que está gravado.
-      key={`${entry.index}:${entry.text}:${entry.details}`}
-      entry={entry}
-      open={openDetails === entry.index}
-      pending={pending}
-      onClose={() => setOpenDetails(null)}
-      onSave={(name, text) => {
-        save(setItemDetails(setItemText(doc, entry.index, name), entry.index, text));
-        setOpenDetails(null);
-      }}
-
-    />
+  const details = (entry: ListEntry) => <DetailsPreview details={entry.details} />;
+  const editRow = (entry: ListEntry) => (
+    <li key={entry.index}>
+      <EntryEditor
+        // A chave muda quando o item salvo muda: o rascunho recomeça do que está gravado.
+        key={`${entry.text}:${entry.details}`}
+        entry={entry}
+        pending={pending}
+        onClose={() => setOpenDetails(null)}
+        onSave={(name, text) => {
+          save(setItemDetails(setItemText(doc, entry.index, name), entry.index, text));
+          setOpenDetails(null);
+        }}
+      />
+    </li>
   );
   const add = (text: string) => save(addItemToSection(content, style === "priority" ? addTo : lastGroup, text));
 
@@ -386,7 +389,7 @@ export function ListModeView({
     const ordered = [...entries].sort((a, b) => Number(a.checked) - Number(b.checked));
     body = (
       <ul className="flex flex-col gap-2">
-        {ordered.map((entry) => (
+        {ordered.map((entry) => openDetails === entry.index ? editRow(entry) : (
           <li key={entry.index} className="flex flex-wrap items-center gap-1">
             <button
               type="button"
@@ -427,7 +430,7 @@ export function ListModeView({
           </label>
         </div>
         <ul className="flex flex-col gap-2">
-          {shown.map((entry) => (
+          {shown.map((entry) => openDetails === entry.index ? editRow(entry) : (
             <li key={entry.index} className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
@@ -460,7 +463,7 @@ export function ListModeView({
       <>
         <Tally>{chosen ? <>Escolha: <strong className="font-semibold text-black dark:text-zinc-50">{chosen.text || "(sem texto)"}</strong></> : "Nenhuma opção escolhida ainda."}</Tally>
         <ul role="radiogroup" className="flex flex-col gap-2">
-          {entries.map((entry) => (
+          {entries.map((entry) => openDetails === entry.index ? editRow(entry) : (
             <li key={entry.index} className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
@@ -495,7 +498,7 @@ export function ListModeView({
           {rated} de {entries.length} com nota · do mais bem avaliado para o menos
         </Tally>
         <ul className="flex flex-col gap-2">
-          {sortByScore(entries).map((entry) => (
+          {sortByScore(entries).map((entry) => openDetails === entry.index ? editRow(entry) : (
             <li key={entry.index} className={`${rowClassName} ${idleRow} flex-wrap`}>
               {/* Tocar no nome abre os detalhes (07/10). */}
               <button
@@ -546,6 +549,7 @@ export function ListModeView({
             {section.title !== null && <h3 className="px-1 text-sm font-semibold text-zinc-700 dark:text-zinc-200">{section.title}</h3>}
             <ol className="flex flex-col gap-2">
               {section.entries.map((entry) => {
+                if (openDetails === entry.index) return editRow(entry);
                 const rank = rankOf.get(entry.index);
                 return (
                   <li key={entry.index} className={`${rowClassName} ${idleRow} flex-wrap py-2 pr-2`}>
