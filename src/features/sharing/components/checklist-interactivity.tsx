@@ -16,6 +16,8 @@ export function ChecklistInteractivity({ token, children }: { token: string; chi
   const [, startTransition] = useTransition();
 
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
+    // Link dentro dos detalhes do item (07/10) abre o link, não marca o item.
+    if ((event.target as HTMLElement).closest("a")) return;
     const target = (event.target as HTMLElement).closest<HTMLElement>("[data-share-checkbox]");
     if (!target || !containerRef.current?.contains(target)) return;
 

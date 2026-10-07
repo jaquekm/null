@@ -9,6 +9,7 @@ import {
   listStyleOf,
   moveListItem,
   moveListItemToSection,
+  setItemDetails,
   setItemScore,
   sortByScore,
   sortTaskListsByScore,
@@ -40,10 +41,46 @@ describe("listEntries", () => {
   it("inclui aninhados na ordem do documento, com a nota", () => {
     const d = doc(list(item("A", false, { score: 4 }, list(item("A.1"))), item("B", true)));
     expect(listEntries(d)).toEqual([
-      { index: 0, text: "A", checked: false, score: 4 },
-      { index: 1, text: "A.1", checked: false, score: null },
-      { index: 2, text: "B", checked: true, score: null },
+      { index: 0, text: "A", checked: false, score: 4, details: "" },
+      { index: 1, text: "A.1", checked: false, score: null, details: "" },
+      { index: 2, text: "B", checked: true, score: null, details: "" },
     ]);
+  });
+});
+
+describe("detalhes do item (07/10)", () => {
+  const para = (text: string): JSONContent => ({ type: "paragraph", content: [{ type: "text", text }] });
+
+  it("a linha é só o primeiro parágrafo; o resto são os detalhes", () => {
+    const withDetails: JSONContent = { type: "taskItem", attrs: { checked: false }, content: [para("Pousada Mar"), para("https://pousada.com"), para("R$ 450 a diária")] };
+    const [entry] = listEntries(doc(list(withDetails)));
+    expect(entry).toMatchObject({ text: "Pousada Mar", details: "https://pousada.com\nR$ 450 a diária" });
+  });
+
+  it("grava e troca os detalhes sem mexer na linha, na nota nem nas sublistas", () => {
+    const d = doc(list(item("Pousada Mar", false, { score: 4 }, list(item("Ver fotos"))), item("Hotel Sol")));
+    const once = setItemDetails(d, 0, "https://pousada.com\n\nR$ 450 a diária  \n");
+    expect(listEntries(once)[0]).toMatchObject({ text: "Pousada Mar", score: 4, details: "https://pousada.com\n\nR$ 450 a diária" });
+    expect(listEntries(once).map((e) => e.text)).toEqual(["Pousada Mar", "Ver fotos", "Hotel Sol"]);
+
+    const replaced = setItemDetails(once, 0, "Centro da cidade");
+    expect(listEntries(replaced)[0]!.details).toBe("Centro da cidade");
+    expect(listEntries(setItemDetails(replaced, 0, "   ")).map((e) => e.details)).toEqual(["", "", ""]);
+  });
+
+  it("link nos detalhes vira link de verdade no documento (clicável no editor e no link compartilhado)", () => {
+    const d = setItemDetails(doc(list(item("Pousada"))), 0, "Site https://pousada.com");
+    const paragraph = (d.content![0]!.content![0]!.content ?? [])[1]!;
+    expect(paragraph.content).toEqual([
+      { type: "text", text: "Site " },
+      { type: "text", text: "https://pousada.com", marks: [{ type: "link", attrs: { href: "https://pousada.com" } }] },
+    ]);
+    expect(listEntries(d)[0]!.details).toBe("Site https://pousada.com");
+  });
+
+  it("detalhes só no item certo (contando aninhados)", () => {
+    const d = doc(list(item("A", false, {}, list(item("A.1"))), item("B")));
+    expect(listEntries(setItemDetails(d, 2, "nota do B")).map((e) => e.details)).toEqual(["", "", "nota do B"]);
   });
 });
 
