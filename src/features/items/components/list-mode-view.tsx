@@ -1,8 +1,9 @@
 "use client";
 
 import type { JSONContent } from "@tiptap/core";
-import { Check, ChevronDown, ChevronUp, NotebookPen, Star } from "lucide-react";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { Bell, Check, ChevronDown, ChevronUp, MoreVertical, Pencil, Star, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { splitLinks } from "@/lib/linkify";
 import { QuickReminder } from "@/features/reminders/components/quick-reminder";
 import { updateItemContent } from "../actions";
@@ -15,8 +16,10 @@ import {
   listEntries,
   listSections,
   moveListItem,
+  removeListItem,
   setItemDetails,
   setItemScore,
+  setItemText,
   sortByScore,
   type ListEntry,
   type ListStyle,
@@ -52,25 +55,149 @@ function LinkedText({ text }: { text: string }) {
   );
 }
 
-/** Botão "Detalhes" de cada item (07/10): link, endereço, valores… */
-function DetailsButton({ entry, open, onToggle }: { entry: ListEntry; open: boolean; onToggle: () => void }) {
+/**
+ * "⋮" de cada item (pedido da dona, 07/10 — um botão só em vez de vários):
+ * Editar (nome e detalhes), Me lembrar e Excluir.
+ */
+function EntryMenu({
+  entry,
+  itemId,
+  timezone,
+  canRemind,
+  pending,
+  onEdit,
+  onDelete,
+}: {
+  entry: ListEntry;
+  itemId: string;
+  timezone?: string;
+  canRemind: boolean;
+  pending: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  // Posição do menu na tela (fixed, num portal): dentro da linha, a linha de baixo ficava por cima dele.
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+  const open = position !== null;
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLSpanElement>(null);
+  const name = entry.text || "item";
+  const showReminder = Boolean(timezone && canRemind && entry.text.trim());
+
+  function toggle() {
+    if (open) {
+      setPosition(null);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Perto do fim da tela, abre pra cima (o menu tem ~3 linhas).
+    const MENU_HEIGHT = 156;
+    const top = rect.bottom + 4 + MENU_HEIGHT > window.innerHeight ? Math.max(8, rect.top - 4 - MENU_HEIGHT) : rect.bottom + 4;
+    setPosition({ top, right: Math.max(8, window.innerWidth - rect.right) });
+  }
+  const close = () => setPosition(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      if (!menuRef.current?.contains(target) && !buttonRef.current?.contains(target)) setPosition(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setPosition(null);
+    }
+    function onScroll() {
+      setPosition(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
+
+  const itemClassName =
+    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-700 hover:bg-black/[.05] disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-white/[.08]";
+
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      aria-label={`${entry.details ? "Ver detalhes" : "Escrever detalhes"} de ${entry.text || "item"}`}
-      title="Detalhes: link, endereço, valores…"
-      className={`shrink-0 rounded-lg p-2 hover:bg-black/[.05] dark:hover:bg-white/[.08] ${
-        entry.details || open ? "text-brand-text" : "text-zinc-400 hover:text-brand-text dark:text-zinc-500"
-      }`}
-    >
-      <NotebookPen className="h-4 w-4" aria-hidden />
-    </button>
+    <span className="shrink-0">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Opções de ${name}`}
+        className={`rounded-lg p-2 hover:bg-black/[.05] dark:hover:bg-white/[.08] ${entry.details ? "text-brand-text" : "text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200"}`}
+      >
+        <MoreVertical className="h-5 w-5" aria-hidden />
+      </button>
+      {position &&
+        createPortal(
+        <span
+          ref={menuRef}
+          role="menu"
+          aria-label={`Opções de ${name}`}
+          style={{ top: position.top, right: position.right }}
+          className="fixed z-50 flex w-52 flex-col rounded-xl border border-black/[.08] bg-surface p-1 shadow-xl dark:border-white/[.1]"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className={itemClassName}
+            onClick={() => {
+              close();
+              onEdit();
+            }}
+          >
+            <Pencil className="h-4 w-4" aria-hidden /> Editar e detalhes
+          </button>
+          {showReminder && (
+            <button
+              type="button"
+              role="menuitem"
+              className={itemClassName}
+              onClick={() => {
+                close();
+                setReminderOpen(true);
+              }}
+            >
+              <Bell className="h-4 w-4" aria-hidden /> Me lembrar
+            </button>
+          )}
+          <button
+            type="button"
+            role="menuitem"
+            disabled={pending}
+            className={`${itemClassName} text-red-600 dark:text-red-400`}
+            onClick={() => {
+              close();
+              if (window.confirm(`Excluir “${name}” da lista?${entry.details ? " Os detalhes vão junto." : ""}`)) onDelete();
+            }}
+          >
+            <Trash2 className="h-4 w-4" aria-hidden /> Excluir
+          </button>
+        </span>,
+        document.body,
+      )}
+      {showReminder && (
+        <QuickReminder variant="none" open={reminderOpen} onOpenChange={setReminderOpen} title={entry.text} timezone={timezone!} itemId={itemId} sourceType="list_entry" />
+      )}
+    </span>
   );
 }
 
-/** Embaixo do item: o resumo dos detalhes (fechado) ou o campo pra escrever (aberto). */
+const panelInputClassName =
+  "rounded-lg border border-black/[.12] bg-surface px-3 py-2 text-sm font-normal text-black focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.16] dark:text-zinc-50";
+
+/** Embaixo do item: o resumo dos detalhes (fechado) ou o painel do item (aberto). */
 function EntryDetails({
   entry,
   open,
@@ -81,9 +208,10 @@ function EntryDetails({
   entry: ListEntry;
   open: boolean;
   pending: boolean;
-  onSave: (details: string) => void;
+  onSave: (name: string, details: string) => void;
   onClose: () => void;
 }) {
+  const [name, setName] = useState(entry.text);
   const [draft, setDraft] = useState(entry.details);
   if (!open) {
     if (!entry.details) return null;
@@ -93,18 +221,23 @@ function EntryDetails({
       </p>
     );
   }
+  const changed = name.trim() !== entry.text.trim() || draft.trim() !== entry.details;
   return (
-    <div className="flex w-full basis-full flex-col gap-2 rounded-xl bg-surface-muted p-3">
+    <div className="flex w-full basis-full flex-col gap-3 rounded-xl bg-surface-muted p-3">
       <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-        Detalhes de “{entry.text || "item"}”
+        Nome
+        <input value={name} onChange={(e) => setName(e.target.value)} disabled={pending} maxLength={500} className={panelInputClassName} />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+        Detalhes
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          rows={5}
+          rows={4}
           autoFocus
           disabled={pending}
           placeholder={"Link, endereço, valores, o que for — uma informação por linha.\nEx.: https://…\nCentro, perto da praia\nR$ 450 a diária"}
-          className="rounded-lg border border-black/[.12] bg-surface px-3 py-2 text-sm font-normal text-black focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 dark:border-white/[.16] dark:text-zinc-50"
+          className={panelInputClassName}
         />
       </label>
       {splitLinks(draft).some((part) => part.href) && (
@@ -112,20 +245,20 @@ function EntryDetails({
           Links: <LinkedText text={splitLinks(draft).filter((part) => part.href).map((part) => part.text).join("  ")} />
         </p>
       )}
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">Aparece embaixo do item aqui, no editor completo e no link compartilhado.</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={pending || draft.trim() === entry.details}
-          onClick={() => onSave(draft)}
+          disabled={pending || !changed || !name.trim()}
+          onClick={() => onSave(name, draft)}
           className="bg-brand text-brand-fg rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
         >
-          Salvar detalhes
+          Salvar
         </button>
         <button type="button" onClick={onClose} className="rounded-lg border border-black/[.12] px-3 py-1.5 text-sm dark:border-white/[.16]">
           Fechar
         </button>
       </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">Os detalhes aparecem embaixo do item aqui, no editor completo e no link compartilhado.</p>
     </div>
   );
 }
@@ -215,23 +348,34 @@ export function ListModeView({
   const doc: JSONContent = content ?? { type: "doc", content: [] };
   const lastGroup = sections.length - 1;
   const addTo = targetGroup !== null && targetGroup <= lastGroup ? targetGroup : lastGroup;
-  const bell = (entry: ListEntry) =>
-    timezone && entry.text.trim() ? <QuickReminder variant="icon" title={entry.text} timezone={timezone} itemId={itemId} sourceType="list_entry" /> : null;
-  const detailsButton = (entry: ListEntry) => (
-    <DetailsButton entry={entry} open={openDetails === entry.index} onToggle={() => setOpenDetails(openDetails === entry.index ? null : entry.index)} />
+  const menu = (entry: ListEntry, canRemind = true) => (
+    <EntryMenu
+      entry={entry}
+      itemId={itemId}
+      timezone={timezone}
+      // Item já riscado não precisa de lembrete.
+      canRemind={canRemind}
+      pending={pending}
+      onEdit={() => setOpenDetails(entry.index)}
+      onDelete={() => {
+        save(removeListItem(doc, entry.index));
+        setOpenDetails(null);
+      }}
+    />
   );
   const details = (entry: ListEntry) => (
     <EntryDetails
       // A chave muda quando os detalhes salvos mudam: o rascunho recomeça do que está gravado.
-      key={`${entry.index}:${entry.details}`}
+      key={`${entry.index}:${entry.text}:${entry.details}`}
       entry={entry}
       open={openDetails === entry.index}
       pending={pending}
       onClose={() => setOpenDetails(null)}
-      onSave={(text) => {
-        save(setItemDetails(doc, entry.index, text));
+      onSave={(name, text) => {
+        save(setItemDetails(setItemText(doc, entry.index, name), entry.index, text));
         setOpenDetails(null);
       }}
+
     />
   );
   const add = (text: string) => save(addItemToSection(content, style === "priority" ? addTo : lastGroup, text));
@@ -261,9 +405,7 @@ export function ListModeView({
               </span>
               <EntryText entry={entry} />
             </button>
-            {detailsButton(entry)}
-            {/* Item já riscado não precisa de lembrete. */}
-            {!entry.checked && bell(entry)}
+            {menu(entry, !entry.checked)}
             {details(entry)}
           </li>
         ))}
@@ -304,8 +446,7 @@ export function ListModeView({
                 </span>
                 <EntryText entry={entry} />
               </button>
-              {detailsButton(entry)}
-              {bell(entry)}
+              {menu(entry)}
               {details(entry)}
             </li>
           ))}
@@ -338,8 +479,7 @@ export function ListModeView({
                 </span>
                 <EntryText entry={entry} />
               </button>
-              {detailsButton(entry)}
-              {bell(entry)}
+              {menu(entry)}
               {details(entry)}
             </li>
           ))}
@@ -385,8 +525,7 @@ export function ListModeView({
                   );
                 })}
               </span>
-              {detailsButton(entry)}
-              {bell(entry)}
+              {menu(entry)}
               </span>
               {details(entry)}
             </li>
@@ -413,8 +552,7 @@ export function ListModeView({
                     <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{rank}</span>
                     <EntryText entry={entry} />
                     <span className="flex shrink-0 items-center gap-0.5">
-                      {detailsButton(entry)}
-                      {bell(entry)}
+                      {menu(entry)}
                       <button
                         type="button"
                         aria-label={`Subir ${entry.text}`}

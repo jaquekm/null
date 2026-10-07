@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { JSONContent } from "@tiptap/core";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { listEntries, listSections, type ListStyle } from "../lib/list-styles";
 import { ListModeView } from "./list-mode-view";
@@ -37,16 +37,19 @@ async function saved(): Promise<JSONContent> {
 }
 
 describe("ListModeView", () => {
-  it("com o fuso, cada item tem o sininho de lembrete (9.4); sem ele, não", () => {
+  it("“⋮” de cada item: Editar, Me lembrar (com o fuso; riscado não) e Excluir", () => {
     render(
       <ListModeView itemId="i1" style="checklist" content={doc(list(item("Leite"), item("Pão", { checked: true })))} updatedAt="t1" onSaved={vi.fn()} onContentChange={vi.fn()} timezone="America/Sao_Paulo" />,
     );
-    expect(screen.getByRole("button", { name: "Me lembrar de Leite" })).toBeTruthy();
-    // Riscado não ganha sininho.
-    expect(screen.queryByRole("button", { name: "Me lembrar de Pão" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Opções de Leite" }));
+    expect(screen.getAllByRole("menuitem").map((b) => b.textContent?.trim())).toEqual(["Editar e detalhes", "Me lembrar", "Excluir"]);
+    fireEvent.click(screen.getByRole("button", { name: "Opções de Pão" }));
+    const paoMenu = screen.getByRole("menu", { name: "Opções de Pão" });
+    expect(within(paoMenu).getAllByRole("menuitem").map((b) => b.textContent?.trim())).toEqual(["Editar e detalhes", "Excluir"]);
     cleanup();
     renderList("priority", doc(list(item("Leite"))));
-    expect(screen.queryByRole("button", { name: /Me lembrar/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Opções de Leite" }));
+    expect(screen.queryByRole("menuitem", { name: /Me lembrar/ })).toBeNull();
   });
 
   it("Riscar: toque risca o item", async () => {
@@ -127,10 +130,10 @@ describe("ListModeView — detalhes de cada item (07/10)", () => {
   it("Dar nota: tocar no nome abre os detalhes; salvar grava dentro do item, sem mexer na nota", async () => {
     renderList("rating", doc(list(item("Pousada Mar", { score: 4 }), item("Hotel Sol"))));
     fireEvent.click(screen.getByRole("button", { name: "Pousada Mar" }));
-    const box = screen.getByLabelText(/Detalhes de “Pousada Mar”/);
+    const box = screen.getByLabelText("Detalhes");
     fireEvent.change(box, { target: { value: "https://pousada.com\nCentro\nR$ 450 a diária" } });
     expect(screen.getByRole("link", { name: "https://pousada.com" }).getAttribute("href")).toBe("https://pousada.com");
-    fireEvent.click(screen.getByRole("button", { name: "Salvar detalhes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
     const entry = listEntries(await saved()).find((e) => e.text === "Pousada Mar")!;
     expect(entry).toMatchObject({ score: 4, details: "https://pousada.com\nCentro\nR$ 450 a diária" });
   });
@@ -147,22 +150,44 @@ describe("ListModeView — detalhes de cada item (07/10)", () => {
     renderList("checklist", doc(list(withDetails)));
     expect(screen.getByRole("button", { name: "Duna" }).textContent).not.toContain("netflix");
     expect(screen.getByRole("link", { name: "www.netflix.com" }).getAttribute("href")).toBe("https://www.netflix.com");
-    expect(screen.getByRole("button", { name: "Ver detalhes de Duna" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Opções de Duna" })).toBeTruthy();
   });
 
-  it("todos os tipos têm o botão de detalhes", () => {
+  it("todos os tipos têm o “⋮” com Editar e Excluir (um botão só por item)", () => {
     for (const style of ["checklist", "multi", "single", "rating", "priority"] as const) {
       renderList(style, doc(list(item("Opção A"))));
-      expect(screen.getByRole("button", { name: "Escrever detalhes de Opção A" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Opções de Opção A" }));
+      expect(screen.getByRole("menuitem", { name: /Editar e detalhes/ })).toBeTruthy();
+      expect(screen.getByRole("menuitem", { name: /Excluir/ })).toBeTruthy();
       cleanup();
     }
+  });
+
+  it("“⋮ → Excluir” tira a linha da lista (com confirmação)", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList("rating", doc(list(item("Guarda do Embaú"), item("Lagoa/Joaquina"))));
+    fireEvent.click(screen.getByRole("button", { name: "Opções de Guarda do Embaú" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Excluir/ }));
+    expect(confirm).toHaveBeenCalledWith("Excluir “Guarda do Embaú” da lista?");
+    expect(listEntries(await saved()).map((e) => e.text)).toEqual(["Lagoa/Joaquina"]);
+    confirm.mockRestore();
+  });
+
+  it("dá pra corrigir o nome do item no mesmo painel", async () => {
+    renderList("checklist", doc(list(item("Praia do Santino"))));
+    fireEvent.click(screen.getByRole("button", { name: "Opções de Praia do Santino" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Editar e detalhes/ }));
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Praia do Santinho" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    expect(listEntries(await saved()).map((e) => e.text)).toEqual(["Praia do Santinho"]);
   });
 
   it("o alerta abre fora da linha da lista (a linha que “levanta” fazia a tela tremer)", () => {
     render(
       <ListModeView itemId="i1" style="rating" content={doc(list(item("Pousada Mar")))} updatedAt="t1" onSaved={vi.fn()} onContentChange={vi.fn()} timezone="America/Sao_Paulo" />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Me lembrar de Pousada Mar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Opções de Pousada Mar" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Me lembrar/ }));
     const dialog = screen.getByRole("dialog", { name: "Me lembrar" });
     expect(dialog.closest("li")).toBeNull();
   });

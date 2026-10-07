@@ -117,6 +117,45 @@ export function setItemDetails(doc: JSONContent, index: number, details: string)
   });
 }
 
+/** Troca o nome (a linha) de um item, sem mexer em detalhes, nota, marcação nem sublistas. Nome vazio é recusado (devolve o documento igual). */
+export function setItemText(doc: JSONContent, index: number, text: string): JSONContent {
+  const value = text.replace(/\s+/g, " ").trim();
+  if (!value) return doc;
+  return mapTaskItems(doc, (node, i) => {
+    if (i !== index) return node;
+    const children = node.content ?? [];
+    const rest = children[0] && children[0].type !== "taskList" ? children.slice(1) : children;
+    return { ...node, content: [{ type: "paragraph", content: lineWithLinks(value) }, ...rest] };
+  });
+}
+
+/**
+ * Exclui um item da lista (com os detalhes e as sublistas dele). Lista que
+ * fica vazia sai do documento — o editor não aceita `taskList` sem itens.
+ */
+export function removeListItem(doc: JSONContent, index: number): JSONContent {
+  let seen = -1;
+  function walk(node: JSONContent): JSONContent | null {
+    if (node.type === "taskItem") {
+      seen += 1;
+      if (seen === index) {
+        // Os aninhados contam na numeração: pula a contagem deles também.
+        seen += countTaskItems(node) - 1;
+        return null;
+      }
+    }
+    if (!node.content) return node;
+    const content = node.content.map(walk).filter((child): child is JSONContent => child !== null);
+    if (node.type === "taskList" && content.length === 0) return null;
+    return { ...node, content };
+  }
+  return walk(doc) ?? { type: "doc", content: [] };
+}
+
+function countTaskItems(node: JSONContent): number {
+  return (node.type === "taskItem" ? 1 : 0) + (node.content ?? []).reduce((sum, child) => sum + countTaskItems(child), 0);
+}
+
 /** Todos os itens, inclusive aninhados, na ordem do documento (com a nota de cada um). */
 export function listEntries(doc: JSONContent | null): ListEntry[] {
   if (!doc) return [];

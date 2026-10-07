@@ -19,8 +19,11 @@ interface QuickReminderProps {
   itemId?: string | null;
   sourceType?: string;
   sourceId?: string;
-  /** "button": botão "Me lembrar" com texto; "icon": só o sininho (linhas de lista). */
-  variant?: "button" | "icon";
+  /** "button": botão "Me lembrar" com texto; "icon": só o sininho; "none": sem botão, aberto por fora (menu "⋮" das listas). */
+  variant?: "button" | "icon" | "none";
+  /** Controlado por fora (com `variant="none"`). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -29,8 +32,13 @@ interface QuickReminderProps {
  * Canal, contatos e mensagem continuam em "Mais opções" (o formulário
  * completo de sempre).
  */
-export function QuickReminder({ title, timezone, itemId, sourceType, sourceId, variant = "button" }: QuickReminderProps) {
-  const [open, setOpen] = useState(false);
+export function QuickReminder({ title, timezone, itemId, sourceType, sourceId, variant = "button", open: openProp, onOpenChange }: QuickReminderProps) {
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
   const [phrase, setPhrase] = useState("");
   const [advanced, setAdvanced] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
@@ -80,7 +88,7 @@ export function QuickReminder({ title, timezone, itemId, sourceType, sourceId, v
 
   return (
     <>
-      {variant === "icon" ? (
+      {variant === "none" ? null : variant === "icon" ? (
         <button
           type="button"
           onClick={() => setOpen(true)}

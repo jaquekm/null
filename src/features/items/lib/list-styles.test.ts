@@ -9,7 +9,9 @@ import {
   listStyleOf,
   moveListItem,
   moveListItemToSection,
+  removeListItem,
   setItemDetails,
+  setItemText,
   setItemScore,
   sortByScore,
   sortTaskListsByScore,
@@ -81,6 +83,26 @@ describe("detalhes do item (07/10)", () => {
   it("detalhes só no item certo (contando aninhados)", () => {
     const d = doc(list(item("A", false, {}, list(item("A.1"))), item("B")));
     expect(listEntries(setItemDetails(d, 2, "nota do B")).map((e) => e.details)).toEqual(["", "", "nota do B"]);
+  });
+});
+
+describe("excluir e renomear item (07/10)", () => {
+  it("exclui só o item escolhido, com detalhes e sublista", () => {
+    const d = doc(list(item("A"), item("B", false, {}, list(item("B.1"))), item("C")));
+    expect(listEntries(removeListItem(d, 1)).map((e) => e.text)).toEqual(["A", "C"]);
+    expect(listEntries(removeListItem(d, 2)).map((e) => e.text)).toEqual(["A", "B", "C"]);
+    expect(listEntries(removeListItem(d, 3)).map((e) => e.text)).toEqual(["A", "B", "B.1"]);
+  });
+
+  it("lista que fica vazia sai do documento; o resto do texto fica", () => {
+    const d = doc(heading("Lugares"), list(item("Único")));
+    expect(removeListItem(d, 0)).toEqual(doc(heading("Lugares")));
+  });
+
+  it("renomeia sem perder nota, detalhes nem marcação; nome vazio não muda nada", () => {
+    const d = setItemDetails(doc(list(item("Guarda", true, { score: 3 }))), 0, "Praia linda");
+    expect(listEntries(setItemText(d, 0, "  Guarda do   Embaú "))[0]).toMatchObject({ text: "Guarda do Embaú", checked: true, score: 3, details: "Praia linda" });
+    expect(setItemText(d, 0, "   ")).toBe(d);
   });
 });
 
