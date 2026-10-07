@@ -10,9 +10,17 @@ describe("link de edição de lista", () => {
     expect(createShareLinkSchema.safeParse({ resourceId: id, permission: "edit", label: "Pedro" }).success).toBe(true);
   });
 
-  it("só vale pra item, não pra espaço, conta ou divisão", () => {
-    for (const resourceType of ["space", "split", "bill"] as const) {
+  it("vale pra item e pra espaço, não pra conta ou divisão", () => {
+    for (const resourceType of ["item", "space"] as const) {
+      expect(createShareLinkSchema.safeParse({ resourceId: id, resourceType, permission: "edit", label: "Pedro" }).success).toBe(true);
+    }
+    for (const resourceType of ["split", "bill"] as const) {
       expect(createShareLinkSchema.safeParse({ resourceId: id, resourceType, permission: "edit", label: "Pedro" }).success).toBe(false);
     }
+  });
+
+  it("link de espaço continua sem comentar nem marcar", () => {
+    expect(createShareLinkSchema.safeParse({ resourceId: id, resourceType: "space", permission: "comment" }).success).toBe(false);
+    expect(createShareLinkSchema.safeParse({ resourceId: id, resourceType: "space", permission: "view" }).success).toBe(true);
   });
 });

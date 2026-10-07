@@ -1,5 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import { PasswordGate } from "@/features/sharing/components/password-gate";
+import { SharedListEditor } from "@/features/sharing/components/shared-list-editor";
+import { listEntries } from "@/features/items/lib/list-styles";
+import { editableListStyle } from "@/features/sharing/lib/editable-list";
 import { SharePageContent } from "@/features/sharing/components/share-page-content";
 import { getRequestIp } from "@/features/sharing/lib/get-request-ip";
 import { isShareLinkActive } from "@/features/sharing/lib/is-share-link-active";
@@ -41,6 +44,9 @@ export default async function SharedSpaceItemPage(props: PageProps<"/p/[token]/i
   const item = await getPublicSpaceItem(admin, shareLink.ownerId, shareLink.resourceId, shareLink.tagId, itemId);
   if (!item) return <InvalidLinkMessage />;
 
+  // Link de edição de espaço (07/10): cada lista do espaço abre editável, com o nome de quem mexeu.
+  const listStyle = shareLink.permission === "edit" && shareLink.label?.trim() ? editableListStyle(item.typeSlug, item.properties) : null;
+
   return (
     <div className="flex flex-col">
       <div className="mx-auto w-full max-w-2xl px-4 pt-6 sm:px-6">
@@ -48,7 +54,27 @@ export default async function SharedSpaceItemPage(props: PageProps<"/p/[token]/i
           <ArrowLeft className="h-4 w-4" aria-hidden /> Voltar à lista
         </a>
       </div>
-      <SharePageContent token={token} permission="view" title={item.title} content={item.content} fields={item.fields} properties={item.properties} attachments={[]} />
+      {listStyle ? (
+        <SharedListEditor
+          token={token}
+          itemId={itemId}
+          title={item.title}
+          style={listStyle}
+          viewerName={shareLink.label!.trim()}
+          entries={listEntries(item.content).map((entry) => ({
+            index: entry.index,
+            text: entry.text,
+            checked: entry.checked,
+            score: entry.score,
+            details: entry.details,
+            author: entry.author,
+            scoreBy: entry.scoreBy,
+            mine: entry.authorLink === shareLink.id,
+          }))}
+        />
+      ) : (
+        <SharePageContent token={token} permission="view" title={item.title} content={item.content} fields={item.fields} properties={item.properties} attachments={[]} />
+      )}
     </div>
   );
 }

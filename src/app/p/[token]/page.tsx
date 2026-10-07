@@ -124,7 +124,14 @@ export default async function SharePage(props: PageProps<"/p/[token]">) {
     const userAgent = (await headers()).get("user-agent");
     await registerShareLinkView(admin, shareLink.ownerId, shareLink.id, ip, userAgent);
 
-    return <SharedSpaceContent token={token} name={space.name} icon={space.icon} subcategory={space.subcategory} items={space.items} />;
+    return <SharedSpaceContent
+        token={token}
+        name={space.name}
+        icon={space.icon}
+        subcategory={space.subcategory}
+        items={space.items}
+        editorName={shareLink.permission === "edit" ? (shareLink.label?.trim() ?? null) : null}
+      />;
   }
 
   if (shareLink.resourceType === "split") {

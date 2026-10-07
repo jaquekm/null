@@ -93,27 +93,37 @@ export async function toggleShareChecklistItem(token: string, path: string, chec
  * comparação de `updated_at` pra duas pessoas mexendo ao mesmo tempo não se
  * sobrescreverem.
  */
-export async function editSharedList(token: string, input: unknown): Promise<Result<null>> {
+export async function editSharedList(token: string, input: unknown, itemId?: string): Promise<Result<null>> {
   const parsed = listEditOpSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Dados inválidos.");
 
   const admin = createAdminClient();
   const shareLink = await findShareLinkByTokenHash(admin, hashShareToken(token));
   if (!shareLink || !isShareLinkActive(shareLink)) return fail(GENERIC_INVALID);
-  if (shareLink.permission !== "edit" || shareLink.resourceType !== "item") return fail("Essa ação não é permitida por esse link.");
+  if (shareLink.permission !== "edit" || (shareLink.resourceType !== "item" && shareLink.resourceType !== "space")) {
+    return fail("Essa ação não é permitida por esse link.");
+  }
   if (!(await isShareLinkUnlocked(shareLink))) return fail("Não autenticado.");
+  // Link de lista: o item é o do link. Link de espaço: qualquer lista do espaço (e da subcategoria, se houver) — conferido abaixo.
+  const targetId = shareLink.resourceType === "item" ? shareLink.resourceId : (itemId ?? "");
+  if (shareLink.resourceType === "space" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId)) return fail("Lista não encontrada.");
   const name = shareLink.label?.trim();
   if (!name) return fail("Esse link não tem um nome. Peça um novo link.");
   if (listEditRateLimit(shareLink.id)) return fail("Muitas ações seguidas. Espere um pouco e tente de novo.");
 
-  const { data: item } = await admin
+  let itemQuery = admin
     .from("items")
-    .select("content, title, properties, updated_at, object_types(slug)")
-    .eq("id", shareLink.resourceId)
+    .select("content, title, properties, updated_at, status, object_types(slug)")
+    .eq("id", targetId)
     .eq("owner_id", shareLink.ownerId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (!item) return fail("Item não encontrado.");
+    .is("deleted_at", null);
+  if (shareLink.resourceType === "space") itemQuery = itemQuery.eq("space_id", shareLink.resourceId);
+  const { data: item } = await itemQuery.maybeSingle();
+  if (!item || (shareLink.resourceType === "space" && item.status === "archived")) return fail("Item não encontrado.");
+  if (shareLink.resourceType === "space" && shareLink.tagId) {
+    const { data: tagged } = await admin.from("item_tags").select("item_id").eq("item_id", targetId).eq("tag_id", shareLink.tagId).maybeSingle();
+    if (!tagged) return fail("Item não encontrado.");
+  }
   const style = editableListStyle(item.object_types?.slug, item.properties as Record<string, unknown> | null);
   if (!style) return fail("Esse item não é mais uma lista.");
 
@@ -123,17 +133,18 @@ export async function editSharedList(token: string, input: unknown): Promise<Res
   const { data: saved, error } = await admin
     .from("items")
     .update({ content: result.content as unknown as Json })
-    .eq("id", shareLink.resourceId)
+    .eq("id", targetId)
     .eq("owner_id", shareLink.ownerId)
     .eq("updated_at", item.updated_at)
     .select("id");
   if (error) return fail("Não foi possível salvar. Tente de novo.");
   if (!saved || saved.length === 0) return fail("A lista mudou enquanto você olhava. Atualizei — tente de novo.");
 
-  await recordListActivity(admin, shareLink.ownerId, shareLink.id, shareLink.resourceId, item.title, name, result.kind, result.detail);
+  await recordListActivity(admin, shareLink.ownerId, shareLink.id, targetId, item.title, name, result.kind, result.detail);
 
   revalidatePath(`/p/${token}`);
-  revalidatePath(`/itens/${shareLink.resourceId}`);
+  if (shareLink.resourceType === "space") revalidatePath(`/p/${token}/i/${targetId}`);
+  revalidatePath(`/itens/${targetId}`);
   return ok(null);
 }
 

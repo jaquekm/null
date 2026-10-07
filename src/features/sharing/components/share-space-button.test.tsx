@@ -55,4 +55,17 @@ describe("spaceShareMessage", () => {
     expect(spaceShareMessage("Pessoal", "família", "U")).toContain("“família” (Pessoal)");
     expect(spaceShareMessage("Pessoal", null, "U")).toContain("“Pessoal”");
   });
+
+  it("link de edição pede o nome de quem vai usar e manda como rótulo", async () => {
+    render(<ShareSpaceButton spaceId="33333333-3333-4333-8333-333333333333" spaceName="Atividades" subcategories={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Compartilhar" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Pode adicionar e dar nota" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar link" }));
+    expect(createShareLink).not.toHaveBeenCalled(); // sem nome, não cria
+
+    fireEvent.change(screen.getByLabelText(/Nome de quem vai usar este link/), { target: { value: " Pedro " } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar link" }));
+    await waitFor(() => expect(createShareLink).toHaveBeenCalled());
+    expect(createShareLink.mock.calls[0]![0]).toMatchObject({ resourceType: "space", permission: "edit", label: "Pedro" });
+  });
 });
