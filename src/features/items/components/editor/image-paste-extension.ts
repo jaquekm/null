@@ -1,6 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import { uploadAttachment } from "@/features/attachments/lib/upload-file";
+import { getActiveEditor, insertImageInActiveEditor } from "./active-editor";
 
 interface ImagePasteOptions {
   itemId: string;
@@ -17,6 +18,14 @@ export const ImagePaste = Extension.create<ImagePasteOptions>({
   addProseMirrorPlugins() {
     const editor = this.editor;
     const itemId = this.options.itemId;
+    // O envio demora e a página pode recriar o editor nesse meio-tempo: insere no editor de agora, não no que colou.
+    const insertImage = (image: { src: string; alt: string }) => {
+      if (getActiveEditor(itemId) === null && !editor.isDestroyed) {
+        editor.chain().focus().setImage(image).run();
+        return;
+      }
+      void insertImageInActiveEditor(itemId, image);
+    };
 
     return [
       new Plugin({
@@ -29,7 +38,7 @@ export const ImagePaste = Extension.create<ImagePasteOptions>({
             for (const file of files) {
               void uploadAttachment(itemId, file).then((result) => {
                 if (result.ok && result.data) {
-                  editor.chain().focus().setImage({ src: `/api/attachments/${result.data.attachment.id}/file`, alt: file.name }).run();
+                  insertImage({ src: `/api/attachments/${result.data.attachment.id}/file`, alt: file.name });
                 }
               });
             }
