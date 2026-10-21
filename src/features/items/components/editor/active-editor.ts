@@ -25,17 +25,25 @@ export function getActiveEditor(itemId: string): Editor | null {
 /**
  * Insere a imagem no editor atual do item. Se a página estiver recriando o editor
  * agora (sem editor vivo por um instante), espera um pouco e tenta de novo.
+ * `position` é onde o cursor estava quando a pessoa colou: o editor novo começa sem
+ * cursor, e sem isso a imagem iria parar no começo ou no fim do texto, não onde foi colada.
  * Devolve `true` se inseriu.
  */
 export async function insertImageInActiveEditor(
   itemId: string,
   image: { src: string; alt: string },
-  { tries = 15, delayMs = 200 }: { tries?: number; delayMs?: number } = {},
+  { tries = 15, delayMs = 200, position }: { tries?: number; delayMs?: number; position?: number } = {},
 ): Promise<boolean> {
   for (let attempt = 0; attempt < tries; attempt += 1) {
     const editor = getActiveEditor(itemId);
     if (editor) {
-      editor.chain().focus().setImage(image).run();
+      if (position === undefined) {
+        editor.chain().focus().setImage(image).run();
+      } else {
+        // O texto pode ter encurtado desde a colagem: nunca passa do fim do documento.
+        const at = Math.max(0, Math.min(position, editor.state.doc.content.size));
+        editor.chain().focus().insertContentAt(at, { type: "image", attrs: image }).run();
+      }
       return true;
     }
     await new Promise((resolve) => setTimeout(resolve, delayMs));

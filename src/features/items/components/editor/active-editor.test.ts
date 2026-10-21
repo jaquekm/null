@@ -2,10 +2,15 @@ import type { Editor } from "@tiptap/core";
 import { describe, expect, it, vi } from "vitest";
 import { getActiveEditor, insertImageInActiveEditor, registerActiveEditor } from "./active-editor";
 
-function fakeEditor(destroyed = false) {
+function fakeEditor(destroyed = false, docSize = 100) {
   const setImage = vi.fn(() => ({ run: vi.fn() }));
-  const editor = { isDestroyed: destroyed, chain: () => ({ focus: () => ({ setImage }) }) } as unknown as Editor;
-  return { editor, setImage };
+  const insertContentAt = vi.fn(() => ({ run: vi.fn() }));
+  const editor = {
+    isDestroyed: destroyed,
+    state: { doc: { content: { size: docSize } } },
+    chain: () => ({ focus: () => ({ setImage, insertContentAt }) }),
+  } as unknown as Editor;
+  return { editor, setImage, insertContentAt };
 }
 
 const image = { src: "/api/attachments/a1/file", alt: "print.png" };
@@ -46,5 +51,16 @@ describe("editor ativo do item (imagem colada não some quando a página recria 
     await vi.advanceTimersByTimeAsync(500);
     expect(await pending).toBe(false);
     vi.useRealTimers();
+  });
+
+  it("no editor recriado, insere na posição em que a pessoa colou (e nunca além do fim)", async () => {
+    const fresh = fakeEditor(false, 40);
+    registerActiveEditor("item-3", fresh.editor);
+    expect(await insertImageInActiveEditor("item-3", image, { position: 25 })).toBe(true);
+    expect(fresh.insertContentAt).toHaveBeenCalledWith(25, { type: "image", attrs: image });
+    expect(fresh.setImage).not.toHaveBeenCalled();
+
+    await insertImageInActiveEditor("item-3", image, { position: 999 });
+    expect(fresh.insertContentAt).toHaveBeenLastCalledWith(40, { type: "image", attrs: image });
   });
 });
