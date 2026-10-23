@@ -44,7 +44,7 @@ export function BundlesSection({ installedPackKeys, financeOnboardingCompleted }
     <div className="flex flex-col gap-3">
       <div>
         <h2 className="text-base font-semibold text-black dark:text-zinc-50">Pacotes prontos</h2>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Um toque pra montar tudo que uma área da vida costuma precisar.</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Um toque pra instalar os tipos de item de uma área da vida. As telas fixas do app (água, jejum, cardápio, orçamento…) já estão disponíveis sem instalar nada.</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {BUNDLES.map((bundle) => {
