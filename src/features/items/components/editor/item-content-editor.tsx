@@ -4,6 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { updateItemContent } from "../../actions";
+import { registerActiveEditor } from "./active-editor";
 import { buildEditorExtensions } from "./extensions";
 import { TableControls } from "./table-controls";
 import { ToolbarBubbleMenu } from "./toolbar-bubble-menu";
@@ -32,6 +33,8 @@ export function ItemContentEditor({
   const updatedAtRef = useRef(updatedAt);
   const pendingRef = useRef<JSONContent | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduledRef = useRef<JSONContent | null>(null);
+  const saveRef = useRef<(content: JSONContent) => Promise<void>>(async () => {});
 
   useEffect(() => {
     updatedAtRef.current = updatedAt;
@@ -71,6 +74,10 @@ export function ItemContentEditor({
   );
 
   useEffect(() => {
+    saveRef.current = save;
+  }, [save]);
+
+  useEffect(() => {
     function handleOnline() {
       if (pendingRef.current) void save(pendingRef.current);
     }
@@ -81,6 +88,13 @@ export function ItemContentEditor({
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      // A página recria o editor quando o servidor devolve outro `updatedAt` (ex.: depois de enviar um anexo).
+      // Um salvamento ainda agendado não pode morrer junto — antes a imagem colada sumia assim.
+      if (scheduledRef.current) {
+        const pending = scheduledRef.current;
+        scheduledRef.current = null;
+        void saveRef.current(pending);
+      }
     };
   }, []);
 
@@ -96,9 +110,18 @@ export function ItemContentEditor({
     onUpdate({ editor: updatedEditor }) {
       if (timerRef.current) clearTimeout(timerRef.current);
       const json = updatedEditor.getJSON();
-      timerRef.current = setTimeout(() => void save(json), SAVE_DEBOUNCE_MS);
+      scheduledRef.current = json;
+      timerRef.current = setTimeout(() => {
+        scheduledRef.current = null;
+        void save(json);
+      }, SAVE_DEBOUNCE_MS);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    return registerActiveEditor(itemId, editor);
+  }, [editor, itemId]);
 
   if (!editor) return null;
 

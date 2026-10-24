@@ -38,4 +38,10 @@ describe("BUNDLES", () => {
       }
     }
   });
+
+  it("a descrição diz o que o pacote instala (começa com \"Instala\") e não promete telas fixas do app", () => {
+    for (const bundle of BUNDLES) {
+      expect(bundle.description.startsWith("Instala"), bundle.key).toBe(true);
+    }
+  });
 });
