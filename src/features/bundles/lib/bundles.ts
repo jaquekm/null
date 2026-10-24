@@ -29,7 +29,7 @@ export const BUNDLES: BundleDefinition[] = [
   {
     key: "rotina",
     name: "Rotina",
-    description: "Hábitos da semana, horários fixos, modo foco, água e jejum.",
+    description: "Instala os tipos Hábito e Entrada de diário. Horários fixos, modo foco, água e jejum já vêm no app.",
     icon: "🔁",
     packs: [{ packKey: "diario-habitos", spaceName: null }],
     redirectHref: "/rotina",
@@ -37,7 +37,7 @@ export const BUNDLES: BundleDefinition[] = [
   {
     key: "saude",
     name: "Saúde",
-    description: "Remédios e vitaminas, consultas, exames, receitas médicas e sintomas.",
+    description: "Instala o tipo Remédio e, num espaço “Saúde”, os tipos Consulta, Exame, Receita médica e Sintoma.",
     icon: "🩺",
     packs: [
       { packKey: "saude", spaceName: null },
@@ -48,7 +48,7 @@ export const BUNDLES: BundleDefinition[] = [
   {
     key: "alimentacao",
     name: "Alimentação",
-    description: "Receitas com ingredientes e porções, cardápio da semana e lista de compras.",
+    description: "Instala o tipo Receita (ingredientes e porções). O cardápio da semana e a lista de compras já vêm no app.",
     icon: "🍽️",
     packs: [{ packKey: "receitas", spaceName: null }],
     redirectHref: "/cardapio",
@@ -56,7 +56,7 @@ export const BUNDLES: BundleDefinition[] = [
   {
     key: "financas",
     name: "Finanças pessoais",
-    description: "Contas, cartões, orçamento, patrimônio e desejos — tudo num só painel.",
+    description: "Instala o tipo Desejo num espaço “Finanças pessoais” e conclui a configuração inicial de Finanças (categorias padrão). Contas, cartões, orçamento e patrimônio já vêm no app.",
     icon: "💰",
     packs: [{ packKey: "desejos", spaceName: "Finanças pessoais" }],
     completeFinanceOnboarding: true,
