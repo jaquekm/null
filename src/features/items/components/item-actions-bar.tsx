@@ -3,7 +3,7 @@
 import { Archive, ArchiveRestore, Copy, Link as LinkIcon, ListChecks, Pin, PinOff, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { InfoHint } from "@/components/ui/info-hint";
+import { HoverHint } from "@/components/ui/hover-hint";
 import type { SidebarSpace } from "@/features/spaces/queries";
 import type { TypeOptionWithFields } from "../queries";
 import { changeItemType, duplicateItem, duplicateItemAsNewList, moveItem, setItemStatus, softDeleteItem, togglePin } from "../actions";
@@ -107,80 +107,65 @@ export function ItemActionsBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => run(() => togglePin(itemId, !pinned))}
-          title="Fica no topo do espaço"
-          className={buttonClassName}
-        >
-          {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-          {pinned ? "Desafixar" : "Fixar"}
-        </button>
-        <InfoHint text="Fica fixado no topo do espaço, antes dos outros itens." />
+        <HoverHint text="Fica fixado no topo do espaço, antes dos outros itens.">
+          <button type="button" disabled={pending} onClick={() => run(() => togglePin(itemId, !pinned))} className={buttonClassName}>
+            {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+            {pinned ? "Desafixar" : "Fixar"}
+          </button>
+        </HoverHint>
 
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => run(() => setItemStatus(itemId, status === "archived" ? "active" : "archived"))}
-          title={status === "archived" ? "Volta a aparecer no espaço" : "Some das listas, mas continua guardado e aparece na busca"}
-          className={buttonClassName}
-        >
-          {status === "archived" ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-          {status === "archived" ? "Restaurar" : "Arquivar"}
-        </button>
-        <InfoHint
+        <HoverHint
           text={
             status === "archived"
               ? "Volta a aparecer nas listas do espaço."
               : "Some das listas do espaço, mas continua guardado e aparece na busca. Reversível: é só restaurar."
           }
-        />
+        >
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => setItemStatus(itemId, status === "archived" ? "active" : "archived"))}
+            className={buttonClassName}
+          >
+            {status === "archived" ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            {status === "archived" ? "Restaurar" : "Arquivar"}
+          </button>
+        </HoverHint>
 
-        <button type="button" disabled={pending} onClick={handleDuplicate} title="Cria uma cópia igual, com o mesmo conteúdo" className={buttonClassName}>
-          <Copy className="h-4 w-4" />
-          Duplicar
-        </button>
-        <InfoHint text="Cria um item novo, separado deste, com o mesmo conteúdo." />
+        <HoverHint text="Cria um item novo, separado deste, com o mesmo conteúdo.">
+          <button type="button" disabled={pending} onClick={handleDuplicate} className={buttonClassName}>
+            <Copy className="h-4 w-4" />
+            Duplicar
+          </button>
+        </HoverHint>
 
         {typeSlug === "lista" && (
-          <>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={handleDuplicateAsNewList}
-              title="Cópia da lista com todos os itens desmarcados — pra lista que se repete, como compras"
-              className={buttonClassName}
-            >
+          <HoverHint text="Cria uma cópia desta lista com tudo desmarcado — pra listas que se repetem, como a de compras.">
+            <button type="button" disabled={pending} onClick={handleDuplicateAsNewList} className={buttonClassName}>
               <ListChecks className="h-4 w-4" />
               Nova cópia desmarcada
             </button>
-            <InfoHint text="Cria uma cópia desta lista com tudo desmarcado — pra listas que se repetem, como a de compras." />
-          </>
+          </HoverHint>
         )}
 
-        <button
-          type="button"
-          onClick={() => void navigator.clipboard.writeText(window.location.href)}
-          title="Copia o endereço desta página (só abre com o seu login — pra outra pessoa, use Compartilhar)"
-          className={buttonClassName}
-        >
-          <LinkIcon className="h-4 w-4" />
-          Copiar link
-        </button>
-        <InfoHint text="Copia o endereço desta página. Só abre pra você, já logada — pra mandar pra outra pessoa, use Compartilhar." />
+        <HoverHint text="Copia o endereço desta página. Só abre pra você, já logada — pra mandar pra outra pessoa, use Compartilhar.">
+          <button type="button" onClick={() => void navigator.clipboard.writeText(window.location.href)} className={buttonClassName}>
+            <LinkIcon className="h-4 w-4" />
+            Copiar link
+          </button>
+        </HoverHint>
 
-        <button
-          type="button"
-          disabled={pending}
-          onClick={handleDelete}
-          title="Move pra lixeira — dá pra restaurar depois"
-          className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
-        >
-          <Trash2 className="h-4 w-4" />
-          Excluir
-        </button>
-        <InfoHint text="Move este item pra lixeira. Não é definitivo: dá pra restaurar depois." />
+        <HoverHint text="Move este item pra lixeira. Não é definitivo: dá pra restaurar depois.">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={handleDelete}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir
+          </button>
+        </HoverHint>
       </div>
 
       {error && (
