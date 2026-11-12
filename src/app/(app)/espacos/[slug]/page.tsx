@@ -77,7 +77,7 @@ export default async function SpacePage(props: PageProps<"/espacos/[slug]">) {
 
       <DocumentsToReviewPanel documents={documentsToReview} />
 
-      <SpaceBrowser spaceSlug={space.slug} items={browserItems} initialFilters={initialFilters} />
+      <SpaceBrowser spaceSlug={space.slug} items={browserItems} initialFilters={initialFilters} otherSpaces={otherSpaces} />
 
       {/* Visões salvas (tabela, kanban, calendário…) continuam existindo, mas recolhidas: o dia a dia é a busca com filtros acima. */}
       <details className="group rounded-2xl border border-black/[.06] bg-surface p-4 shadow-sm dark:border-white/[.06]">
