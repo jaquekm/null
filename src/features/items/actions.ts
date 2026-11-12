@@ -192,6 +192,8 @@ export async function moveItem(itemId: string, spaceId: string | null): Promise<
   if (error) return fail("Não foi possível mover o item.");
 
   revalidatePath(`/itens/${itemId}`);
+  // A lista do espaço de onde ele saiu e a do espaço pra onde foi (pedido da dona, 12/11).
+  revalidatePath("/espacos/[slug]", "page");
   return ok(null);
 }
 

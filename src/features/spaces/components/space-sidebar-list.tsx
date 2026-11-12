@@ -16,9 +16,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { moveItem } from "@/features/items/actions";
 import { colorDotClassName } from "@/lib/color-tokens";
+import { hasItemDrag, readDraggedItem } from "../lib/item-drag";
 import { positionBetween } from "../lib/position";
 import { reorderSpace } from "../actions";
 import type { SidebarSpace } from "../queries";
@@ -88,14 +91,41 @@ export function SpaceSidebarList({
 
 function SpaceSidebarRow({ space, collapsed }: { space: SidebarSpace; collapsed: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
   const active = pathname === `/espacos/${space.slug}`;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: space.id });
+  // Um item da lista de um espaço está sendo arrastado por cima deste espaço.
+  const [dropping, setDropping] = useState(false);
+
+  function handleDrop(event: React.DragEvent) {
+    if (!hasItemDrag(event.dataTransfer)) return;
+    event.preventDefault();
+    setDropping(false);
+    const item = readDraggedItem(event.dataTransfer);
+    if (!item) return;
+    void moveItem(item.id, space.id).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`${item.title ? `“${item.title}”` : "Item"} foi para ${space.name}.`);
+      router.refresh();
+    });
+  }
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-      className="group flex items-center"
+      className={`group flex items-center rounded-lg ${dropping ? "bg-brand-soft ring-2 ring-brand" : ""}`}
+      onDragOver={(event) => {
+        if (!hasItemDrag(event.dataTransfer)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setDropping(true);
+      }}
+      onDragLeave={() => setDropping(false)}
+      onDrop={handleDrop}
     >
       {!collapsed && (
         <button

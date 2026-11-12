@@ -1,9 +1,14 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { FolderInput, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { moveItem } from "@/features/items/actions";
 import { LIST_STYLE_INFO } from "@/features/items/lib/list-styles";
+import { writeDraggedItem } from "../lib/item-drag";
+import type { SidebarSpace } from "../queries";
 import {
   browserFacets,
   EMPTY_FILTERS,
@@ -62,11 +67,40 @@ function formatDate(iso: string): string {
  * Filtra no navegador (instantâneo) e guarda os filtros na URL, pra voltar
  * de um item e cair no mesmo lugar.
  */
-export function SpaceBrowser({ spaceSlug, items, initialFilters }: { spaceSlug: string; items: BrowserItem[]; initialFilters: BrowserFilters }) {
+export function SpaceBrowser({
+  spaceSlug,
+  items: allItems,
+  initialFilters,
+  otherSpaces = [],
+}: {
+  spaceSlug: string;
+  items: BrowserItem[];
+  initialFilters: BrowserFilters;
+  /** Os outros espaços: destino do "Mover para…" de cada linha. */
+  otherSpaces?: SidebarSpace[];
+}) {
+  const router = useRouter();
+  const [, startMoving] = useTransition();
+  // Item que acabou de ser movido some na hora, sem esperar a página recarregar.
+  const [moved, setMoved] = useState<ReadonlySet<string>>(new Set());
+  const items = useMemo(() => allItems.filter((item) => !moved.has(item.id)), [allItems, moved]);
   const [filters, setFilters] = useState(initialFilters);
   const facets = useMemo(() => browserFacets(items, filters), [items, filters]);
   const shown = useMemo(() => filterBrowserItems(items, filters), [items, filters]);
   const active = filters.q || filters.typeId || filters.tagId || filters.listStyle;
+
+  function moveTo(item: BrowserItem, space: SidebarSpace) {
+    startMoving(async () => {
+      const result = await moveItem(item.id, space.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setMoved((prev) => new Set(prev).add(item.id));
+      toast.success(`“${item.title || "Sem título"}” foi para ${space.name}.`);
+      router.refresh();
+    });
+  }
 
   function update(next: Partial<BrowserFilters>) {
     const merged = { ...filters, ...next };
@@ -133,10 +167,12 @@ export function SpaceBrowser({ spaceSlug, items, initialFilters }: { spaceSlug: 
       ) : (
         <ul className="flex flex-col gap-2">
           {shown.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="flex items-center gap-2">
               <Link
                 href={`/itens/${item.id}`}
-                className="group flex items-center gap-3 rounded-xl border border-black/[.06] bg-surface px-4 py-3 shadow-sm transition-all hover:-translate-y-px hover:border-brand/40 hover:shadow-md dark:border-white/[.06]"
+                draggable
+                onDragStart={(event) => writeDraggedItem(event.dataTransfer, { id: item.id, title: item.title })}
+                className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-black/[.06] bg-surface px-4 py-3 shadow-sm transition-all hover:-translate-y-px hover:border-brand/40 hover:shadow-md dark:border-white/[.06]"
               >
                 <span
                   aria-hidden
@@ -158,6 +194,33 @@ export function SpaceBrowser({ spaceSlug, items, initialFilters }: { spaceSlug: 
                 </span>
                 <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">{formatDate(item.updatedAt)}</span>
               </Link>
+              {otherSpaces.length > 0 && (
+                <label
+                  title="Mover para outro espaço — ou arraste a linha até um espaço na barra lateral"
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/[.08] text-zinc-500 transition-colors focus-within:ring-2 focus-within:ring-brand/40 hover:border-black/[.16] hover:text-black dark:border-white/[.08] dark:text-zinc-400 dark:hover:border-white/[.16] dark:hover:text-zinc-50"
+                >
+                  <FolderInput className="h-4 w-4" aria-hidden />
+                  <select
+                    aria-label={`Mover “${item.title || "Sem título"}” para outro espaço`}
+                    value=""
+                    onChange={(event) => {
+                      const space = otherSpaces.find((candidate) => candidate.id === event.target.value);
+                      if (space) moveTo(item, space);
+                    }}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  >
+                    <option value="" disabled>
+                      Mover para…
+                    </option>
+                    {otherSpaces.map((space) => (
+                      <option key={space.id} value={space.id}>
+                        {space.icon ? `${space.icon} ` : ""}
+                        {space.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </li>
           ))}
         </ul>
